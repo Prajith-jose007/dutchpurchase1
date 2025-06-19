@@ -1,18 +1,21 @@
+
 // src/app/(app)/ordering/page.tsx
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { allItems, getItemTypes, getCategories } from '@/data/inventoryItems';
+import { branches } from '@/data/appRepository'; // Import branches
 import type { Item } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label"; // Import Label
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
-import { Icons, getCategoryIcon } from '@/components/icons'; // Updated import
+import { Icons, getCategoryIcon } from '@/components/icons';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -23,6 +26,7 @@ export default function OrderingPage() {
   const { addToCart, cartItems, updateQuantity, getItemQuantity } = useCart();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(branches[0]?.id || ''); // State for selected store
   const [selectedItemType, setSelectedItemType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,6 +42,8 @@ export default function OrderingPage() {
   const categories = useMemo(() => getCategories(selectedItemType || undefined), [selectedItemType]);
 
   const filteredItems = useMemo(() => {
+    // Note: Filtering by selectedStoreId is not implemented yet as per current request
+    // This would require items to have store availability data or a different filtering logic.
     return allItems.filter(item => {
       const matchesSearchTerm = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 item.code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -45,7 +51,7 @@ export default function OrderingPage() {
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       return matchesSearchTerm && matchesItemType && matchesCategory;
     });
-  }, [searchTerm, selectedItemType, selectedCategory]);
+  }, [searchTerm, selectedItemType, selectedCategory, selectedStoreId]); // Added selectedStoreId to dependencies
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -67,7 +73,7 @@ export default function OrderingPage() {
     const currentQuantity = getItemQuantity(itemCode);
     const newQuantity = currentQuantity + change;
     if (newQuantity <= 0) {
-       updateQuantity(itemCode, 0); // This will remove it if filter is active
+       updateQuantity(itemCode, 0); 
        toast({ title: "Item removed", description: `${getItemByCode(itemCode)?.description} removed from cart.`});
     } else {
        updateQuantity(itemCode, newQuantity);
@@ -79,7 +85,6 @@ export default function OrderingPage() {
 
 
   if (!isClient) {
-    // Render a loading state or null on the server
     return (
        <div className="space-y-6">
         <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -107,32 +112,52 @@ export default function OrderingPage() {
         </header>
         
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-card shadow">
+        <div className="space-y-4 p-4 border rounded-lg bg-card shadow">
           <Input
             placeholder="Search items by name or code..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1);}}
-            className="md:col-span-1"
             aria-label="Search items"
           />
-          <Select value={selectedItemType} onValueChange={(value) => { setSelectedItemType(value === 'all' ? '' : value); setSelectedCategory(''); setCurrentPage(1); }}>
-            <SelectTrigger aria-label="Filter by item type">
-              <SelectValue placeholder="Filter by Item Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Item Types</SelectItem>
-              {itemTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={selectedCategory} onValueChange={(value) => { setSelectedCategory(value === 'all' ? '' : value); setCurrentPage(1); }} disabled={!selectedItemType && categories.length === 0}>
-            <SelectTrigger aria-label="Filter by category">
-              <SelectValue placeholder="Filter by Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="store-filter" className="sr-only">Filter by Store</Label>
+              <Select value={selectedStoreId} onValueChange={(value) => { setSelectedStoreId(value); setCurrentPage(1); }}>
+                <SelectTrigger id="store-filter" aria-label="Filter by store">
+                  <SelectValue placeholder="Filter by Store" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map(branch => (
+                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="item-type-filter" className="sr-only">Filter by Item Type</Label>
+              <Select value={selectedItemType} onValueChange={(value) => { setSelectedItemType(value === 'all' ? '' : value); setSelectedCategory(''); setCurrentPage(1); }}>
+                <SelectTrigger id="item-type-filter" aria-label="Filter by item type">
+                  <SelectValue placeholder="Filter by Item Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Item Types</SelectItem>
+                  {itemTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="category-filter" className="sr-only">Filter by Category</Label>
+              <Select value={selectedCategory} onValueChange={(value) => { setSelectedCategory(value === 'all' ? '' : value); setCurrentPage(1); }} disabled={!selectedItemType && categories.length === 0}>
+                <SelectTrigger id="category-filter" aria-label="Filter by category">
+                  <SelectValue placeholder="Filter by Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Item Grid */}
@@ -147,7 +172,7 @@ export default function OrderingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
-                const itemCategoryIcon = getCategoryIcon(item.category, item.itemType); // Corrected call
+                const itemCategoryIcon = getCategoryIcon(item.category, item.itemType);
                 const IconComponent = itemCategoryIcon;
 
                 return (
