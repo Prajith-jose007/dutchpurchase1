@@ -2,11 +2,6 @@
 import type { Branch, User, Order } from '@/lib/types';
 
 export const branches: Branch[] = [
-  { id: 'branch-1', name: 'Downtown Central Kitchen' },
-  { id: 'branch-2', name: 'Northside Express' },
-  { id: 'branch-3', name: 'West End Cafe' },
-  { id: 'branch-4', name: 'South Bay Bistro' },
-  { id: 'branch-5', name: 'Eastville Diner' },
   { id: 'branch-6', name: 'PLAZA' },
   { id: 'branch-7', name: 'JBR' },
   { id: 'branch-8', name: 'WORLD TRADE CENTER' },
