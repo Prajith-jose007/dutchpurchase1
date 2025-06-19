@@ -72,12 +72,15 @@ export default function OrderingPage() {
   const handleUpdateQuantity = (itemCode: string, change: number) => {
     const currentQuantity = getItemQuantity(itemCode);
     const newQuantity = currentQuantity + change;
+    const item = getItemByCode(itemCode);
+    if (!item) return;
+
     if (newQuantity <= 0) {
        updateQuantity(itemCode, 0); 
-       toast({ title: "Item removed", description: `${getItemByCode(itemCode)?.description} removed from cart.`});
+       toast({ title: "Item removed", description: `${item.description} removed from cart.`});
     } else {
        updateQuantity(itemCode, newQuantity);
-       toast({ title: "Quantity updated", description: `${getItemByCode(itemCode)?.description} quantity now ${newQuantity}.`});
+       toast({ title: "Quantity updated", description: `${item.description} quantity now ${newQuantity}.`});
     }
   };
 
@@ -134,10 +137,10 @@ export default function OrderingPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="item-type-filter" className="sr-only">Filter by Item Type</Label>
+              <Label htmlFor="item-type-filter">Item Type</Label>
               <Select value={selectedItemType} onValueChange={(value) => { setSelectedItemType(value === 'all' ? '' : value); setSelectedCategory(''); setCurrentPage(1); }}>
                 <SelectTrigger id="item-type-filter" aria-label="Filter by item type">
-                  <SelectValue placeholder="Filter by Item Type" />
+                  <SelectValue placeholder="All Item Types" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Item Types</SelectItem>
@@ -146,10 +149,10 @@ export default function OrderingPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="category-filter" className="sr-only">Filter by Category</Label>
+              <Label htmlFor="category-filter">Category</Label>
               <Select value={selectedCategory} onValueChange={(value) => { setSelectedCategory(value === 'all' ? '' : value); setCurrentPage(1); }} disabled={!selectedItemType && categories.length === 0}>
                 <SelectTrigger id="category-filter" aria-label="Filter by category">
-                  <SelectValue placeholder="Filter by Category" />
+                  <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
@@ -248,9 +251,11 @@ export default function OrderingPage() {
           ) : (
             <ScrollArea className="h-[calc(100vh-350px)] lg:h-[calc(100vh-420px)] max-h-[500px]"> {/* Adjust height as needed */}
               <div className="p-4 space-y-3">
-                {cartItems.map(item => (
+                {cartItems.map(item => {
+                  const cartItemDetails = getItemByCode(item.code);
+                  return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
-                    <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=${item.code}`} alt={item.description} width={48} height={48} className="rounded object-cover h-12 w-12" data-ai-hint={`${item.category} product`} />
+                    <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=${item.code}`} alt={item.description} width={48} height={48} className="rounded object-cover h-12 w-12" data-ai-hint={`${cartItemDetails?.category || 'item'} product`} />
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
                       <p className="text-xs text-muted-foreground">Unit: {item.units}</p>
@@ -261,7 +266,7 @@ export default function OrderingPage() {
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.code, 1)} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             </ScrollArea>
           )}
@@ -287,3 +292,4 @@ export default function OrderingPage() {
   );
 }
 
+    
