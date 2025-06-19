@@ -1,5 +1,8 @@
 
 // src/app/(app)/orders/page.tsx
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getOrdersAction } from '@/lib/actions';
 import type { Order } from '@/lib/types';
@@ -8,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
-import { branches } from '@/data/appRepository';
+import { branches, users } from '@/data/appRepository';
+import { useToast } from '@/hooks/use-toast';
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -22,9 +26,45 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
   }
 }
 
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-export default async function OrdersPage() {
-  const orders = await getOrdersAction();
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedOrders = await getOrdersAction();
+        setOrders(fetchedOrders);
+      } catch (error) {
+        console.error("Failed to fetch orders:", error);
+        toast({ title: "Error", description: "Could not fetch orders.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchOrders();
+  }, [toast]);
+
+  const handleExport = () => {
+    toast({
+      title: "Export Orders",
+      description: "This feature is currently under development. Please check back later!",
+      variant: "default",
+    });
+    // In a real app, you would implement CSV generation and download here.
+    // console.log("Exporting orders:", orders); 
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg">Loading orders...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -33,11 +73,16 @@ export default async function OrdersPage() {
           <h1 className="text-3xl font-headline tracking-tight">My Orders</h1>
           <p className="text-muted-foreground">View the status and details of your past and current orders.</p>
         </div>
-        <Link href="/ordering">
-          <Button>
-            <Icons.Add className="mr-2 h-4 w-4" /> Create New Order
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+          <Button onClick={handleExport} variant="outline" className="w-full sm:w-auto">
+            <Icons.Download className="mr-2 h-4 w-4" /> Export Orders
           </Button>
-        </Link>
+          <Link href="/ordering" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">
+              <Icons.Add className="mr-2 h-4 w-4" /> Create New Order
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {orders.length === 0 ? (
@@ -69,7 +114,8 @@ export default async function OrdersPage() {
                     <TableHead>Order ID</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Branch</TableHead>
-                    <TableHead>Items</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead className="text-center">Items</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -77,6 +123,7 @@ export default async function OrdersPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
+                    const userName = users.find(u => u.id === order.userId)?.name || 'N/A';
                     return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium text-primary hover:underline">
@@ -84,6 +131,7 @@ export default async function OrdersPage() {
                       </TableCell>
                       <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>{branchName}</TableCell>
+                      <TableCell>{userName}</TableCell>
                       <TableCell className="text-center">{order.totalItems}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(order.status)} className="capitalize">

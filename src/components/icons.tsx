@@ -37,6 +37,7 @@ import {
   UserCircle,
   BarChartBig, 
   Settings, // Re-added Settings for Dropdown
+  Download, // Added for Export
 } from 'lucide-react';
 
 export const Icons = {
@@ -77,6 +78,7 @@ export const Icons = {
   Moon: Moon,
   User: UserCircle,
   Forecast: BarChartBig, 
+  Download: Download, // Added for Export
 };
 
 // Fallback or generic category icons
@@ -94,3 +96,4 @@ export const getCategoryIcon = (categoryType: string, itemType?: string) => {
   
   return Icons.Inventory; // Default icon
 };
+
