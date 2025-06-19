@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -16,20 +17,19 @@ export default function OrderingLoading() {
           <Skeleton className="h-10 w-full" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
             <Card key={i} className="flex flex-col overflow-hidden shadow-lg rounded-lg">
-              <CardHeader className="p-0 relative">
-                <Skeleton className="w-full h-48" />
-              </CardHeader>
-              <CardContent className="p-4 flex-grow">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2 mb-1" />
-                <Skeleton className="h-4 w-1/3 mb-1" />
-                <Skeleton className="h-4 w-1/4" />
+              <CardContent className="p-4 flex-grow space-y-2">
+                <Skeleton className="h-5 w-1/4" /> {/* Placeholder for optional badge */}
+                <Skeleton className="h-6 w-full" /> {/* Title */}
+                <Skeleton className="h-4 w-3/4" /> {/* Type/Category */}
+                <Skeleton className="h-4 w-1/2" /> {/* Code */}
+                <Skeleton className="h-4 w-1/3" /> {/* Unit/Pack */}
+                <Skeleton className="h-4 w-1/4" /> {/* Shelf Life */}
               </CardContent>
               <CardFooter className="p-4 border-t">
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" /> {/* Button */}
               </CardFooter>
             </Card>
           ))}
