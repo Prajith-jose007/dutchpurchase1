@@ -3,7 +3,6 @@ import {
   Package,
   ShoppingCart,
   ClipboardList,
-  BarChart3,
   Users,
   ChevronDown,
   ChevronRight,
@@ -42,7 +41,6 @@ export const Icons = {
   Inventory: Package,
   Order: ShoppingCart,
   OrderList: ClipboardList,
-  Forecast: BarChart3,
   Branches: Users, // Using Users for Branches as an example
   Settings: Settings,
   Logout: LogOut,

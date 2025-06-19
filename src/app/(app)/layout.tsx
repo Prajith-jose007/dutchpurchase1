@@ -11,7 +11,6 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: Icons.Dashboard },
   { href: "/ordering", label: "Order Items", icon: Icons.Order },
   { href: "/orders", label: "My Orders", icon: Icons.OrderList },
-  { href: "/forecasting", label: "Demand Forecast", icon: Icons.Forecast },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory },
 ];
 

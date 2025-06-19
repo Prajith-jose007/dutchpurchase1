@@ -43,15 +43,3 @@ export interface User {
   branchId: string;
   // role: 'employee' | 'purchaser' | 'admin'; // Future enhancement
 }
-
-export interface ForecastInput {
-  historicalOrderData: string; // CSV format
-  forecastHorizon: string;
-  branch: string;
-}
-
-export interface ForecastResult {
-  forecastedDemand: string;
-  confidenceLevel: string;
-  recommendations: string;
-}

@@ -47,11 +47,6 @@ export default function DashboardPage() {
                 <Icons.Order className="mr-2 h-4 w-4" /> Create New Order
               </Button>
             </Link>
-             <Link href="/forecasting" passHref>
-              <Button className="w-full" variant="secondary">
-                <Icons.Forecast className="mr-2 h-4 w-4" /> View Demand Forecast
-              </Button>
-            </Link>
           </CardContent>
         </Card>
       </section>
@@ -71,7 +66,6 @@ export default function DashboardPage() {
             <ul className="list-disc list-inside space-y-1 text-sm">
               <li><strong>Order Items:</strong> Browse the catalog and create new purchase orders.</li>
               <li><strong>My Orders:</strong> Track the status of your submitted orders.</li>
-              <li><strong>Demand Forecast:</strong> Utilize AI to predict future inventory needs.</li>
               <li><strong>Inventory:</strong> View and manage your current stock levels.</li>
             </ul>
             <div className="flex gap-4 mt-6">
