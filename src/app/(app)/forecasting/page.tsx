@@ -1,3 +1,4 @@
+
 // src/app/(app)/forecasting/page.tsx
 "use client";
 
@@ -9,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Icons } from '@/components/icons';
+import { Badge } from '@/components/ui/badge'; // Added missing import
 import type { ForecastInput, ForecastResult } from '@/lib/types';
 import { handleDemandForecastAction, getSampleHistoricalDataCSVAction } from '@/lib/actions';
-import { mockBranches } from '@/data/mockData';
+import { branches } from '@/data/appRepository'; // Updated import
 import { toast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
@@ -19,7 +21,7 @@ export default function ForecastingPage() {
   const [formData, setFormData] = useState<ForecastInput>({
     historicalOrderData: '',
     forecastHorizon: 'next week',
-    branch: mockBranches[0]?.id || '',
+    branch: branches[0]?.name || '', // Use branch name consistent with SelectItem value
   });
   const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -126,7 +128,7 @@ export default function ForecastingPage() {
                     <SelectValue placeholder="Select a branch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockBranches.map(branch => (
+                    {branches.map(branch => (
                       <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
                     ))}
                   </SelectContent>

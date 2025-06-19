@@ -34,6 +34,7 @@ import {
   Sun,
   Moon,
   UserCircle,
+  BarChartBig, // Added import for Forecast icon
 } from 'lucide-react';
 
 export const Icons = {
@@ -72,6 +73,7 @@ export const Icons = {
   Sun: Sun,
   Moon: Moon,
   User: UserCircle,
+  Forecast: BarChartBig, // Added Forecast icon definition
 };
 
 // Fallback or generic category icons

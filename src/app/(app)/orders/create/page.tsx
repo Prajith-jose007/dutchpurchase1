@@ -21,8 +21,9 @@ export default function CreateOrderPage() {
   const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
   const router = useRouter();
 
+  // Default to the first branch and user for now. This will be replaced by authenticated user context.
   const [selectedBranch, setSelectedBranch] = useState<string>(branches[0]?.id || '');
-  const [currentUser, setCurrentUser] = useState<string>(users[0]?.id || ''); 
+  const [currentUserId, setCurrentUserId] = useState<string>(users[0]?.id || ''); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isClient, setIsClient] = useState(false);
@@ -32,6 +33,8 @@ export default function CreateOrderPage() {
        router.push('/ordering'); 
     }
   }, [cartItems, router, isClient]);
+
+  const currentUserDetails = users.find(u => u.id === currentUserId);
 
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -43,7 +46,7 @@ export default function CreateOrderPage() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!selectedBranch || !currentUser) {
+    if (!selectedBranch || !currentUserId) {
       toast({ title: "Missing Information", description: "Please select a branch and ensure user is set.", variant: "destructive" });
       return;
     }
@@ -53,7 +56,7 @@ export default function CreateOrderPage() {
     }
 
     setIsSubmitting(true);
-    const result = await submitOrderAction(cartItems, selectedBranch, currentUser);
+    const result = await submitOrderAction(cartItems, selectedBranch, currentUserId);
     setIsSubmitting(false);
 
     if (result.success && result.orderId) {
@@ -114,7 +117,7 @@ export default function CreateOrderPage() {
             </div>
             <div>
               <Label htmlFor="user-info">User</Label>
-              <Input id="user-info" value={users.find(u => u.id === currentUser)?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
+              <Input id="user-info" value={currentUserDetails?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
             </div>
           </div>
 

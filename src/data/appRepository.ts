@@ -1,5 +1,5 @@
 
-import type { Branch, User, Order } from '@/lib/types';
+import type { Branch, User, Order, UserRole } from '@/lib/types';
 
 export const branches: Branch[] = [
   { id: 'branch-6', name: 'PLAZA' },
@@ -10,17 +10,18 @@ export const branches: Branch[] = [
 ];
 
 export const users: User[] = [
-  { id: 'user-1', name: 'Alice Smith', branchId: 'branch-1' },
-  { id: 'user-2', name: 'Bob Johnson', branchId: 'branch-2' },
-  { id: 'user-3', name: 'Charlie Brown', branchId: 'branch-1' },
-  { id: 'user-4', name: 'Diana Prince', branchId: 'branch-3' },
+  { id: 'user-superadmin', username: 'superadmin', password: 'Pass989#', name: 'Super Admin', branchId: 'branch-all', role: 'superadmin' },
+  { id: 'user-admin', username: 'admin', password: 'Dutch@123#', name: 'Admin User', branchId: 'branch-all', role: 'admin' },
+  { id: 'user-purchase', username: 'purchase', password: 'Dutch123', name: 'Purchase User', branchId: 'branch-all', role: 'purchase' },
+  { id: 'user-1', username: 'alice', name: 'Alice Smith', branchId: 'branch-6', role: 'employee', password: 'password1' }, // Example employee
+  { id: 'user-2', username: 'bob', name: 'Bob Johnson', branchId: 'branch-7', role: 'employee', password: 'password2' },   // Example employee
 ];
 
 // In-memory store for orders for the prototype
 export let ordersData: Order[] = [
   {
     id: 'order-001',
-    branchId: 'branch-1',
+    branchId: 'branch-6',
     userId: 'user-1',
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
     status: 'Delivered',
@@ -32,7 +33,7 @@ export let ordersData: Order[] = [
   },
   {
     id: 'order-002',
-    branchId: 'branch-2',
+    branchId: 'branch-7',
     userId: 'user-2',
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
     status: 'Processing',
@@ -44,8 +45,8 @@ export let ordersData: Order[] = [
   },
     {
     id: 'order-003',
-    branchId: 'branch-1',
-    userId: 'user-3',
+    branchId: 'branch-6',
+    userId: 'user-1', // Assuming user-1 is Charlie Brown in this context
     createdAt: new Date().toISOString(),
     status: 'Pending',
     items: [
@@ -66,4 +67,8 @@ export const getOrders = (): Order[] => {
 
 export const getOrderById = (orderId: string): Order | undefined => {
   return ordersData.find(o => o.id === orderId);
+};
+
+export const getUserByUsername = (username: string): User | undefined => {
+  return users.find(u => u.username === username);
 };

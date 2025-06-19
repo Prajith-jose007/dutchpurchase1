@@ -42,7 +42,9 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
   }
 
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-  const userName = users.find(u => u.id === order.userId)?.name || order.userId;
+  const placingUser = users.find(u => u.id === order.userId);
+  const userName = placingUser?.name || order.userId;
+
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">

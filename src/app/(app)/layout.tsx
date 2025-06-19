@@ -1,4 +1,5 @@
-"use client"; // Explicitly mark as a Client Component
+
+"use client"; 
 
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
@@ -14,9 +15,14 @@ const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order },
   { href: "/orders", label: "My Orders", icon: Icons.OrderList },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory },
+  { href: "/forecasting", label: "Forecasting", icon: Icons.Forecast},
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  // For now, let's assume a default user or handle authentication state here
+  // This would be replaced with actual auth context logic
+  const currentUser = { name: "John Doe", role: "Branch Manager", avatarFallback: "JD" }; 
+
   return (
     <AppProviders>
       <SidebarProvider defaultOpen>
@@ -51,11 +57,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:justify-center">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarFallback>{currentUser.avatarFallback}</AvatarFallback>
                   </Avatar>
                   <div className="group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium">John Doe</p>
-                    <p className="text-xs text-muted-foreground">Branch Manager</p>
+                    <p className="text-sm font-medium">{currentUser.name}</p>
+                    <p className="text-xs text-muted-foreground">{currentUser.role}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>

@@ -1,3 +1,4 @@
+
 export interface Item {
   code: string;
   remark: string | null;
@@ -7,7 +8,6 @@ export interface Item {
   units: string;
   packing: number;
   shelfLifeDays: number;
-  imageUrl?: string; // Optional image URL
 }
 
 export interface CartItem extends Item {
@@ -37,9 +37,13 @@ export interface Branch {
   name: string;
 }
 
+export type UserRole = 'superadmin' | 'admin' | 'purchase' | 'employee'; // Added 'employee' as a general role
+
 export interface User {
   id: string;
-  name: string;
+  username: string; // Changed from name to username for login
+  password?: string; // Added password (plain text for prototype - NOT SECURE)
+  name: string; // Display name
   branchId: string;
-  // role: 'employee' | 'purchaser' | 'admin'; // Future enhancement
+  role: UserRole;
 }
