@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
-import { Icons } from '@/components/icons';
+import { Icons, getCategoryIcon } from '@/components/icons'; // Updated import
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -147,7 +147,7 @@ export default function OrderingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
-                const itemCategoryIcon = Icons.getCategoryIcon(item.category, item.itemType);
+                const itemCategoryIcon = getCategoryIcon(item.category, item.itemType); // Corrected call
                 const IconComponent = itemCategoryIcon;
 
                 return (
