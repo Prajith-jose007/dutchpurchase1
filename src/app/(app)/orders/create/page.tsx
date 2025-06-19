@@ -1,0 +1,178 @@
+// src/app/(app)/orders/create/page.tsx
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useCart } from '@/contexts/CartContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from '@/components/ui/input'; // For future use: notes, etc.
+import { Label } from '@/components/ui/label';
+import Image from 'next/image';
+import { Icons } from '@/components/icons';
+import { submitOrderAction } from '@/lib/actions';
+import { mockBranches, mockUsers } from '@/data/mockData'; // For branch/user selection
+import { toast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation'; // Corrected import
+import Link from 'next/link';
+
+export default function CreateOrderPage() {
+  const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
+  const router = useRouter();
+
+  const [selectedBranch, setSelectedBranch] = useState<string>(mockBranches[0]?.id || '');
+  const [currentUser, setCurrentUser] = useState<string>(mockUsers[0]?.id || ''); // Simplified: assuming first user
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Ensure this runs only on client
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+    if (cartItems.length === 0 && isClient) { // Check isClient here too
+       router.push('/ordering'); // Redirect if cart is empty on client load
+    }
+  }, [cartItems, router, isClient]);
+
+
+  const handleQuantityChange = (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(itemId);
+    } else {
+      updateQuantity(itemId, newQuantity);
+    }
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!selectedBranch || !currentUser) {
+      toast({ title: "Missing Information", description: "Please select a branch and ensure user is set.", variant: "destructive" });
+      return;
+    }
+    if (cartItems.length === 0) {
+      toast({ title: "Empty Cart", description: "Cannot submit an empty order.", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await submitOrderAction(cartItems, selectedBranch, currentUser);
+    setIsSubmitting(false);
+
+    if (result.success && result.orderId) {
+      toast({ title: "Order Submitted!", description: `Your order #${result.orderId} has been placed.`, variant: "default" });
+      clearCart();
+      router.push(`/orders/${result.orderId}`);
+    } else {
+      toast({ title: "Order Submission Failed", description: result.error || "An unexpected error occurred.", variant: "destructive" });
+    }
+  };
+  
+  if (!isClient) {
+    return <div className="flex justify-center items-center h-screen"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg">Loading checkout...</p></div>;
+  }
+
+  if (cartItems.length === 0) {
+     return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <Icons.ShoppingBag className="h-16 w-16 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-headline mb-2">Your Cart is Empty</h1>
+        <p className="text-muted-foreground mb-6">Add some items from the ordering page to proceed.</p>
+        <Link href="/ordering">
+          <Button>
+            <Icons.Order className="mr-2 h-4 w-4" /> Go to Ordering
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-6">
+      <header className="mb-6">
+        <h1 className="text-3xl font-headline tracking-tight">Review Your Order</h1>
+        <p className="text-muted-foreground">Confirm items and details before submitting.</p>
+      </header>
+
+      <Card className="shadow-xl">
+        <CardHeader>
+          <CardTitle>Order Summary</CardTitle>
+          <CardDescription>You have {totalCartItems} item(s) in your cart.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="branch-select">Branch</Label>
+              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isSubmitting}>
+                <SelectTrigger id="branch-select" aria-label="Select branch">
+                  <SelectValue placeholder="Select a branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockBranches.map(branch => (
+                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="user-info">User</Label>
+              {/* In a real app, this would be the logged-in user */}
+              <Input id="user-info" value={mockUsers.find(u => u.id === currentUser)?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px]">Item</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-center">Quantity</TableHead>
+                  <TableHead>Units</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cartItems.map(item => (
+                  <TableRow key={item.code}>
+                    <TableCell>
+                      <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=${item.code}`} alt={item.description} width={48} height={48} className="rounded object-cover" data-ai-hint={`${item.category} product`} />
+                    </TableCell>
+                    <TableCell className="font-medium">{item.description}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity - 1)} disabled={isSubmitting} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
+                         <span className="text-sm font-medium tabular-nums w-5 text-center">{item.quantity}</span>
+                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity + 1)} disabled={isSubmitting} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.units}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.code)} disabled={isSubmitting} aria-label={`Remove ${item.description} from cart`}>
+                        <Icons.Delete className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col md:flex-row justify-between items-center gap-4 border-t pt-6">
+          <Link href="/ordering">
+            <Button variant="outline" disabled={isSubmitting}>
+              <Icons.Order className="mr-2 h-4 w-4" /> Continue Shopping
+            </Button>
+          </Link>
+          <Button size="lg" onClick={handleSubmitOrder} disabled={isSubmitting || cartItems.length === 0} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            {isSubmitting ? (
+              <Icons.Dashboard className="mr-2 h-5 w-5 animate-spin" /> 
+            ) : (
+              <Icons.Success className="mr-2 h-5 w-5" />
+            )}
+            {isSubmitting ? "Submitting Order..." : "Confirm & Submit Order"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
