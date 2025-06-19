@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import { branches, users } from '@/data/appRepository';
-import { getItemByCode } from '@/data/inventoryItems';
 import { Separator } from '@/components/ui/separator';
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
@@ -47,13 +46,13 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
-      <header className="flex justify-between items-center">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline tracking-tight">Order Details</h1>
           <p className="text-muted-foreground">Information for order #{order.id.substring(0,8)}...</p>
         </div>
-        <Link href="/orders">
-          <Button variant="outline">
+        <Link href="/orders" className="w-full md:w-auto">
+          <Button variant="outline" className="w-full md:w-auto">
             <Icons.OrderList className="mr-2 h-4 w-4" /> All Orders
           </Button>
         </Link>
