@@ -1,3 +1,4 @@
+
 import type { Branch, User, Order } from '@/lib/types';
 
 export const mockBranches: Branch[] = [
@@ -6,6 +7,11 @@ export const mockBranches: Branch[] = [
   { id: 'branch-3', name: 'West End Cafe' },
   { id: 'branch-4', name: 'South Bay Bistro' },
   { id: 'branch-5', name: 'Eastville Diner' },
+  { id: 'branch-6', name: 'PLAZA' },
+  { id: 'branch-7', name: 'JBR' },
+  { id: 'branch-8', name: 'WORLD TRADE CENTER' },
+  { id: 'branch-9', name: 'PRODUCTION CITY' },
+  { id: 'branch-10', name: 'ABU DHABI' },
 ];
 
 export const mockUsers: User[] = [
@@ -45,7 +51,7 @@ export let mockOrders: Order[] = [
     id: 'order-003',
     branchId: 'branch-1',
     userId: 'user-3',
-    createdAt: new Date().toISOString(), 
+    createdAt: new Date().toISOString(),
     status: 'Pending',
     items: [
       { itemId: '140', description: 'Potato', quantity: 10, units: 'KG' },
