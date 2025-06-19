@@ -1,12 +1,14 @@
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
-import { mockOrders } from '@/data/mockData'; // Assuming some mock data for display
+import { getOrders } from '@/data/appRepository'; // Assuming some data for display
 
 export default function DashboardPage() {
-  const recentOrdersCount = mockOrders.filter(o => new Date(o.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
-  const pendingOrdersCount = mockOrders.filter(o => o.status === 'Pending').length;
+  const currentOrders = getOrders(); // Fetch current orders
+  const recentOrdersCount = currentOrders.filter(o => new Date(o.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
+  const pendingOrdersCount = currentOrders.filter(o => o.status === 'Pending').length;
 
   return (
     <div className="flex flex-col gap-6">

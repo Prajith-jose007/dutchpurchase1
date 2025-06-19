@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/[orderId]/page.tsx
 import { getOrderByIdAction } from '@/lib/actions';
 import type { Order } from '@/lib/types';
@@ -7,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Icons } from '@/components/icons';
-import { mockBranches, mockUsers } from '@/data/mockData';
+import { branches, users } from '@/data/appRepository';
 import Image from 'next/image';
 import { getItemByCode } from '@/data/inventoryItems';
 import { Separator } from '@/components/ui/separator';
@@ -42,8 +43,8 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
     );
   }
 
-  const branchName = mockBranches.find(b => b.id === order.branchId)?.name || order.branchId;
-  const userName = mockUsers.find(u => u.id === order.userId)?.name || order.userId;
+  const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
+  const userName = users.find(u => u.id === order.userId)?.name || order.userId;
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">

@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/create/page.tsx
 "use client";
 
@@ -7,30 +8,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from '@/components/ui/input'; // For future use: notes, etc.
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
 import { Icons } from '@/components/icons';
 import { submitOrderAction } from '@/lib/actions';
-import { mockBranches, mockUsers } from '@/data/mockData'; // For branch/user selection
+import { branches, users } from '@/data/appRepository';
 import { toast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation'; // Corrected import
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CreateOrderPage() {
   const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
   const router = useRouter();
 
-  const [selectedBranch, setSelectedBranch] = useState<string>(mockBranches[0]?.id || '');
-  const [currentUser, setCurrentUser] = useState<string>(mockUsers[0]?.id || ''); // Simplified: assuming first user
+  const [selectedBranch, setSelectedBranch] = useState<string>(branches[0]?.id || '');
+  const [currentUser, setCurrentUser] = useState<string>(users[0]?.id || ''); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Ensure this runs only on client
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
-    if (cartItems.length === 0 && isClient) { // Check isClient here too
-       router.push('/ordering'); // Redirect if cart is empty on client load
+    if (cartItems.length === 0 && isClient) { 
+       router.push('/ordering'); 
     }
   }, [cartItems, router, isClient]);
 
@@ -58,7 +58,7 @@ export default function CreateOrderPage() {
     setIsSubmitting(false);
 
     if (result.success && result.orderId) {
-      toast({ title: "Order Submitted!", description: `Your order #${result.orderId} has been placed.`, variant: "default" });
+      toast({ title: "Order Submitted!", description: `Your order #${result.orderId.substring(0,8)}... has been placed.`, variant: "default" });
       clearCart();
       router.push(`/orders/${result.orderId}`);
     } else {
@@ -107,7 +107,7 @@ export default function CreateOrderPage() {
                   <SelectValue placeholder="Select a branch" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockBranches.map(branch => (
+                  {branches.map(branch => (
                     <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -115,8 +115,7 @@ export default function CreateOrderPage() {
             </div>
             <div>
               <Label htmlFor="user-info">User</Label>
-              {/* In a real app, this would be the logged-in user */}
-              <Input id="user-info" value={mockUsers.find(u => u.id === currentUser)?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
+              <Input id="user-info" value={users.find(u => u.id === currentUser)?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
             </div>
           </div>
 

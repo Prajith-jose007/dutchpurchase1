@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/page.tsx
 import Link from 'next/link';
 import { getOrdersAction } from '@/lib/actions';
@@ -7,15 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
-import { mockBranches } from '@/data/mockData'; // To display branch name
+import { branches } from '@/data/appRepository';
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'Pending': return 'outline';
-    case 'Approved': return 'default'; // Using primary color for Approved
+    case 'Approved': return 'default'; 
     case 'Processing': return 'default';
     case 'Shipped': return 'secondary';
-    case 'Delivered': return 'default'; // Shadcn success is often primary
+    case 'Delivered': return 'default'; 
     case 'Cancelled': return 'destructive';
     default: return 'outline';
   }
@@ -75,7 +76,7 @@ export default async function OrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {orders.map((order) => {
-                    const branchName = mockBranches.find(b => b.id === order.branchId)?.name || order.branchId;
+                    const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
                     return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium text-primary hover:underline">
