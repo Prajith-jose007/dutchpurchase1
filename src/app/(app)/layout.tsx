@@ -2,13 +2,16 @@
 "use client"; 
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AppProviders } from './providers';
+// import { AppProviders } from './providers'; // Removed import
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Icons.Dashboard },
@@ -18,13 +21,44 @@ const navItems = [
   { href: "/forecasting", label: "Forecasting", icon: Icons.Forecast},
 ];
 
+const getInitials = (name: string | undefined) => {
+  if (!name) return 'U'; // Default for User
+  const parts = name.split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return parts[0].charAt(0).toUpperCase() + parts[parts.length - 1].charAt(0).toUpperCase();
+};
+
+
 export default function AppLayout({ children }: { children: ReactNode }) {
-  // For now, let's assume a default user or handle authentication state here
-  // This would be replaced with actual auth context logic
-  const currentUser = { name: "John Doe", role: "Branch Manager", avatarFallback: "JD" }; 
+  const { currentUser, isLoading, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoading && !currentUser && pathname !== '/login') {
+      router.push('/login');
+    }
+  }, [isLoading, currentUser, router, pathname]);
+
+  if (isLoading || (!currentUser && pathname !== '/login')) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Icons.Dashboard className="h-16 w-16 animate-spin text-primary" />
+        <p className="ml-4 text-lg text-muted-foreground">Loading application...</p>
+      </div>
+    );
+  }
+  
+  if (!currentUser) {
+     return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <p className="text-lg text-muted-foreground">Redirecting to login...</p>
+      </div>
+     );
+  }
 
   return (
-    <AppProviders>
+    // AppProviders wrapper removed from here
       <SidebarProvider defaultOpen>
         <Sidebar>
           <SidebarHeader className="p-4">
@@ -41,6 +75,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                     asChild 
                     className="w-full justify-start"
                     tooltip={item.label}
+                    isActive={pathname === item.href}
                   >
                     <Link href={item.href}>
                       <item.icon className="h-5 w-5" />
@@ -57,27 +92,27 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <Button variant="ghost" className="flex items-center gap-2 w-full justify-start p-2 group-data-[collapsible=icon]:justify-center">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="user avatar" />
-                    <AvatarFallback>{currentUser.avatarFallback}</AvatarFallback>
+                    <AvatarFallback>{getInitials(currentUser?.name)}</AvatarFallback>
                   </Avatar>
-                  <div className="group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium">{currentUser.name}</p>
-                    <p className="text-xs text-muted-foreground">{currentUser.role}</p>
+                  <div className="group-data-[collapsible=icon]:hidden text-left">
+                    <p className="text-sm font-medium truncate">{currentUser?.name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground capitalize truncate">{currentUser?.role || 'Role'}</p>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <Icons.User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <Icons.Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => logout()}>
                   <Icons.Logout className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
@@ -91,7 +126,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <SidebarTrigger />
             </div>
             <div className="hidden md:block font-headline text-2xl">
-              Welcome!
+              {currentUser ? `Welcome, ${currentUser.name.split(' ')[0]}!` : 'Welcome!'}
             </div>
             <div className="flex items-center gap-4">
               {/* Theme Toggle or other actions */}
@@ -102,6 +137,5 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </main>
         </SidebarInset>
       </SidebarProvider>
-    </AppProviders>
   );
 }

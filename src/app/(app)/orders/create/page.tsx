@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,18 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icons } from '@/components/icons';
 import { submitOrderAction } from '@/lib/actions';
-import { branches, users } from '@/data/appRepository';
+import { branches } from '@/data/appRepository'; // No need for users import here anymore for current user
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CreateOrderPage() {
   const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { currentUser } = useAuth(); // Get current user from AuthContext
   const router = useRouter();
 
-  // Default to the first branch and user for now. This will be replaced by authenticated user context.
   const [selectedBranch, setSelectedBranch] = useState<string>(branches[0]?.id || '');
-  const [currentUserId, setCurrentUserId] = useState<string>(users[0]?.id || ''); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isClient, setIsClient] = useState(false);
@@ -33,8 +33,6 @@ export default function CreateOrderPage() {
        router.push('/ordering'); 
     }
   }, [cartItems, router, isClient]);
-
-  const currentUserDetails = users.find(u => u.id === currentUserId);
 
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -46,8 +44,13 @@ export default function CreateOrderPage() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!selectedBranch || !currentUserId) {
-      toast({ title: "Missing Information", description: "Please select a branch and ensure user is set.", variant: "destructive" });
+    if (!currentUser) {
+      toast({ title: "Authentication Error", description: "User not logged in. Please log in again.", variant: "destructive" });
+      router.push('/login');
+      return;
+    }
+    if (!selectedBranch) {
+      toast({ title: "Missing Information", description: "Please select a branch.", variant: "destructive" });
       return;
     }
     if (cartItems.length === 0) {
@@ -56,7 +59,8 @@ export default function CreateOrderPage() {
     }
 
     setIsSubmitting(true);
-    const result = await submitOrderAction(cartItems, selectedBranch, currentUserId);
+    // Use currentUser.id for the userId parameter
+    const result = await submitOrderAction(cartItems, selectedBranch, currentUser.id);
     setIsSubmitting(false);
 
     if (result.success && result.orderId) {
@@ -68,7 +72,7 @@ export default function CreateOrderPage() {
     }
   };
   
-  if (!isClient) {
+  if (!isClient || !currentUser) { // Also check for currentUser before rendering
     return <div className="flex justify-center items-center h-screen"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg">Loading checkout...</p></div>;
   }
 
@@ -86,7 +90,6 @@ export default function CreateOrderPage() {
       </div>
     );
   }
-
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
@@ -117,7 +120,7 @@ export default function CreateOrderPage() {
             </div>
             <div>
               <Label htmlFor="user-info">User</Label>
-              <Input id="user-info" value={currentUserDetails?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
+              <Input id="user-info" value={currentUser?.name || 'N/A'} readOnly disabled className="bg-muted/50"/>
             </div>
           </div>
 

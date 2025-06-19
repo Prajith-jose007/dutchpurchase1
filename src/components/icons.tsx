@@ -1,3 +1,4 @@
+
 import {
   LayoutGrid,
   Package,
@@ -6,7 +7,7 @@ import {
   Users,
   ChevronDown,
   ChevronRight,
-  Settings,
+  LogIn, // Changed from Settings to LogIn for login page
   LogOut,
   Search,
   Filter,
@@ -34,7 +35,8 @@ import {
   Sun,
   Moon,
   UserCircle,
-  BarChartBig, // Added import for Forecast icon
+  BarChartBig, 
+  Settings, // Re-added Settings for Dropdown
 } from 'lucide-react';
 
 export const Icons = {
@@ -42,8 +44,9 @@ export const Icons = {
   Inventory: Package,
   Order: ShoppingCart,
   OrderList: ClipboardList,
-  Branches: Users, // Using Users for Branches as an example
-  Settings: Settings,
+  Branches: Users, 
+  Settings: Settings, // Keep settings for general use
+  Login: LogIn, // Icon for Login button
   Logout: LogOut,
   Search: Search,
   Filter: Filter,
@@ -57,13 +60,13 @@ export const Icons = {
   ShoppingBag: ShoppingBag,
   ChevronDown: ChevronDown,
   ChevronRight: ChevronRight,
-  Logo: CookingPot, // Example logo
-  Flame: Flame, // For 'Hot' or 'New' items if needed
+  Logo: CookingPot, 
+  Flame: Flame, 
   Meat: Beef,
   Seafood: Fish,
-  Frozen: IceCream, // Using IceCream for Frozen category
+  Frozen: IceCream, 
   Dairy: Milk,
-  DryGoods: Wheat, // Using Wheat for Dry Goods
+  DryGoods: Wheat, 
   Drinks: GlassWater,
   Admin: Settings2,
   Archive: Archive,
@@ -73,7 +76,7 @@ export const Icons = {
   Sun: Sun,
   Moon: Moon,
   User: UserCircle,
-  Forecast: BarChartBig, // Added Forecast icon definition
+  Forecast: BarChartBig, 
 };
 
 // Fallback or generic category icons
