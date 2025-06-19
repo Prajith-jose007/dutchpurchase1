@@ -13,8 +13,8 @@
     --popover: 0 0% 100%; /* Default popover background (white) */
     --popover-foreground: 240 10% 3.9%; /* Default popover text */
 
-    --primary: 48 97% 44%; /* HSL(48, 97%, 44%) - #FCBC07 */
-    --primary-foreground: 240 10% 3.9%; /* Dark text on primary */
+    --primary: 177 75% 34%; /* HSL(177, 75%, 34%) - #15968f */
+    --primary-foreground: 0 0% 98%; /* Light text on primary for better contrast */
 
     --secondary: 48 30% 88%; /* Lighter shade of primary/background for secondary elements */
     --secondary-foreground: 240 10% 3.9%;
@@ -30,7 +30,7 @@
 
     --border: 48 10% 80%; /* Border color related to background */
     --input: 48 10% 85%; /* Input background related to background */
-    --ring: 48 97% 44%; /* Ring color same as primary */
+    --ring: 177 75% 34%; /* Ring color same as new primary */
 
     --radius: 0.5rem;
 
@@ -60,8 +60,8 @@
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 48 97% 44%;
-    --primary-foreground: 240 10% 3.9%;
+    --primary: 177 75% 34%; /* HSL(177, 75%, 34%) - #15968f */
+    --primary-foreground: 0 0% 98%; /* Light text on primary for better contrast */
 
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -69,7 +69,7 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 18 93% 48%;
+    --accent: 18 93% 48%; /* HSL(18, 93%, 48%) - #F06210 */
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
@@ -77,7 +77,7 @@
 
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 48 97% 44%;
+    --ring: 177 75% 34%; /* Ring color same as new primary */
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
