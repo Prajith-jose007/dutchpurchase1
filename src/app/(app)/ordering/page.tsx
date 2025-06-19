@@ -121,10 +121,10 @@ export default function OrderingPage() {
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="store-filter" className="sr-only">Filter by Store</Label>
+              <Label htmlFor="store-filter" className="sr-only">Select Store</Label>
               <Select value={selectedStoreId} onValueChange={(value) => { setSelectedStoreId(value); setCurrentPage(1); }}>
-                <SelectTrigger id="store-filter" aria-label="Filter by store">
-                  <SelectValue placeholder="Filter by Store" />
+                <SelectTrigger id="store-filter" aria-label="Select store">
+                  <SelectValue placeholder="Select Store" />
                 </SelectTrigger>
                 <SelectContent>
                   {branches.map(branch => (
@@ -172,8 +172,7 @@ export default function OrderingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
-                const itemCategoryIcon = getCategoryIcon(item.category, item.itemType);
-                const IconComponent = itemCategoryIcon;
+                const IconComponent = getCategoryIcon(item.category, item.itemType);
 
                 return (
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
