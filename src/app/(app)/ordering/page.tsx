@@ -172,25 +172,15 @@ export default function OrderingPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
                 const IconComponent = getCategoryIcon(item.category, item.itemType);
 
                 return (
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
-                  <CardHeader className="p-0 relative">
-                    <Image
-                      src={item.imageUrl || `https://placehold.co/400x300.png?text=${encodeURIComponent(item.description)}`}
-                      alt={item.description}
-                      width={400}
-                      height={200}
-                      className="object-cover w-full h-48"
-                      data-ai-hint={`${item.category.toLowerCase()} ${item.description.toLowerCase().split(' ')[0]}`}
-                    />
-                    {item.remark && <Badge variant="destructive" className="absolute top-2 left-2">{item.remark}</Badge>}
-                  </CardHeader>
                   <CardContent className="p-4 flex-grow">
+                    {item.remark && <Badge variant="destructive" className="mb-2">{item.remark}</Badge>}
                     <CardTitle className="text-lg font-semibold mb-1 line-clamp-2 h-[3em]">{item.description}</CardTitle>
                     <div className="flex items-center text-xs text-muted-foreground mb-2">
                        <IconComponent className="w-3.5 h-3.5 mr-1.5 text-primary" />
@@ -200,7 +190,7 @@ export default function OrderingPage() {
                     <p className="text-sm text-muted-foreground">Unit: {item.units} (Pack: {item.packing})</p>
                     <p className="text-sm text-muted-foreground">Shelf Life: {item.shelfLifeDays} days</p>
                   </CardContent>
-                  <CardFooter className="p-4 border-t">
+                  <CardFooter className="p-4 border-t mt-auto">
                     {quantityInCart > 0 ? (
                       <div className="flex items-center justify-between w-full">
                         <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(item.code, -1)} aria-label={`Decrease quantity of ${item.description}`}>
@@ -291,5 +281,7 @@ export default function OrderingPage() {
     </div>
   );
 }
+
+    
 
     
