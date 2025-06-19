@@ -121,7 +121,7 @@ export default function OrderingPage() {
           />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="store-filter" className="sr-only">Select Store</Label>
+              <Label htmlFor="store-filter">Select Store</Label>
               <Select value={selectedStoreId} onValueChange={(value) => { setSelectedStoreId(value); setCurrentPage(1); }}>
                 <SelectTrigger id="store-filter" aria-label="Select store">
                   <SelectValue placeholder="Select Store" />
@@ -286,3 +286,4 @@ export default function OrderingPage() {
     </div>
   );
 }
+
