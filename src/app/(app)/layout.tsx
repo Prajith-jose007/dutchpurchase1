@@ -1,3 +1,5 @@
+"use client"; // Explicitly mark as a Client Component
+
 import type { ReactNode } from 'react';
 import { SidebarProvider, Sidebar, SidebarTrigger, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -5,7 +7,7 @@ import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AppProviders } from './providers'; // Import AppProviders
+import { AppProviders } from './providers';
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Icons.Dashboard },
@@ -16,7 +18,7 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <AppProviders> {/* Wrap with AppProviders */}
+    <AppProviders>
       <SidebarProvider defaultOpen>
         <Sidebar>
           <SidebarHeader className="p-4">
@@ -29,15 +31,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
-                  <Link href={item.href}>
-                    <SidebarMenuButton 
-                      className="w-full justify-start"
-                      tooltip={item.label}
-                    >
+                  <SidebarMenuButton 
+                    asChild 
+                    className="w-full justify-start"
+                    tooltip={item.label}
+                  >
+                    <Link href={item.href}>
                       <item.icon className="h-5 w-5" />
                       <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
+                    </Link>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -82,7 +85,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <SidebarTrigger />
             </div>
             <div className="hidden md:block font-headline text-2xl">
-              {/* This could be dynamic based on page */}
               Welcome!
             </div>
             <div className="flex items-center gap-4">
