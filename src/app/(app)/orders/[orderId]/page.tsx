@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import { branches, users } from '@/data/appRepository';
-import Image from 'next/image';
 import { getItemByCode } from '@/data/inventoryItems';
 import { Separator } from '@/components/ui/separator';
 
@@ -96,7 +95,6 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[64px]">Image</TableHead>
                   <TableHead>Item Code</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-center">Quantity</TableHead>
@@ -105,19 +103,8 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
               </TableHeader>
               <TableBody>
                 {order.items.map((item) => {
-                  const inventoryItem = getItemByCode(item.itemId);
                   return (
                   <TableRow key={item.itemId}>
-                    <TableCell>
-                      <Image 
-                        src={inventoryItem?.imageUrl || `https://placehold.co/64x64.png?text=${item.itemId}`} 
-                        alt={item.description} 
-                        width={48} 
-                        height={48} 
-                        className="rounded object-cover"
-                        data-ai-hint={`${inventoryItem?.category || 'item'} product`}
-                      />
-                    </TableCell>
                     <TableCell className="font-medium">{item.itemId}</TableCell>
                     <TableCell>{item.description}</TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
@@ -130,7 +117,6 @@ export default async function OrderDetailsPage({ params }: { params: { orderId: 
         </CardContent>
 
         <CardFooter className="border-t pt-6">
-          {/* Placeholder for future actions like "Reorder", "Print Invoice" */}
           <p className="text-sm text-muted-foreground">
             If you have any questions about this order, please contact support.
           </p>

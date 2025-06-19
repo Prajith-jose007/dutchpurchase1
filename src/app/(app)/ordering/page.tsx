@@ -10,11 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label"; // Import Label
+import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
 import { Icons, getCategoryIcon } from '@/components/icons';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
@@ -26,12 +25,11 @@ export default function OrderingPage() {
   const { addToCart, cartItems, updateQuantity, getItemQuantity } = useCart();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStoreId, setSelectedStoreId] = useState<string>(branches[0]?.id || ''); // State for selected store
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(branches[0]?.id || '');
   const [selectedItemType, setSelectedItemType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Ensure this runs only on client
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
@@ -42,8 +40,6 @@ export default function OrderingPage() {
   const categories = useMemo(() => getCategories(selectedItemType || undefined), [selectedItemType]);
 
   const filteredItems = useMemo(() => {
-    // Note: Filtering by selectedStoreId is not implemented yet as per current request
-    // This would require items to have store availability data or a different filtering logic.
     return allItems.filter(item => {
       const matchesSearchTerm = item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 item.code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -51,7 +47,7 @@ export default function OrderingPage() {
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       return matchesSearchTerm && matchesItemType && matchesCategory;
     });
-  }, [searchTerm, selectedItemType, selectedCategory, selectedStoreId]); // Added selectedStoreId to dependencies
+  }, [searchTerm, selectedItemType, selectedCategory, selectedStoreId]);
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -107,14 +103,12 @@ export default function OrderingPage() {
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full">
-      {/* Main Content: Filters and Item Grid */}
       <div className="flex-grow space-y-6">
         <header className="space-y-2">
           <h1 className="text-3xl font-headline tracking-tight">Order Items</h1>
           <p className="text-muted-foreground">Browse products and add them to your purchase order.</p>
         </header>
         
-        {/* Filters */}
         <div className="space-y-4 p-4 border rounded-lg bg-card shadow">
           <Input
             placeholder="Search items by name or code..."
@@ -163,7 +157,6 @@ export default function OrderingPage() {
           </div>
         </div>
 
-        {/* Item Grid */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-10">
             <Icons.Search className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -210,7 +203,6 @@ export default function OrderingPage() {
                 </Card>
               )})}
             </div>
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center space-x-2 pt-6">
                 <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
@@ -222,7 +214,6 @@ export default function OrderingPage() {
         )}
       </div>
 
-      {/* Cart Sidebar */}
       <Card className="lg:w-96 xl:w-[400px] flex-shrink-0 shadow-xl rounded-lg self-start sticky top-20">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center">
@@ -239,16 +230,16 @@ export default function OrderingPage() {
               Your cart is empty.
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-350px)] lg:h-[calc(100vh-420px)] max-h-[500px]"> {/* Adjust height as needed */}
+            <ScrollArea className="h-[calc(100vh-350px)] lg:h-[calc(100vh-420px)] max-h-[500px]">
               <div className="p-4 space-y-3">
                 {cartItems.map(item => {
                   const cartItemDetails = getItemByCode(item.code);
                   return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
-                    <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=${item.code}`} alt={item.description} width={48} height={48} className="rounded object-cover h-12 w-12" data-ai-hint={`${cartItemDetails?.category || 'item'} product`} />
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
                       <p className="text-xs text-muted-foreground">Unit: {item.units}</p>
+                       <p className="text-xs text-muted-foreground">Code: {item.code}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.code, -1)} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
@@ -281,7 +272,3 @@ export default function OrderingPage() {
     </div>
   );
 }
-
-    
-
-    

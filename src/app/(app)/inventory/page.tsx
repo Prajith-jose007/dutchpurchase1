@@ -1,3 +1,4 @@
+
 // src/app/(app)/inventory/page.tsx
 "use client"; // This page uses client-side filtering and state
 
@@ -9,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -114,7 +114,6 @@ export default function InventoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[64px]">Image</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Item Type</TableHead>
@@ -128,16 +127,6 @@ export default function InventoryPage() {
                 <TableBody>
                   {paginatedItems.map((item: Item) => (
                     <TableRow key={item.code}>
-                      <TableCell>
-                        <Image 
-                          src={item.imageUrl || `https://placehold.co/48x48.png?text=${item.code}`} 
-                          alt={item.description} 
-                          width={40} 
-                          height={40} 
-                          className="rounded object-cover"
-                          data-ai-hint={`${item.category} ${item.description.split(' ')[0]}`}
-                        />
-                      </TableCell>
                       <TableCell className="font-medium">{item.code}</TableCell>
                       <TableCell>{item.description}</TableCell>
                       <TableCell>

@@ -1,3 +1,4 @@
+
 import type { Item } from '@/lib/types';
 
 const KNOWN_REMARKS = ["NEW", "ROBO", "CATER"];
@@ -92,22 +93,6 @@ export function parseInventoryData(rawData: string): Item[] {
     // 4. The rest is description
     descriptionParts = currentParts;
     const description = capitalize(descriptionParts.join(' ').trim());
-    
-    // Default image based on a simple keyword search in description or category
-    let hint = category.toLowerCase().split(" ")[0];
-    if (description.toLowerCase().includes("apple")) hint = "apple";
-    else if (description.toLowerCase().includes("banana")) hint = "banana";
-    else if (description.toLowerCase().includes("chicken")) hint = "chicken";
-    else if (description.toLowerCase().includes("beef")) hint = "beef";
-    else if (description.toLowerCase().includes("fish")) hint = "fish";
-    else if (description.toLowerCase().includes("bread")) hint = "bread";
-    else if (description.toLowerCase().includes("milk")) hint = "milk";
-    else if (description.toLowerCase().includes("cheese")) hint = "cheese";
-    else if (description.toLowerCase().includes("tomato")) hint = "tomato";
-    else if (description.toLowerCase().includes("onion")) hint = "onion";
-    else if (description.toLowerCase().includes("potato")) hint = "potato";
-    else if (description.toLowerCase().includes("rice")) hint = "rice";
-    else if (description.toLowerCase().includes("oil")) hint = "oil";
      
 
     items.push({
@@ -119,8 +104,7 @@ export function parseInventoryData(rawData: string): Item[] {
       units: units.toUpperCase(),
       packing,
       shelfLifeDays,
-      imageUrl: `https://placehold.co/300x200.png?text=${encodeURIComponent(description.substring(0,15))}`,
-      // data-ai-hint attribute will be added in the component
+      // imageUrl is removed from here
     });
   }
 

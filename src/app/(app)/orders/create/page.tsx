@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Image from 'next/image';
 import { Icons } from '@/components/icons';
 import { submitOrderAction } from '@/lib/actions';
 import { branches, users } from '@/data/appRepository';
@@ -123,7 +122,7 @@ export default function CreateOrderPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Item</TableHead>
+                  <TableHead>Item Code</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-center">Quantity</TableHead>
                   <TableHead>Units</TableHead>
@@ -133,10 +132,8 @@ export default function CreateOrderPage() {
               <TableBody>
                 {cartItems.map(item => (
                   <TableRow key={item.code}>
-                    <TableCell>
-                      <Image src={item.imageUrl || `https://placehold.co/64x64.png?text=${item.code}`} alt={item.description} width={48} height={48} className="rounded object-cover" data-ai-hint={`${item.category} product`} />
-                    </TableCell>
-                    <TableCell className="font-medium">{item.description}</TableCell>
+                    <TableCell className="font-medium">{item.code}</TableCell>
+                    <TableCell>{item.description}</TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1.5">
                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity - 1)} disabled={isSubmitting} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
