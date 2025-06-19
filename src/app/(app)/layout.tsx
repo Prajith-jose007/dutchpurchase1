@@ -29,7 +29,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
-                  <Link href={item.href} legacyBehavior passHref>
+                  <Link href={item.href}>
                     <SidebarMenuButton 
                       className="w-full justify-start"
                       tooltip={item.label}
