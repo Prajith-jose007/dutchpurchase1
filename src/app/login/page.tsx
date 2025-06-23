@@ -53,7 +53,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 text-center">
           <Icons.Logo className="mx-auto h-10 w-10 text-primary mb-2" />
           <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access Restaurant Supply Hub</CardDescription>
+          <CardDescription>Enter your credentials to log in</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -95,7 +95,7 @@ export default function LoginPage() {
         </form>
       </Card>
       <footer className="mt-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Restaurant Supply Hub. All rights reserved.
+        © {new Date().getFullYear()} Dutch Oriental. All rights reserved.
       </footer>
     </div>
   );

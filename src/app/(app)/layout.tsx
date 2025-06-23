@@ -64,7 +64,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <SidebarHeader className="p-4">
             <Link href="/" className="flex items-center gap-2">
               <Icons.Logo className="w-8 h-8 text-primary" />
-              <h1 className="font-headline text-xl font-semibold group-data-[collapsible=icon]:hidden">Supply Hub</h1>
             </Link>
           </SidebarHeader>
           <SidebarContent>

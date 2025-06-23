@@ -56,7 +56,7 @@ export default function DashboardPage() {
       <section>
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Welcome to Restaurant Supply Hub</CardTitle>
+            <CardTitle className="font-headline">Welcome to Dutch Oriental</CardTitle>
             <CardDescription>
               Efficiently manage your restaurant's inventory, place orders, track supplies, and forecast demand with our integrated platform.
             </CardDescription>

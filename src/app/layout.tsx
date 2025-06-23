@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AppProviders } from '@/app/(app)/providers'; // Import AppProviders
 
 export const metadata: Metadata = {
-  title: 'Restaurant Supply Hub',
+  title: 'Dutch Oriental | Supply Management',
   description: 'Manage restaurant supplies efficiently.',
 };
 
