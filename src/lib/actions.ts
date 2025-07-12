@@ -2,7 +2,7 @@
 // src/lib/actions.ts
 "use server";
 
-import type { CartItem, Order, OrderItem } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User } from "@/lib/types";
 import { branches, users, saveOrder as saveOrderToRepository, getOrders as getOrdersFromRepository, getOrderById as getOrderByIdFromRepository } from "@/data/appRepository";
 import { redirect } from "next/navigation";
 import { getItemByCode } from "@/data/inventoryItems";
@@ -49,10 +49,37 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
   }
 }
 
-export async function getOrdersAction(): Promise<Order[]> {
-  return Promise.resolve(getOrdersFromRepository());
+export async function getOrdersAction(user: User | null): Promise<Order[]> {
+    if (!user) {
+        return []; // Return no orders if user is not logged in
+    }
+
+    const allOrders = getOrdersFromRepository();
+
+    // Admin, superadmin, and purchase roles see all orders
+    if (user.role === 'admin' || user.role === 'superadmin' || user.role === 'purchase') {
+        return Promise.resolve(allOrders);
+    }
+    
+    // Employees see only their own orders
+    if (user.role === 'employee') {
+        return Promise.resolve(allOrders.filter(order => order.userId === user.id));
+    }
+    
+    return []; // Default to no orders if role is unrecognized
 }
+
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
   return Promise.resolve(getOrderByIdFromRepository(orderId));
+}
+
+// Action to get user by ID - useful for rehydrating auth state
+export async function getUser(userId: string): Promise<User | null> {
+    const user = users.find(u => u.id === userId) || null;
+    if (user) {
+        const { password, ...userWithoutPassword } = user; // Never send password to client
+        return userWithoutPassword as User;
+    }
+    return null;
 }

@@ -6,6 +6,7 @@ import type { User } from '@/lib/types';
 import { users } from '@/data/appRepository';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { getUser } from '@/lib/actions'; // Import the new server action
 
 interface AuthContextType {
   currentUser: User | null;
@@ -22,26 +23,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
+    const fetchUser = async () => {
+      try {
+        const storedUserId = localStorage.getItem('currentUserId');
+        if (storedUserId) {
+          const user = await getUser(storedUserId); // Fetch user from server action
+          setCurrentUser(user || null);
+        }
+      } catch (error) {
+        console.error("Error reading user from localStorage", error);
+        localStorage.removeItem('currentUserId'); // Clear corrupted data
       }
-    } catch (error) {
-      console.error("Error reading user from localStorage", error);
-      localStorage.removeItem('currentUser'); // Clear corrupted data
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    
+    fetchUser();
   }, []);
 
   const login = useCallback(async (username_input: string, password_input: string): Promise<boolean> => {
     const user = users.find(u => u.username === username_input && u.password === password_input);
     if (user) {
       const userToStore = { ...user };
-      // DO NOT store password in localStorage in a real app
-      // delete userToStore.password; 
       setCurrentUser(userToStore);
-      localStorage.setItem('currentUser', JSON.stringify(userToStore));
+      localStorage.setItem('currentUserId', userToStore.id);
       return true;
     }
     return false;
@@ -49,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     setCurrentUser(null);
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUserId');
     router.push('/login'); // Redirect to login after logout
   }, [router]);
 

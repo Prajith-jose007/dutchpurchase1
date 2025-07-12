@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
 import { branches, users } from '@/data/appRepository';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -30,12 +31,18 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { currentUser } = useAuth(); // Get the current user
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!currentUser) {
+        setIsLoading(false);
+        return; // Don't fetch if no user is logged in
+      }
       setIsLoading(true);
       try {
-        const fetchedOrders = await getOrdersAction();
+        // Pass the currentUser to the action
+        const fetchedOrders = await getOrdersAction(currentUser);
         setOrders(fetchedOrders);
       } catch (error) {
         console.error("Failed to fetch orders:", error);
@@ -45,7 +52,7 @@ export default function OrdersPage() {
       }
     };
     fetchOrders();
-  }, [toast]);
+  }, [toast, currentUser]); // Re-run when currentUser changes
 
   const handleExport = () => {
     toast({
