@@ -34,7 +34,6 @@ import {
   Sun,
   Moon,
   UserCircle,
-  BarChartBig, 
   Settings, 
   Download, 
 } from 'lucide-react';
@@ -114,7 +113,6 @@ export const Icons = {
   Sun: Sun,
   Moon: Moon,
   User: UserCircle,
-  Forecast: BarChartBig, 
   Download: Download, 
 };
 

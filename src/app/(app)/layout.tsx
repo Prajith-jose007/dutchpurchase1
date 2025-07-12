@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-// import { AppProviders } from './providers'; // Removed import
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
@@ -18,7 +17,6 @@ const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order },
   { href: "/orders", label: "My Orders", icon: Icons.OrderList },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory },
-  { href: "/forecasting", label: "Forecasting", icon: Icons.Forecast},
 ];
 
 const getInitials = (name: string | undefined) => {
@@ -58,7 +56,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    // AppProviders wrapper removed from here
       <SidebarProvider defaultOpen>
         <Sidebar>
           <SidebarHeader className="p-4">
