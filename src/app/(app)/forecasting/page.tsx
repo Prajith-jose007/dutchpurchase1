@@ -2,7 +2,7 @@
 // src/app/(app)/forecasting/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Icons } from '@/components/icons';
-import { Badge } from '@/components/ui/badge'; // Added missing import
-import type { ForecastInput, ForecastResult } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
+import type { ForecastDemandInput as ForecastInput, ForecastDemandOutput as ForecastResult } from '@/ai/flows/demand-forecasting';
 import { handleDemandForecastAction, getSampleHistoricalDataCSVAction } from '@/lib/actions';
-import { branches } from '@/data/appRepository'; // Updated import
+import { branches } from '@/data/appRepository';
 import { toast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
@@ -21,18 +21,20 @@ export default function ForecastingPage() {
   const [formData, setFormData] = useState<ForecastInput>({
     historicalOrderData: '',
     forecastHorizon: 'next week',
-    branch: branches[0]?.name || '', // Use branch name consistent with SelectItem value
+    branch: branches[0]?.name || '',
   });
   const [forecastResult, setForecastResult] = useState<ForecastResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSampleLoading, setIsSampleLoading] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSelectChange = (name: keyof ForecastInput, value: string) => {
-    setFormData({ ...formData, [name]: value });
+  const handleSelectChange = (value: string) => {
+    setFormData({ ...formData, branch: value });
   };
   
   const loadSampleData = async () => {
@@ -90,7 +92,7 @@ export default function ForecastingPage() {
                 id="historicalOrderData"
                 name="historicalOrderData"
                 value={formData.historicalOrderData}
-                onChange={handleInputChange}
+                onChange={handleFormChange}
                 placeholder="date,item_code,quantity,branch_name\n2023-01-01,ITEM001,10,Main Branch\n..."
                 rows={8}
                 required
@@ -111,7 +113,7 @@ export default function ForecastingPage() {
                   id="forecastHorizon"
                   name="forecastHorizon"
                   value={formData.forecastHorizon}
-                  onChange={handleInputChange}
+                  onChange={handleFormChange}
                   placeholder="e.g., next week, next month"
                   required
                 />
@@ -121,7 +123,7 @@ export default function ForecastingPage() {
                 <Select
                   name="branch"
                   value={formData.branch}
-                  onValueChange={(value) => handleSelectChange('branch', value)}
+                  onValueChange={handleSelectChange}
                   required
                 >
                   <SelectTrigger id="branch" aria-label="Select branch">

@@ -6,6 +6,8 @@ import type { CartItem, Order, OrderItem, User } from "@/lib/types";
 import { branches, users, saveOrder as saveOrderToRepository, getOrders as getOrdersFromRepository, getOrderById as getOrderByIdFromRepository } from "@/data/appRepository";
 import { redirect } from "next/navigation";
 import { getItemByCode } from "@/data/inventoryItems";
+import type { ForecastDemandInput, ForecastDemandOutput } from '@/ai/flows/demand-forecasting';
+import { forecastDemand } from '@/ai/flows/demand-forecasting';
 
 
 export async function submitOrderAction(cartItems: CartItem[], branchId: string, userId: string): Promise<{ success: boolean; orderId?: string; error?: string }> {
@@ -82,4 +84,37 @@ export async function getUser(userId: string): Promise<User | null> {
         return userWithoutPassword as User;
     }
     return null;
+}
+
+export async function handleDemandForecastAction(
+  input: ForecastDemandInput
+): Promise<{ success: boolean; data?: ForecastDemandOutput; error?: string }> {
+  try {
+    const result = await forecastDemand(input);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error during demand forecast:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return { success: false, error: errorMessage };
+  }
+}
+
+export async function getSampleHistoricalDataCSVAction(): Promise<string> {
+    const orders = getOrdersFromRepository();
+    // Header for the CSV file
+    let csvContent = "date,item_code,quantity,branch_name\n";
+    
+    // Convert each order item into a CSV row
+    orders.forEach(order => {
+        const branch = branches.find(b => b.id === order.branchId);
+        if (!branch) return;
+
+        order.items.forEach(item => {
+            const date = new Date(order.createdAt).toISOString().split('T')[0];
+            const row = `${date},${item.itemId},${item.quantity},"${branch.name}"\n`;
+            csvContent += row;
+        });
+    });
+
+    return csvContent;
 }
