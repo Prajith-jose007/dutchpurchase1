@@ -86,10 +86,14 @@ export async function getUser(userId: string): Promise<User | null> {
     return null;
 }
 
-export async function handleDemandForecastAction(
-  input: ForecastDemandInput
-): Promise<{ success: boolean; data?: ForecastDemandOutput; error?: string }> {
+export async function handleDemandForecastAction(): Promise<{ success: boolean; data?: ForecastDemandOutput; error?: string }> {
   try {
+    const historicalOrderData = await getSampleHistoricalDataCSVAction();
+    const input: ForecastDemandInput = {
+      historicalOrderData,
+      forecastHorizon: 'next week',
+      branch: 'All Branches',
+    };
     const result = await forecastDemand(input);
     return { success: true, data: result };
   } catch (error) {
