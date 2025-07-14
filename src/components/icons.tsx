@@ -36,6 +36,10 @@ import {
   UserCircle,
   Settings, 
   Download,
+  UploadCloud,
+  FileText,
+  Upload,
+  File,
 } from 'lucide-react';
 import type React from 'react';
 
@@ -111,6 +115,10 @@ export const Icons = {
   Moon: Moon,
   User: UserCircle,
   Download: Download,
+  UploadCloud: UploadCloud,
+  FileText: FileText,
+  Upload: Upload,
+  File: File,
 };
 
 // Fallback or generic category icons

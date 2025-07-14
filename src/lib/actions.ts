@@ -134,3 +134,38 @@ export async function addUserAction(userData: Omit<User, 'id'>): Promise<AddUser
     return { success: false, error: errorMessage };
   }
 }
+
+// Action to handle invoice uploads
+export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
+  try {
+    const files = formData.getAll('invoices') as File[];
+    const userId = formData.get('userId') as string;
+
+    if (!files || files.length === 0) {
+      return { success: false, error: 'No files were uploaded.' };
+    }
+     if (!userId) {
+      return { success: false, error: 'User is not authenticated.' };
+    }
+
+    console.log(`User ${userId} is uploading ${files.length} invoices.`);
+    
+    // ---
+    // In a real application, you would process each file here:
+    // - Generate a unique filename
+    // - Upload to a cloud storage service (e.g., Firebase Storage, AWS S3)
+    // - Save metadata (filename, URL, uploaderId, timestamp) to your database
+    // For this prototype, we'll just log the file details.
+    // ---
+    
+    for (const file of files) {
+      console.log(`Simulating upload for: ${file.name} (${file.size} bytes)`);
+    }
+
+    return { success: true, fileCount: files.length };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
+    console.error('Invoice upload failed:', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
