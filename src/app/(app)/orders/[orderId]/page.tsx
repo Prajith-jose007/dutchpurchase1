@@ -30,7 +30,7 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
   }
 }
 
-export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
+export default function OrderDetailsPage({ params: { orderId } }: { params: { orderId: string } }) {
   const { currentUser } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
@@ -45,7 +45,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   useEffect(() => {
     const fetchOrderData = async () => {
       setIsLoading(true);
-      const fetchedOrder = await getOrderByIdAction(params.orderId);
+      const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
         const user = await getUser(fetchedOrder.userId);
@@ -55,7 +55,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     };
 
     fetchOrderData();
-  }, [params.orderId]);
+  }, [orderId]);
 
   const handleOpenAttachDialog = async () => {
     const uploads = await getRecentUploadsAction();
@@ -74,7 +74,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     if (result.success) {
       toast({ title: "Invoices Attached", description: `${selectedInvoices.length} invoice(s) have been linked to this order.` });
       // Refresh order data
-      const updatedOrder = await getOrderByIdAction(params.orderId);
+      const updatedOrder = await getOrderByIdAction(orderId);
       if (updatedOrder) setOrder(updatedOrder);
       setIsAttachInvoiceOpen(false);
     } else {
