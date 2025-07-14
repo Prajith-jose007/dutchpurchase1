@@ -11,11 +11,11 @@ export const branches: Branch[] = [
 
 export const users: User[] = [
   { id: 'user-superadmin', username: 'superadmin', password: 'Pass989#', name: 'Super Admin', branchId: 'branch-all', role: 'superadmin' },
-  { id: 'user-admin', username: 'admin', password: 'Dutch@2025#', name: 'Admin User', branchId: 'branch-all', role: 'admin' },
-  { id: 'user-purchase', username: 'purchase', password: 'Dutch@123#', name: 'Purchase User', branchId: 'branch-all', role: 'purchase' },
+  { id: 'user-admin', username: 'admin', password: 'Dutch@989#', name: 'Admin User', branchId: 'branch-all', role: 'admin' },
+  { id: 'user-purchase', username: 'purchase', password: 'Dutch@25', name: 'Purchase User', branchId: 'branch-all', role: 'purchase' },
   { id: 'user-1', username: 'alice', name: 'Alice Smith', branchId: 'branch-6', role: 'employee', password: 'password1' }, // Example employee
   { id: 'user-2', username: 'bob', name: 'Bob Johnson', branchId: 'branch-7', role: 'employee', password: 'password2' },   // Example employee
-  { id: 'user-store1', username: 'store1', password: 'Dutch@123#', name: 'Store User 1', branchId: 'branch-6', role: 'employee'},
+  { id: 'user-store', username: 'Store', password: 'Dutch@25', name: 'Store User', branchId: 'branch-all', role: 'employee'},
   { id: 'user-jbrstore', username: 'jbrstore', password: 'Pass@123#', name: 'JBR Store User', branchId: 'branch-7', role: 'employee' },
   { id: 'user-plazastore', username: 'plazastore', password: 'Password', name: 'Plaza Store User', branchId: 'branch-6', role: 'employee' },
 ];
