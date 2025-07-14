@@ -1,79 +1,66 @@
+-- This file contains the SQL schema for creating the necessary tables
+-- in your MySQL database for the Restaurant Supply Hub application.
 
--- SQL Schema for the Supply Management Application
+-- Before running this script, make sure you have:
+-- 1. A running MySQL server.
+-- 2. Created a database (e.g., `CREATE DATABASE restaurant_supplies;`).
+-- 3. Configured your .env file with the correct credentials.
+--
+-- You can run this script using a tool like MySQL Workbench, DBeaver,
+-- or the mysql command-line interface:
+-- `mysql -u your_username -p your_database_name < schema.sql`
 
--- Make sure to create the database first:
--- CREATE DATABASE supply_management_db;
--- USE supply_management_db;
 
--- Users Table
--- Stores user credentials and information.
-CREATE TABLE `users` (
-  `id` varchar(255) NOT NULL,
-  `username` varchar(255) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `name` varchar(255) NOT NULL,
-  `branchId` varchar(255) NOT NULL,
-  `role` enum('superadmin','admin','purchase','employee') NOT NULL,
+-- Table for storing user information and credentials
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` VARCHAR(255) NOT NULL,
+  `username` VARCHAR(255) NOT NULL UNIQUE,
+  `password` VARCHAR(255) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `branchId` VARCHAR(255) NOT NULL,
+  `role` ENUM('superadmin', 'admin', 'purchase', 'employee') NOT NULL,
+  PRIMARY KEY (`id`)
+);
+
+-- Table for storing order headers
+CREATE TABLE IF NOT EXISTS `orders` (
+  `id` VARCHAR(255) NOT NULL,
+  `branchId` VARCHAR(255) NOT NULL,
+  `userId` VARCHAR(255) NOT NULL,
+  `createdAt` DATETIME NOT NULL,
+  `status` ENUM('Pending', 'Approved', 'Processing', 'Shipped', 'Delivered', 'Cancelled') NOT NULL,
+  `totalItems` INT NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `username_UNIQUE` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`)
+);
 
--- Seed initial users
-INSERT INTO `users` VALUES 
-('user-superadmin','superadmin','Pass989#','Super Admin','branch-all','superadmin'),
-('user-admin','admin','Dutch@989#','Admin User','branch-all','admin'),
-('user-purchase','purchase','Dutch@25','Purchase User','branch-all','purchase'),
-('user-1','alice','password1','Alice Smith','branch-6','employee'),
-('user-2','bob','password2','Bob Johnson','branch-7','employee'),
-('user-store','Store','Dutch@25','Store User','branch-all','employee'),
-('user-jbrstore','jbrstore','Pass@123#','JBR Store User','branch-7','employee'),
-('user-plazastore','plazastore','Password','Plaza Store User','branch-6','employee');
+-- Table for storing individual items within an order
+CREATE TABLE IF NOT EXISTS `order_items` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `orderId` VARCHAR(255) NOT NULL,
+  `itemId` VARCHAR(255) NOT NULL,
+  `description` VARCHAR(255) NOT NULL,
+  `quantity` INT NOT NULL,
+  `units` VARCHAR(50) NOT NULL,
+  FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE CASCADE
+);
 
-
--- Orders Table
--- Stores the main information for each purchase order.
-CREATE TABLE `orders` (
-  `id` varchar(255) NOT NULL,
-  `branchId` varchar(255) NOT NULL,
-  `userId` varchar(255) NOT NULL,
-  `createdAt` datetime NOT NULL,
-  `status` enum('Pending','Approved','Processing','Shipped','Delivered','Cancelled') NOT NULL,
-  `totalItems` int NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `userId_idx` (`userId`),
-  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- Table for storing uploaded invoice information
+CREATE TABLE IF NOT EXISTS `invoices` (
+  `fileName` VARCHAR(255) NOT NULL,
+  `uploaderId` VARCHAR(255) NOT NULL,
+  `orderId` VARCHAR(255) NULL,
+  `uploadedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`fileName`),
+  FOREIGN KEY (`uploaderId`) REFERENCES `users`(`id`),
+  FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE SET NULL
+);
 
 
--- Order Items Table
--- Stores the individual items within each order.
-CREATE TABLE `order_items` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `orderId` varchar(255) NOT NULL,
-  `itemId` varchar(255) NOT NULL,
-  `description` varchar(255) NOT NULL,
-  `quantity` int NOT NULL,
-  `units` varchar(50) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `orderId` (`orderId`),
-  CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`orderId`) REFERENCES `orders` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-
--- Invoices Table
--- Stores information about uploaded invoices and their link to orders.
-CREATE TABLE `invoices` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `fileName` varchar(255) NOT NULL,
-  `orderId` varchar(255) DEFAULT NULL,
-  `uploadedAt` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `uploaderId` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `fileName_UNIQUE` (`fileName`),
-  KEY `orderId` (`orderId`),
-  CONSTRAINT `invoices_ibfk_1` FOREIGN KEY (`orderId`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `invoices_ibfk_2` FOREIGN KEY (`uploaderId`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Note: The inventory data remains static in `src/data/inventoryItems.ts`.
--- If this needed to be dynamic, an `inventory_items` table would also be required.
+-- Seed the database with a default admin user
+-- IMPORTANT: Change the password in a real application!
+INSERT IGNORE INTO `users` (id, username, password, name, branchId, role) VALUES
+('user-super-001', 'superadmin', 'superadmin123', 'Super Admin', 'branch-all', 'superadmin'),
+('user-admin-001', 'admin', 'admin123', 'Default Admin', 'branch-all', 'admin'),
+('user-purchase-001', 'purchase', 'purchase123', 'Purchase Manager', 'branch-all', 'purchase'),
+('user-employee-001', 'employee', 'employee123', 'John Doe', 'branch-6', 'employee');
