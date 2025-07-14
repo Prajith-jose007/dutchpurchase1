@@ -63,6 +63,7 @@ export let ordersData: Order[] = [
 ];
 
 // In-memory store for all "uploaded" invoice filenames. This list persists.
+// This is the single source of truth for all invoice files that "exist" in the system.
 export let allInvoiceUploads: string[] = [
     'invoice_2024_07_12.pdf', // Already attached
     'delivery_note_112.jpg', // Already attached
@@ -78,7 +79,7 @@ export const addInvoiceUpload = (fileName: string) => {
     if (!allInvoiceUploads.includes(fileName)) {
         allInvoiceUploads.unshift(fileName); // Add to the beginning of the array
     }
-}
+};
 
 
 export const saveOrder = (order: Order) => {

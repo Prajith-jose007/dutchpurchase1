@@ -48,17 +48,23 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
 
     const fetchOrderData = async () => {
       setIsLoading(true);
-      const fetchedOrder = await getOrderByIdAction(orderId);
-      if (fetchedOrder) {
-        setOrder(fetchedOrder);
-        const user = await getUser(fetchedOrder.userId);
-        setPlacingUser(user);
+      try {
+        const fetchedOrder = await getOrderByIdAction(orderId);
+        if (fetchedOrder) {
+          setOrder(fetchedOrder);
+          const user = await getUser(fetchedOrder.userId);
+          setPlacingUser(user);
+        }
+      } catch (error) {
+        console.error("Failed to fetch order data:", error);
+        setOrder(null); // Ensure no stale data is shown on error
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     fetchOrderData();
-  }, [params.orderId]);
+  }, [params.orderId]); // Dependency array is key to re-running on route change
 
   const handleOpenAttachDialog = async () => {
     const uploads = await getRecentUploadsAction();
@@ -92,7 +98,12 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   };
 
   if (isLoading) {
-    return <div className="flex h-full items-center justify-center"><p>Loading order details...</p></div>;
+    return (
+        <div className="flex justify-center items-center h-full">
+            <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4 text-lg">Loading Order Details...</p>
+        </div>
+    );
   }
 
   if (!order) {
