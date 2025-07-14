@@ -10,7 +10,9 @@ import {
   getOrderById as getOrderByIdFromRepository,
   saveUser as saveUserToRepository,
   getUsers as getUsersFromRepository,
-  getUserByUsername
+  getUserByUsername,
+  recentInvoiceUploads, // Import mock recent uploads
+  updateOrder as updateOrderInRepository
 } from "@/data/appRepository";
 import { redirect } from "next/navigation";
 import { getItemByCode } from "@/data/inventoryItems";
@@ -168,4 +170,38 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     console.error('Invoice upload failed:', errorMessage);
     return { success: false, error: errorMessage };
   }
+}
+
+
+// Server action to get mock recently uploaded invoices
+export async function getRecentUploadsAction(): Promise<string[]> {
+    // In a real app, this would query a database for recent uploads
+    // that haven't been attached to an order yet.
+    return Promise.resolve(recentInvoiceUploads);
+}
+
+// Server action to attach invoices to an order
+export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
+    try {
+        const order = await getOrderByIdFromRepository(orderId);
+        if (!order) {
+            return { success: false, error: "Order not found." };
+        }
+
+        const updatedOrder: Order = {
+            ...order,
+            invoiceFileNames: [...(order.invoiceFileNames || []), ...invoiceFileNames],
+        };
+        
+        updateOrderInRepository(updatedOrder);
+
+        // Here you might also remove the attached invoices from the "recent uploads" list
+        // For simplicity, we'll skip that in this prototype.
+
+        return { success: true };
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
+        console.error('Attaching invoices failed:', errorMessage);
+        return { success: false, error: errorMessage };
+    }
 }

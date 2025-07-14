@@ -29,7 +29,7 @@ export interface Order {
   status: 'Pending' | 'Approved' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
   items: OrderItem[];
   totalItems: number;
-  // totalPrice: number; // Future enhancement
+  invoiceFileNames?: string[]; // Optional: List of attached invoice filenames
 }
 
 export interface Branch {
@@ -40,7 +40,7 @@ export interface Branch {
 export type UserRole = 'superadmin' | 'admin' | 'purchase' | 'employee'; // Added 'employee' as a general role
 
 export interface User {
-  id: string;
+  id:string;
   username: string; // Changed from name to username for login
   password?: string; // Added password (plain text for prototype - NOT SECURE)
   name: string; // Display name

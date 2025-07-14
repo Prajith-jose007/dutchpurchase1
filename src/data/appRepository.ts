@@ -34,6 +34,7 @@ export let ordersData: Order[] = [
       { itemId: '306', description: 'Chicken 1200gms', quantity: 10, units: 'KG' },
     ],
     totalItems: 15,
+    invoiceFileNames: ['invoice_2024_07_12.pdf', 'delivery_note_112.jpg'],
   },
   {
     id: 'order-002',
@@ -61,8 +62,25 @@ export let ordersData: Order[] = [
   }
 ];
 
+// In-memory store for recently "uploaded" invoice filenames
+export let recentInvoiceUploads: string[] = [
+    'invoice_br-7_10-07-24.pdf',
+    'supplier_bill_9876.jpg',
+    'receipt_jul_11.png',
+    'delivery_note_113.pdf',
+    'consolidated_jul_10.pdf'
+];
+
+
 export const saveOrder = (order: Order) => {
   ordersData = [order, ...ordersData];
+};
+
+export const updateOrder = (updatedOrder: Order) => {
+    const index = ordersData.findIndex(o => o.id === updatedOrder.id);
+    if (index !== -1) {
+        ordersData[index] = updatedOrder;
+    }
 };
 
 export const getOrders = (): Order[] => {
