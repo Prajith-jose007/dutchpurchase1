@@ -30,7 +30,7 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
   }
 }
 
-export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
+export default function OrderDetailsPage({ params: { orderId } }: { params: { orderId: string } }) {
   const { currentUser } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
@@ -43,7 +43,6 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   const [isAttaching, setIsAttaching] = useState(false);
 
   useEffect(() => {
-    const orderId = params.orderId;
     if (!orderId) return;
 
     const fetchOrderData = async () => {
@@ -64,7 +63,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     };
 
     fetchOrderData();
-  }, [params.orderId]); // Dependency array is key to re-running on route change
+  }, [orderId]); // Dependency array is key to re-running on route change
 
   const handleOpenAttachDialog = async () => {
     const uploads = await getRecentUploadsAction();
