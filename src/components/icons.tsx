@@ -35,7 +35,7 @@ import {
   Moon,
   UserCircle,
   Settings, 
-  Download, 
+  Download,
 } from 'lucide-react';
 import type React from 'react';
 
@@ -95,9 +95,6 @@ export const Icons = {
   Warning: AlertTriangle,
   Info: Info,
   ShoppingBag: ShoppingBag,
-  ChevronDown: ChevronDown,
-  ChevronRight: ChevronRight,
-  Logo: DutchOrientalFullLogo, // Updated Logo
   Flame: Flame, 
   Meat: Beef,
   Seafood: Fish,
@@ -113,7 +110,7 @@ export const Icons = {
   Sun: Sun,
   Moon: Moon,
   User: UserCircle,
-  Download: Download, 
+  Download: Download,
 };
 
 // Fallback or generic category icons
@@ -132,3 +129,4 @@ export const getCategoryIcon = (categoryType: string, itemType?: string) => {
   return Icons.Inventory; // Default icon
 };
 
+Icons.Logo = DutchOrientalFullLogo;
