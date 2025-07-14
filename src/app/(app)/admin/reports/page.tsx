@@ -33,6 +33,7 @@ export default function ReportsPage() {
     const fetchData = async () => {
       if (currentUser) {
         try {
+          // Await both promises together for efficiency
           const [fetchedOrders, fetchedInvoices] = await Promise.all([
             getOrdersAction(currentUser),
             getInvoicesAction()
@@ -44,11 +45,14 @@ export default function ReportsPage() {
         } finally {
           setIsLoading(false);
         }
+      } else if (!currentUser && !isLoading) {
+        // If not loading and no user, redirect
+        router.push('/');
       }
     };
 
     fetchData();
-  }, [currentUser, router]);
+  }, [currentUser, router, isLoading]);
 
   // Calculate monthly summary
   const now = new Date();

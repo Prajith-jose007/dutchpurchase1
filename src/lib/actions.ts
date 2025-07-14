@@ -186,7 +186,7 @@ export async function getRecentUploadsAction(): Promise<string[]> {
 // Server action to attach invoices to an order
 export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
     try {
-        const order = await getOrderByIdFromRepository(orderId);
+        const order = getOrderByIdFromRepository(orderId);
         if (!order) {
             return { success: false, error: "Order not found." };
         }
