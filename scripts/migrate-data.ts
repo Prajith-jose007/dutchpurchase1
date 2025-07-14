@@ -1,6 +1,7 @@
 
-import pool from '../src/lib/db';
-import { config } from 'dotenv';
+// Use require for CommonJS compatibility with ts-node
+const pool = require('../src/lib/db').default;
+const { config } = require('dotenv');
 import type { User } from '../src/lib/types';
 
 // Load environment variables from .env file
