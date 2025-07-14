@@ -18,11 +18,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    // This is required for the development environment.
-    // In a future version of Next.js, this will be the default.
-    allowedDevOrigins: ["https://*.cloudworkstations.dev"],
-  },
+  // This is required for the development environment.
+  // In a future version of Next.js, this will be the default.
+  allowedDevOrigins: ["https://*.cloudworkstations.dev"],
 };
 
 export default nextConfig;
+
+    
