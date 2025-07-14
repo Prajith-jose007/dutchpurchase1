@@ -2,13 +2,12 @@
 // Use require for CommonJS compatibility with ts-node
 const pool = require('../src/lib/db').default;
 const { config } = require('dotenv');
-import type { User } from '../src/lib/types';
 
 // Load environment variables from .env file
 config();
 
 // The initial set of users that used to be in the appRepository
-const initialUsers: Omit<User, 'password'>[] = [
+const initialUsers: any[] = [
   { id: 'user-admin', name: 'Admin User', username: 'admin', branchId: 'branch-all', role: 'admin' },
   { id: 'user-super', name: 'Super Admin', username: 'superadmin', branchId: 'branch-all', role: 'superadmin' },
   { id: 'user-purchase', name: 'Purchase Dept', username: 'purchase', branchId: 'branch-all', role: 'purchase' },
