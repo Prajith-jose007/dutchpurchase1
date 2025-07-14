@@ -40,6 +40,7 @@ import {
   FileText,
   Upload,
   File,
+  BarChartHorizontal,
 } from 'lucide-react';
 import type React from 'react';
 
@@ -119,6 +120,7 @@ export const Icons = {
   FileText: FileText,
   Upload: Upload,
   File: File,
+  Reports: BarChartHorizontal,
 };
 
 // Fallback or generic category icons

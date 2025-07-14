@@ -19,6 +19,7 @@ const navItems = [
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/invoices/upload", label: "Upload Invoices", icon: Icons.UploadCloud, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
+  { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin'] },
 ];
 
 const getInitials = (name: string | undefined) => {

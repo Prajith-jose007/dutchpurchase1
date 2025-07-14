@@ -47,3 +47,8 @@ export interface User {
   branchId: string;
   role: UserRole;
 }
+
+export interface Invoice {
+  fileName: string;
+  orderId: string | null;
+}

@@ -1,7 +1,7 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, UserRole } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, UserRole, Invoice } from "@/lib/types";
 import { 
   branches, 
   users as allUsers,
@@ -162,6 +162,9 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     
     for (const file of files) {
       console.log(`Simulating upload for: ${file.name} (${file.size} bytes)`);
+      if (!recentInvoiceUploads.includes(file.name)) {
+        recentInvoiceUploads.push(file.name);
+      }
     }
 
     return { success: true, fileCount: files.length };
@@ -175,9 +178,10 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 
 // Server action to get mock recently uploaded invoices
 export async function getRecentUploadsAction(): Promise<string[]> {
-    // In a real app, this would query a database for recent uploads
-    // that haven't been attached to an order yet.
-    return Promise.resolve(recentInvoiceUploads);
+    const allOrders = getOrdersFromRepository();
+    const attachedInvoices = new Set(allOrders.flatMap(o => o.invoiceFileNames || []));
+    const unattachedInvoices = recentInvoiceUploads.filter(inv => !attachedInvoices.has(inv));
+    return Promise.resolve(unattachedInvoices);
 }
 
 // Server action to attach invoices to an order
@@ -195,13 +199,31 @@ export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNa
         
         updateOrderInRepository(updatedOrder);
 
-        // Here you might also remove the attached invoices from the "recent uploads" list
-        // For simplicity, we'll skip that in this prototype.
-
         return { success: true };
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
         console.error('Attaching invoices failed:', errorMessage);
         return { success: false, error: errorMessage };
     }
+}
+
+// Server action to get all invoices and their attachment status
+export async function getInvoicesAction(): Promise<Invoice[]> {
+  const allOrders = getOrdersFromRepository();
+  const invoiceMap = new Map<string, string>(); // Map of invoiceFileName -> orderId
+
+  allOrders.forEach(order => {
+    if (order.invoiceFileNames) {
+      order.invoiceFileNames.forEach(fileName => {
+        invoiceMap.set(fileName, order.id);
+      });
+    }
+  });
+
+  const allInvoices = recentInvoiceUploads.map(fileName => ({
+    fileName,
+    orderId: invoiceMap.get(fileName) || null,
+  }));
+
+  return Promise.resolve(allInvoices);
 }
