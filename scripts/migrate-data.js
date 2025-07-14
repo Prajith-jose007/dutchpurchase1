@@ -1,13 +1,10 @@
 
-// Use require for CommonJS compatibility with ts-node
-const pool = require('../src/lib/db').default;
-const { config } = require('dotenv');
-
-// Load environment variables from .env file
-config();
+// Use require for CommonJS compatibility with node
+require('dotenv').config();
+const mysql = require('mysql2/promise');
 
 // The initial set of users that used to be in the appRepository
-const initialUsers: any[] = [
+const initialUsers = [
   { id: 'user-admin', name: 'Admin User', username: 'admin', branchId: 'branch-all', role: 'admin' },
   { id: 'user-super', name: 'Super Admin', username: 'superadmin', branchId: 'branch-all', role: 'superadmin' },
   { id: 'user-purchase', name: 'Purchase Dept', username: 'purchase', branchId: 'branch-all', role: 'purchase' },
@@ -17,9 +14,18 @@ const initialUsers: any[] = [
 
 async function migrateUsers() {
   console.log('Starting user migration...');
-  const connection = await pool.getConnection();
-
+  
+  let connection;
   try {
+    // Create a new connection for the script
+    connection = await mysql.createConnection({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+    });
+
     await connection.beginTransaction();
     
     for (const user of initialUsers) {
@@ -29,7 +35,7 @@ async function migrateUsers() {
       
       const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [user.id, user.username]);
       
-      if ((existing as any[]).length > 0) {
+      if (existing.length > 0) {
         console.log(`User ${user.username} already exists, skipping.`);
       } else {
         await connection.query(
@@ -43,11 +49,14 @@ async function migrateUsers() {
     await connection.commit();
     console.log('User migration completed successfully!');
   } catch (error) {
-    await connection.rollback();
+    if (connection) {
+      await connection.rollback();
+    }
     console.error('Error during user migration:', error);
   } finally {
-    connection.release();
-    pool.end(); // End the pool to allow the script to exit
+    if (connection) {
+      await connection.end(); // End the connection to allow the script to exit
+    }
   }
 }
 
