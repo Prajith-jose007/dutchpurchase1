@@ -11,7 +11,8 @@ import {
   saveUser as saveUserToRepository,
   getUsers as getUsersFromRepository,
   getUserByUsername,
-  recentInvoiceUploads, // Import mock recent uploads
+  allInvoiceUploads, // Use the new persistent list
+  addInvoiceUpload,    // Use the function to add new uploads
   updateOrder as updateOrderInRepository
 } from "@/data/appRepository";
 import { redirect } from "next/navigation";
@@ -162,9 +163,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     
     for (const file of files) {
       console.log(`Simulating upload for: ${file.name} (${file.size} bytes)`);
-      if (!recentInvoiceUploads.includes(file.name)) {
-        recentInvoiceUploads.unshift(file.name); // Add to the beginning of the list
-      }
+      addInvoiceUpload(file.name); // Add to the persistent list of all uploads
     }
 
     return { success: true, fileCount: files.length };
@@ -180,7 +179,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 export async function getRecentUploadsAction(): Promise<string[]> {
     const allOrders = getOrdersFromRepository();
     const attachedInvoices = new Set(allOrders.flatMap(o => o.invoiceFileNames || []));
-    const unattachedInvoices = recentInvoiceUploads.filter(inv => !attachedInvoices.has(inv));
+    const unattachedInvoices = allInvoiceUploads.filter(inv => !attachedInvoices.has(inv));
     return Promise.resolve(unattachedInvoices);
 }
 
@@ -220,10 +219,8 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
     }
   });
 
-  // Use a Set to get a unique list of all known invoices
-  const allKnownInvoices = new Set([...recentInvoiceUploads, ...invoiceMap.keys()]);
-
-  const allInvoices = Array.from(allKnownInvoices).map(fileName => ({
+  // Use the single source of truth for all uploads
+  const allInvoices = allInvoiceUploads.map(fileName => ({
     fileName,
     orderId: invoiceMap.get(fileName) || null,
   }));

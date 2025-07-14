@@ -62,14 +62,23 @@ export let ordersData: Order[] = [
   }
 ];
 
-// In-memory store for recently "uploaded" invoice filenames
-export let recentInvoiceUploads: string[] = [
+// In-memory store for all "uploaded" invoice filenames. This list persists.
+export let allInvoiceUploads: string[] = [
+    'invoice_2024_07_12.pdf', // Already attached
+    'delivery_note_112.jpg', // Already attached
     'invoice_br-7_10-07-24.pdf',
     'supplier_bill_9876.jpg',
     'receipt_jul_11.png',
     'delivery_note_113.pdf',
     'consolidated_jul_10.pdf'
 ];
+
+// Function to add a newly uploaded invoice filename to our persistent list
+export const addInvoiceUpload = (fileName: string) => {
+    if (!allInvoiceUploads.includes(fileName)) {
+        allInvoiceUploads.unshift(fileName);
+    }
+}
 
 
 export const saveOrder = (order: Order) => {
