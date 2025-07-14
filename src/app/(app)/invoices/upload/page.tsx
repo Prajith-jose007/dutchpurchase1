@@ -13,6 +13,12 @@ import { toast } from '@/hooks/use-toast';
 import { uploadInvoicesAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
+
+interface UploadableFile {
+  file: File;
+  preview: string;
+}
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
@@ -26,7 +32,7 @@ const formatBytes = (bytes: number, decimals = 2) => {
 export default function InvoiceUploadPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<UploadableFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -38,7 +44,11 @@ export default function InvoiceUploadPage() {
   }, [currentUser, router]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
+    const newFiles = acceptedFiles.map(file => ({
+      file,
+      preview: URL.createObjectURL(file)
+    }));
+    setFiles(prevFiles => [...prevFiles, ...newFiles]);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -50,9 +60,14 @@ export default function InvoiceUploadPage() {
     },
     multiple: true,
   });
+  
+  // Clean up preview URLs to avoid memory leaks
+  useEffect(() => {
+    return () => files.forEach(f => URL.revokeObjectURL(f.preview));
+  }, [files]);
 
   const removeFile = (fileName: string) => {
-    setFiles(files.filter(file => file.name !== fileName));
+    setFiles(files.filter(f => f.file.name !== fileName));
   };
 
   const handleUpload = async () => {
@@ -67,8 +82,8 @@ export default function InvoiceUploadPage() {
 
     setIsUploading(true);
     const formData = new FormData();
-    files.forEach(file => {
-      formData.append('invoices', file);
+    files.forEach(f => {
+      formData.append('invoices', f.file);
     });
     formData.append('userId', currentUser.id);
 
@@ -123,20 +138,36 @@ export default function InvoiceUploadPage() {
             <div>
               <h3 className="text-lg font-medium mb-2">Selected Files ({files.length})</h3>
               <Separator className="mb-4" />
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                {files.map(file => (
-                  <div key={file.name + file.lastModified} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <Icons.File className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium truncate max-w-xs">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
-                      </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {files.map(f => (
+                  <div key={f.file.name + f.file.lastModified} className="relative group border rounded-lg overflow-hidden shadow-sm">
+                    <div className="relative aspect-video bg-muted">
+                      {f.file.type.startsWith('image/') ? (
+                        <Image src={f.preview} alt={`Preview of ${f.file.name}`} layout="fill" objectFit="cover" />
+                      ) : f.file.type === 'application/pdf' ? (
+                        <object data={f.preview} type="application/pdf" className="w-full h-full">
+                           <div className="p-4 flex flex-col items-center justify-center h-full text-center">
+                              <Icons.File className="h-10 w-10 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground mt-2">PDF Preview</p>
+                            </div>
+                        </object>
+                      ) : (
+                         <div className="p-4 flex flex-col items-center justify-center h-full text-center">
+                            <Icons.File className="h-10 w-10 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground mt-2">No Preview</p>
+                        </div>
+                      )}
                     </div>
-                     <Badge variant="outline" className="hidden sm:inline-flex">{file.type}</Badge>
-                    <Button variant="ghost" size="icon" onClick={() => removeFile(file.name)} disabled={isUploading}>
-                      <Icons.Delete className="h-4 w-4 text-destructive" />
-                    </Button>
+                     <div className="absolute top-1 right-1 z-10">
+                       <Button variant="destructive" size="icon" className="h-7 w-7 opacity-80 group-hover:opacity-100 transition-opacity" onClick={() => removeFile(f.file.name)} disabled={isUploading}>
+                        <Icons.Delete className="h-4 w-4" />
+                        <span className="sr-only">Remove file</span>
+                      </Button>
+                    </div>
+                    <div className="p-2 bg-background/80 backdrop-blur-sm text-xs">
+                        <p className="font-medium truncate">{f.file.name}</p>
+                        <p className="text-muted-foreground">{formatBytes(f.file.size)} - <span className="uppercase">{f.file.type.split('/')[1]}</span></p>
+                    </div>
                   </div>
                 ))}
               </div>
