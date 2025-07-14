@@ -30,7 +30,8 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
   }
 }
 
-export default function OrderDetailsPage({ params: { orderId } }: { params: { orderId: string } }) {
+export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
+  const { orderId } = params;
   const { currentUser } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
