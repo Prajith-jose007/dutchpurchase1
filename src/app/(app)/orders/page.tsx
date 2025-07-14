@@ -4,16 +4,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getOrdersAction } from '@/lib/actions';
-import type { Order } from '@/lib/types';
+import { getOrdersAction, getUsersAction } from '@/lib/actions'; // Changed to getUsersAction
+import type { Order, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
-import { branches, users } from '@/data/appRepository';
+import { branches } from '@/data/appRepository';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
@@ -29,30 +29,35 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // State for all users
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-  const { currentUser } = useAuth(); // Get the current user
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       if (!currentUser) {
         setIsLoading(false);
-        return; // Don't fetch if no user is logged in
+        return;
       }
       setIsLoading(true);
       try {
-        // Pass the currentUser to the action
-        const fetchedOrders = await getOrdersAction(currentUser);
+        // Fetch both orders and all users in parallel
+        const [fetchedOrders, fetchedUsers] = await Promise.all([
+          getOrdersAction(currentUser),
+          getUsersAction()
+        ]);
         setOrders(fetchedOrders);
+        setUsers(fetchedUsers);
       } catch (error) {
-        console.error("Failed to fetch orders:", error);
-        toast({ title: "Error", description: "Could not fetch orders.", variant: "destructive" });
+        console.error("Failed to fetch data:", error);
+        toast({ title: "Error", description: "Could not fetch orders or user data.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchOrders();
-  }, [toast, currentUser]); // Re-run when currentUser changes
+    fetchData();
+  }, [toast, currentUser]);
 
   const handleExport = () => {
     toast({
@@ -60,8 +65,10 @@ export default function OrdersPage() {
       description: "This feature is currently under development. Please check back later!",
       variant: "default",
     });
-    // In a real app, you would implement CSV generation and download here.
-    // console.log("Exporting orders:", orders); 
+  };
+  
+  const getUserName = (userId: string) => {
+    return users.find(u => u.id === userId)?.name || 'N/A';
   };
   
   if (isLoading) {
@@ -130,7 +137,7 @@ export default function OrdersPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-                    const userName = users.find(u => u.id === order.userId)?.name || 'N/A';
+                    const userName = getUserName(order.userId);
                     return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium text-primary hover:underline">

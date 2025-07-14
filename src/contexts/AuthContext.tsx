@@ -3,10 +3,9 @@
 "use client";
 
 import type { User } from '@/lib/types';
-import { users } from '@/data/appRepository';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser } from '@/lib/actions'; // Import the new server action
+import { getUser, getUserByUsername } from '@/lib/actions'; // Import server actions
 
 interface AuthContextType {
   currentUser: User | null;
@@ -41,9 +40,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = useCallback(async (username_input: string, password_input: string): Promise<boolean> => {
-    const user = users.find(u => u.username === username_input && u.password === password_input);
-    if (user) {
-      const userToStore = { ...user };
+    // Now we call the server action to find the user
+    const user = await getUserByUsername(username_input);
+    
+    if (user && user.password === password_input) {
+      // Don't store the password in the client state
+      const { password, ...userToStore } = user;
       setCurrentUser(userToStore);
       localStorage.setItem('currentUserId', userToStore.id);
       return true;

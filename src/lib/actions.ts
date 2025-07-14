@@ -1,229 +1,209 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, UserRole, Invoice } from "@/lib/types";
-import { 
-  branches, 
-  users as allUsers,
-  saveOrder as saveOrderToRepository, 
-  getOrders as getOrdersFromRepository, 
-  getOrderById as getOrderByIdFromRepository,
-  saveUser as saveUserToRepository,
-  getUsers as getUsersFromRepository,
-  getUserByUsername,
-  allInvoiceUploads, // Use the new persistent list
-  addInvoiceUpload,    // Use the function to add new uploads
-  updateOrder as updateOrderInRepository
-} from "@/data/appRepository";
-import { redirect } from "next/navigation";
-import { getItemByCode } from "@/data/inventoryItems";
+import type { CartItem, Order, OrderItem, User, Invoice } from "@/lib/types";
+import pool from '@/lib/db';
+import type { RowDataPacket, OkPacket } from 'mysql2';
 
+// Helper to get all users, now from the database
+async function getAllUsersFromDB(): Promise<User[]> {
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, branchId, role FROM users");
+    return rows as User[];
+}
 
 export async function submitOrderAction(cartItems: CartItem[], branchId: string, userId: string): Promise<{ success: boolean; orderId?: string; error?: string }> {
   if (!cartItems || cartItems.length === 0) {
     return { success: false, error: "Cart is empty." };
   }
-
-  const branch = branches.find(b => b.id === branchId);
-  const user = allUsers.find(u => u.id === userId);
-
-  if (!branch || !user) {
-    return { success: false, error: "Invalid branch or user."}
-  }
-
+  
+  const connection = await pool.getConnection();
   try {
-    const orderItems: OrderItem[] = cartItems.map(item => ({
-      itemId: item.code,
-      description: item.description,
-      quantity: item.quantity,
-      units: item.units,
-    }));
+    await connection.beginTransaction();
 
-    const newOrder: Order = {
-      id: `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newOrder: Omit<Order, 'items' | 'invoiceFileNames'> = {
+      id: orderId,
       branchId,
       userId,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
       status: "Pending",
-      items: orderItems,
-      totalItems: orderItems.reduce((sum, item) => sum + item.quantity, 0),
+      totalItems: cartItems.reduce((sum, item) => sum + item.quantity, 0),
     };
 
-    saveOrderToRepository(newOrder); 
+    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems) VALUES (?, ?, ?, ?, ?, ?)", 
+      [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems]
+    );
 
-    console.log("Order submitted:", newOrder);
+    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units]);
+    await connection.query("INSERT INTO order_items (orderId, itemId, description, quantity, units) VALUES ?", [orderItemsValues]);
 
-    return { success: true, orderId: newOrder.id };
+    await connection.commit();
+    return { success: true, orderId: orderId };
   } catch (error) {
+    await connection.rollback();
     console.error("Failed to submit order:", error);
-    return { success: false, error: "Failed to submit order. Please try again." };
+    return { success: false, error: "Database error: Failed to submit order." };
+  } finally {
+    connection.release();
   }
 }
 
 export async function getOrdersAction(user: User | null): Promise<Order[]> {
-    if (!user) {
-        return []; // Return no orders if user is not logged in
-    }
+    if (!user) return [];
 
-    const allOrders = getOrdersFromRepository();
+    let query = `
+        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems,
+               oi.itemId, oi.description, oi.quantity, oi.units,
+               inv.fileName as invoiceFileName
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.orderId
+        LEFT JOIN invoices inv ON o.id = inv.orderId
+    `;
+    const params: (string | number)[] = [];
 
-    // Admin, superadmin, and purchase roles see all orders
-    if (user.role === 'admin' || user.role === 'superadmin' || user.role === 'purchase') {
-        return Promise.resolve(allOrders);
-    }
-    
-    // Employees see only their own orders
     if (user.role === 'employee') {
-        return Promise.resolve(allOrders.filter(order => order.userId === user.id));
+        query += " WHERE o.userId = ?";
+        params.push(user.id);
     }
-    
-    return []; // Default to no orders if role is unrecognized
+
+    query += " ORDER BY o.createdAt DESC";
+
+    const [rows] = await pool.query<RowDataPacket[]>(query, params);
+
+    const ordersMap: { [key: string]: Order } = {};
+    rows.forEach(row => {
+        if (!ordersMap[row.id]) {
+            ordersMap[row.id] = {
+                id: row.id,
+                branchId: row.branchId,
+                userId: row.userId,
+                createdAt: new Date(row.createdAt).toISOString(),
+                status: row.status,
+                totalItems: row.totalItems,
+                items: [],
+                invoiceFileNames: [],
+            };
+        }
+        if (row.itemId) {
+            ordersMap[row.id].items.push({
+                itemId: row.itemId,
+                description: row.description,
+                quantity: row.quantity,
+                units: row.units,
+            });
+        }
+         if (row.invoiceFileName && !ordersMap[row.id].invoiceFileNames?.includes(row.invoiceFileName)) {
+            ordersMap[row.id].invoiceFileNames?.push(row.invoiceFileName);
+        }
+    });
+
+    return Object.values(ordersMap);
 }
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-  return Promise.resolve(getOrderByIdFromRepository(orderId));
-}
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT * FROM orders WHERE id = ?", [orderId]);
+    if (orderRows.length === 0) return undefined;
 
-// Action to get user by ID - useful for rehydrating auth state
-export async function getUser(userId: string): Promise<User | null> {
-    const user = allUsers.find(u => u.id === userId) || null;
-    if (user) {
-        const { password, ...userWithoutPassword } = user; // Never send password to client
-        return userWithoutPassword as User;
-    }
-    return null;
-}
+    const orderData = orderRows[0];
+    const [itemRows] = await pool.query<RowDataPacket[]>("SELECT * FROM order_items WHERE orderId = ?", [orderId]);
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId = ?", [orderId]);
 
-
-// Action to get all users (without passwords)
-export async function getUsersAction(): Promise<User[]> {
-  try {
-    const users = getUsersFromRepository();
-    return users;
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return [];
-  }
-}
-
-// Action to add a new user
-interface AddUserResult {
-  success: boolean;
-  error?: string;
-}
-
-export async function addUserAction(userData: Omit<User, 'id'>): Promise<AddUserResult> {
-  // Basic validation
-  if (!userData.username || !userData.password || !userData.name || !userData.branchId || !userData.role) {
-    return { success: false, error: "All fields are required." };
-  }
-
-  // Check if username already exists
-  if (getUserByUsername(userData.username)) {
-      return { success: false, error: "Username already exists. Please choose another." };
-  }
-
-  try {
-    const newUser: User = {
-      id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      ...userData,
+    const order: Order = {
+        id: orderData.id,
+        branchId: orderData.branchId,
+        userId: orderData.userId,
+        createdAt: new Date(orderData.createdAt).toISOString(),
+        status: orderData.status,
+        totalItems: orderData.totalItems,
+        items: itemRows as OrderItem[],
+        invoiceFileNames: invoiceRows.map(r => r.fileName)
     };
-    saveUserToRepository(newUser);
-    return { success: true };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    console.error("Error adding user:", errorMessage);
-    return { success: false, error: errorMessage };
-  }
+    return order;
 }
 
-// Action to handle invoice uploads
+export async function getUser(userId: string): Promise<User | null> {
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, branchId, role FROM users WHERE id = ?", [userId]);
+    return (rows[0] as User) || null;
+}
+
+export async function getUserByUsername(username: string): Promise<User | null> {
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM users WHERE username = ?", [username]);
+    return (rows[0] as User) || null;
+}
+
+export async function getUsersAction(): Promise<User[]> {
+    return getAllUsersFromDB();
+}
+
+export async function addUserAction(userData: Omit<User, 'id'>): Promise<{ success: boolean; error?: string }> {
+    if (!userData.username || !userData.password || !userData.name || !userData.branchId || !userData.role) {
+        return { success: false, error: "All fields are required." };
+    }
+    
+    const existingUser = await getUserByUsername(userData.username);
+    if (existingUser) {
+        return { success: false, error: "Username already exists. Please choose another." };
+    }
+
+    const newUser: User = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        ...userData,
+    };
+
+    try {
+        await pool.query("INSERT INTO users (id, username, password, name, branchId, role) VALUES (?, ?, ?, ?, ?, ?)", 
+          [newUser.id, newUser.username, newUser.password, newUser.name, newUser.branchId, newUser.role]
+        );
+        return { success: true };
+    } catch (error) {
+        console.error("Error adding user:", error);
+        return { success: false, error: "Database error occurred while adding user." };
+    }
+}
+
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
   try {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
 
-    if (!files || files.length === 0) {
-      return { success: false, error: 'No files were uploaded.' };
-    }
-     if (!userId) {
-      return { success: false, error: 'User is not authenticated.' };
-    }
+    if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
+    if (!userId) return { success: false, error: 'User is not authenticated.' };
 
-    console.log(`User ${userId} is uploading ${files.length} invoices.`);
+    const invoiceValues = files.map(file => [file.name, userId]);
     
-    // ---
-    // In a real application, you would process each file here:
-    // - Generate a unique filename
-    // - Upload to a cloud storage service (e.g., Firebase Storage, AWS S3)
-    // - Save metadata (filename, URL, uploaderId, timestamp) to your database
-    // For this prototype, we'll just log the file details.
-    // ---
+    // Using INSERT IGNORE to prevent errors on duplicate filenames.
+    // In a real app, you'd handle file storage and generate unique names first.
+    await pool.query("INSERT IGNORE INTO invoices (fileName, uploaderId) VALUES ?", [invoiceValues]);
     
-    for (const file of files) {
-      console.log(`Simulating upload for: ${file.name} (${file.size} bytes)`);
-      addInvoiceUpload(file.name); // Add to the persistent list of all uploads
-    }
-
     return { success: true, fileCount: files.length };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
-    console.error('Invoice upload failed:', errorMessage);
-    return { success: false, error: errorMessage };
+    console.error('Invoice upload failed:', error);
+    return { success: false, error: 'A database error occurred during invoice upload.' };
   }
 }
 
-
-// Server action to get mock recently uploaded invoices that are not yet attached
 export async function getRecentUploadsAction(): Promise<string[]> {
-    const allOrders = getOrdersFromRepository();
-    const attachedInvoices = new Set(allOrders.flatMap(o => o.invoiceFileNames || []));
-    const unattachedInvoices = allInvoiceUploads.filter(inv => !attachedInvoices.has(inv));
-    return Promise.resolve(unattachedInvoices);
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId IS NULL ORDER BY uploadedAt DESC");
+    return rows.map(r => r.fileName);
 }
 
-// Server action to attach invoices to an order
 export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
+    if (invoiceFileNames.length === 0) return { success: true }; // Nothing to do
     try {
-        const order = getOrderByIdFromRepository(orderId);
-        if (!order) {
-            return { success: false, error: "Order not found." };
-        }
-
-        const updatedOrder: Order = {
-            ...order,
-            invoiceFileNames: [...new Set([...(order.invoiceFileNames || []), ...invoiceFileNames])], // Use Set to avoid duplicates
-        };
-        
-        updateOrderInRepository(updatedOrder);
-
+        const placeholders = invoiceFileNames.map(() => '?').join(',');
+        await pool.query(`UPDATE invoices SET orderId = ? WHERE fileName IN (${placeholders})`, [orderId, ...invoiceFileNames]);
         return { success: true };
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An unknown server error occurred.';
-        console.error('Attaching invoices failed:', errorMessage);
-        return { success: false, error: errorMessage };
+        console.error('Attaching invoices failed:', error);
+        return { success: false, error: 'A database error occurred while attaching invoices.' };
     }
 }
 
-// Server action to get all invoices and their attachment status
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const allOrders = getOrdersFromRepository();
-  const invoiceMap = new Map<string, string>(); // Map of invoiceFileName -> orderId
-
-  allOrders.forEach(order => {
-    if (order.invoiceFileNames) {
-      order.invoiceFileNames.forEach(fileName => {
-        invoiceMap.set(fileName, order.id);
-      });
-    }
-  });
-
-  // Use the single source of truth for all uploads
-  const allInvoices = allInvoiceUploads.map(fileName => ({
-    fileName,
-    orderId: invoiceMap.get(fileName) || null,
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices ORDER BY uploadedAt DESC");
+  return rows.map(r => ({
+      fileName: r.fileName,
+      orderId: r.orderId || null,
   }));
-
-  return Promise.resolve(allInvoices);
 }

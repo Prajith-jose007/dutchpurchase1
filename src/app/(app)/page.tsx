@@ -1,14 +1,34 @@
 
+"use client";
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
-import { getOrders } from '@/data/appRepository'; // Assuming some data for display
+import { useEffect, useState } from 'react';
+import { getOrdersAction } from '@/lib/actions';
+import { useAuth } from '@/contexts/AuthContext';
+import { Order } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
-  const currentOrders = getOrders(); // Fetch current orders
-  const recentOrdersCount = currentOrders.filter(o => new Date(o.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
-  const pendingOrdersCount = currentOrders.filter(o => o.status === 'Pending').length;
+  const { currentUser } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (currentUser) {
+      getOrdersAction(currentUser).then(fetchedOrders => {
+        setOrders(fetchedOrders);
+        setIsLoading(false);
+      });
+    } else {
+      setIsLoading(false);
+    }
+  }, [currentUser]);
+
+  const recentOrdersCount = orders.filter(o => new Date(o.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
+  const pendingOrdersCount = orders.filter(o => o.status === 'Pending').length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -24,7 +44,7 @@ export default function DashboardPage() {
             <Icons.OrderList className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{recentOrdersCount}</div>
+            {isLoading ? <Skeleton className="h-8 w-1/4" /> : <div className="text-2xl font-bold">{recentOrdersCount}</div>}
             <p className="text-xs text-muted-foreground">orders placed recently</p>
           </CardContent>
         </Card>
@@ -34,7 +54,7 @@ export default function DashboardPage() {
             <Icons.Archive className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingOrdersCount}</div>
+             {isLoading ? <Skeleton className="h-8 w-1/4" /> : <div className="text-2xl font-bold">{pendingOrdersCount}</div>}
             <p className="text-xs text-muted-foreground">orders awaiting action</p>
           </CardContent>
         </Card>
