@@ -163,7 +163,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     for (const file of files) {
       console.log(`Simulating upload for: ${file.name} (${file.size} bytes)`);
       if (!recentInvoiceUploads.includes(file.name)) {
-        recentInvoiceUploads.push(file.name);
+        recentInvoiceUploads.unshift(file.name); // Add to the beginning of the list
       }
     }
 
@@ -176,7 +176,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 
-// Server action to get mock recently uploaded invoices
+// Server action to get mock recently uploaded invoices that are not yet attached
 export async function getRecentUploadsAction(): Promise<string[]> {
     const allOrders = getOrdersFromRepository();
     const attachedInvoices = new Set(allOrders.flatMap(o => o.invoiceFileNames || []));
@@ -194,7 +194,7 @@ export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNa
 
         const updatedOrder: Order = {
             ...order,
-            invoiceFileNames: [...(order.invoiceFileNames || []), ...invoiceFileNames],
+            invoiceFileNames: [...new Set([...(order.invoiceFileNames || []), ...invoiceFileNames])], // Use Set to avoid duplicates
         };
         
         updateOrderInRepository(updatedOrder);
@@ -220,7 +220,10 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
     }
   });
 
-  const allInvoices = recentInvoiceUploads.map(fileName => ({
+  // Use a Set to get a unique list of all known invoices
+  const allKnownInvoices = new Set([...recentInvoiceUploads, ...invoiceMap.keys()]);
+
+  const allInvoices = Array.from(allKnownInvoices).map(fileName => ({
     fileName,
     orderId: invoiceMap.get(fileName) || null,
   }));
