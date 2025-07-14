@@ -76,7 +76,7 @@ export let allInvoiceUploads: string[] = [
 // Function to add a newly uploaded invoice filename to our persistent list
 export const addInvoiceUpload = (fileName: string) => {
     if (!allInvoiceUploads.includes(fileName)) {
-        allInvoiceUploads.unshift(fileName);
+        allInvoiceUploads.unshift(fileName); // Add to the beginning of the array
     }
 }
 
