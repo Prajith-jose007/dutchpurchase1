@@ -7,9 +7,10 @@ export const branches: Branch[] = [
   { id: 'branch-8', name: 'WORLD TRADE CENTER' },
   { id: 'branch-9', name: 'PRODUCTION CITY' },
   { id: 'branch-10', name: 'ABU DHABI' },
+  { id: 'branch-all', name: 'All Branches' }, // For users not tied to one branch
 ];
 
-export const users: User[] = [
+export let users: User[] = [
   { id: 'user-superadmin', username: 'superadmin', password: 'Pass989#', name: 'Super Admin', branchId: 'branch-all', role: 'superadmin' },
   { id: 'user-admin', username: 'admin', password: 'Dutch@989#', name: 'Admin User', branchId: 'branch-all', role: 'admin' },
   { id: 'user-purchase', username: 'purchase', password: 'Dutch@25', name: 'Purchase User', branchId: 'branch-all', role: 'purchase' },
@@ -75,3 +76,19 @@ export const getOrderById = (orderId: string): Order | undefined => {
 export const getUserByUsername = (username: string): User | undefined => {
   return users.find(u => u.username === username);
 };
+
+export const saveUser = (user: User) => {
+  const existingUser = users.find(u => u.username === user.username);
+  if (existingUser) {
+    throw new Error("Username already exists.");
+  }
+  users.push(user);
+};
+
+export const getUsers = (): User[] => {
+  // Exclude passwords when returning the list of users
+  return users.map(u => {
+    const { password, ...userWithoutPassword } = u;
+    return userWithoutPassword as User;
+  });
+}

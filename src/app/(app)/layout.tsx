@@ -13,10 +13,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Icons.Dashboard },
-  { href: "/ordering", label: "Order Items", icon: Icons.Order },
-  { href: "/orders", label: "My Orders", icon: Icons.OrderList },
-  { href: "/inventory", label: "Inventory", icon: Icons.Inventory },
+  { href: "/", label: "Dashboard", icon: Icons.Dashboard, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/orders", label: "My Orders", icon: Icons.OrderList, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
 ];
 
 const getInitials = (name: string | undefined) => {
@@ -54,6 +55,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
      );
   }
+  
+  const accessibleNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
+
 
   return (
       <SidebarProvider defaultOpen>
@@ -65,7 +69,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {accessibleNavItems.map((item) => (
                 <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton 
                     asChild 

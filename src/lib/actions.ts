@@ -1,8 +1,17 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User } from "@/lib/types";
-import { branches, users, saveOrder as saveOrderToRepository, getOrders as getOrdersFromRepository, getOrderById as getOrderByIdFromRepository } from "@/data/appRepository";
+import type { CartItem, Order, OrderItem, User, UserRole } from "@/lib/types";
+import { 
+  branches, 
+  users as allUsers,
+  saveOrder as saveOrderToRepository, 
+  getOrders as getOrdersFromRepository, 
+  getOrderById as getOrderByIdFromRepository,
+  saveUser as saveUserToRepository,
+  getUsers as getUsersFromRepository,
+  getUserByUsername
+} from "@/data/appRepository";
 import { redirect } from "next/navigation";
 import { getItemByCode } from "@/data/inventoryItems";
 
@@ -13,7 +22,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
   }
 
   const branch = branches.find(b => b.id === branchId);
-  const user = users.find(u => u.id === userId);
+  const user = allUsers.find(u => u.id === userId);
 
   if (!branch || !user) {
     return { success: false, error: "Invalid branch or user."}
@@ -75,10 +84,53 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
 
 // Action to get user by ID - useful for rehydrating auth state
 export async function getUser(userId: string): Promise<User | null> {
-    const user = users.find(u => u.id === userId) || null;
+    const user = allUsers.find(u => u.id === userId) || null;
     if (user) {
         const { password, ...userWithoutPassword } = user; // Never send password to client
         return userWithoutPassword as User;
     }
     return null;
+}
+
+
+// Action to get all users (without passwords)
+export async function getUsersAction(): Promise<User[]> {
+  try {
+    const users = getUsersFromRepository();
+    return users;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return [];
+  }
+}
+
+// Action to add a new user
+interface AddUserResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function addUserAction(userData: Omit<User, 'id'>): Promise<AddUserResult> {
+  // Basic validation
+  if (!userData.username || !userData.password || !userData.name || !userData.branchId || !userData.role) {
+    return { success: false, error: "All fields are required." };
+  }
+
+  // Check if username already exists
+  if (getUserByUsername(userData.username)) {
+      return { success: false, error: "Username already exists. Please choose another." };
+  }
+
+  try {
+    const newUser: User = {
+      id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      ...userData,
+    };
+    saveUserToRepository(newUser);
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    console.error("Error adding user:", errorMessage);
+    return { success: false, error: errorMessage };
+  }
 }
