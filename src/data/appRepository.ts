@@ -8,6 +8,8 @@ export const branches: Branch[] = [
   { id: 'branch-8', name: 'WORLD TRADE CENTER' },
   { id: 'branch-9', name: 'PRODUCTION CITY' },
   { id: 'branch-10', name: 'ABU DHABI' },
+  { id: 'branch-11', name: 'LOTUS ROYALE' },
+  { id: 'branch-12', name: 'CENTRAL KITCHEN' },
   { id: 'branch-all', name: 'All Branches' }, // For users not tied to one branch
 ];
 
@@ -25,4 +27,5 @@ export const branches: Branch[] = [
 
 // All data manipulation functions are now asynchronous SQL queries in `src/lib/actions.ts`.
 // `saveOrder`, `updateOrder`, `getOrders`, `getOrderById`, etc., are removed from here.
+
 
