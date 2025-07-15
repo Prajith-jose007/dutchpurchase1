@@ -41,7 +41,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Recent Orders (Last 7 Days)</CardTitle>
-            <Icons.OrderList className="h-5 w-5 text-muted-foreground" />
+            <Icons.ClipboardList className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-1/4" /> : <div className="text-2xl font-bold">{recentOrdersCount}</div>}
