@@ -1,7 +1,7 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, Invoice } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 
@@ -121,6 +121,17 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     };
     return order;
 }
+
+export async function updateOrderStatusAction(orderId: string, status: OrderStatus): Promise<{ success: boolean; error?: string }> {
+    try {
+        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update order status:", error);
+        return { success: false, error: "Database error: Failed to update status." };
+    }
+}
+
 
 export async function getUser(userId: string): Promise<User | null> {
     const [rows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, branchId, role FROM users WHERE id = ?", [userId]);

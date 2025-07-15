@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction } from '@/lib/actions';
-import type { Order, User } from '@/lib/types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, uploadInvoicesAction } from '@/lib/actions';
+import type { Order, User, OrderStatus } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,17 +14,22 @@ import { branches } from '@/data/appRepository';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useDropzone } from 'react-dropzone';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Image from 'next/image';
 
+const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
 
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'Pending': return 'outline';
-    case 'Approved': return 'default';
-    case 'Processing': return 'default';
-    case 'Shipped': return 'secondary';
-    case 'Delivered': return 'default';
+    case 'Order Received': return 'default';
+    case 'Arrived': return 'secondary';
+    case 'Closed': return 'default';
     case 'Cancelled': return 'destructive';
     default: return 'outline';
   }
@@ -32,6 +37,7 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,53 +47,137 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   const [recentUploads, setRecentUploads] = useState<string[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
+  
+  // State for camera capture
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+  const fetchOrderData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedOrder = await getOrderByIdAction(params.orderId);
+      if (fetchedOrder) {
+        setOrder(fetchedOrder);
+        const user = await getUser(fetchedOrder.userId);
+        setPlacingUser(user);
+      }
+    } catch (error) {
+      console.error("Failed to fetch order data:", error);
+      toast({ title: "Error", description: "Failed to load order details.", variant: "destructive" });
+      setOrder(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [params.orderId, toast]);
 
   useEffect(() => {
-    const orderId = params.orderId;
-    if (!orderId) return;
-
-    const fetchOrderData = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedOrder = await getOrderByIdAction(orderId);
-        if (fetchedOrder) {
-          setOrder(fetchedOrder);
-          const user = await getUser(fetchedOrder.userId);
-          setPlacingUser(user);
+    if (params.orderId) {
+      fetchOrderData();
+    }
+  }, [params.orderId, fetchOrderData]);
+  
+  // Camera permission logic
+  useEffect(() => {
+    if (isAttachInvoiceOpen) {
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
         }
-      } catch (error) {
-        console.error("Failed to fetch order data:", error);
-        setOrder(null); // Ensure no stale data is shown on error
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
+      getCameraPermission();
+    } else {
+        // Stop camera stream when dialog closes
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+    }
+  }, [isAttachInvoiceOpen]);
 
-    fetchOrderData();
-  }, [params.orderId]); // Dependency array is key to re-running on route change
+  const handleStatusChange = async (newStatus: OrderStatus) => {
+    if (!order) return;
+    const result = await updateOrderStatusAction(order.id, newStatus);
+    if (result.success) {
+      toast({ title: "Status Updated", description: `Order status changed to ${newStatus}.` });
+      setOrder(prev => prev ? { ...prev, status: newStatus } : null);
+      if (newStatus === 'Closed') {
+        handleOpenAttachDialog();
+      }
+    } else {
+      toast({ title: "Update Failed", description: result.error, variant: "destructive" });
+    }
+  };
 
   const handleOpenAttachDialog = async () => {
     const uploads = await getRecentUploadsAction();
     setRecentUploads(uploads);
     setSelectedInvoices([]);
+    setCapturedImage(null);
     setIsAttachInvoiceOpen(true);
   };
 
   const handleAttachInvoices = async () => {
-    if (!order || selectedInvoices.length === 0) return;
-
+    if (!order) return;
+    
+    let invoicesToAttach = [...selectedInvoices];
     setIsAttaching(true);
-    const result = await attachInvoicesToOrderAction(order.id, selectedInvoices);
-    setIsAttaching(false);
 
-    if (result.success) {
-      toast({ title: "Invoices Attached", description: `${selectedInvoices.length} invoice(s) have been linked to this order.` });
-      // Refresh order data
-      const updatedOrder = await getOrderByIdAction(order.id);
-      if (updatedOrder) setOrder(updatedOrder);
-      setIsAttachInvoiceOpen(false);
-    } else {
-      toast({ title: "Error", description: result.error || "Could not attach invoices.", variant: "destructive" });
+    if (capturedImage && currentUser) {
+      try {
+        const blob = await (await fetch(capturedImage)).blob();
+        const fileName = `capture-${order.id}-${Date.now()}.png`;
+        const capturedFile = new File([blob], fileName, { type: 'image/png' });
+
+        const formData = new FormData();
+        formData.append('invoices', capturedFile);
+        formData.append('userId', currentUser.id);
+
+        const uploadResult = await uploadInvoicesAction(formData);
+        if (uploadResult.success) {
+            invoicesToAttach.push(fileName);
+        } else {
+             toast({ title: "Capture Upload Failed", description: uploadResult.error, variant: "destructive" });
+        }
+      } catch(e) {
+         toast({ title: "Capture Error", description: "Could not process captured image.", variant: "destructive" });
+      }
+    }
+
+    if (invoicesToAttach.length > 0) {
+        const result = await attachInvoicesToOrderAction(order.id, invoicesToAttach);
+        if (result.success) {
+            toast({ title: "Invoices Attached", description: `${invoicesToAttach.length} invoice(s) have been linked.` });
+            fetchOrderData(); // Refresh order data
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    }
+    
+    setIsAttaching(false);
+    setIsAttachInvoiceOpen(false);
+  };
+  
+  const handleCaptureImage = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (video && canvas) {
+      const context = canvas.getContext('2d');
+      if (context) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        setCapturedImage(canvas.toDataURL('image/png'));
+      }
     }
   };
 
@@ -112,9 +202,9 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
         <Icons.Error className="h-16 w-16 text-destructive mb-4" />
         <h1 className="text-2xl font-headline mb-2">Order Not Found</h1>
         <p className="text-muted-foreground mb-6">The order you are looking for does not exist or could not be retrieved.</p>
-        <Link href="/orders">
+        <Link href="/purchase/notifications">
           <Button variant="outline">
-            <Icons.ClipboardList className="mr-2 h-4 w-4" /> Back to Orders
+            <Icons.ClipboardList className="mr-2 h-4 w-4" /> Back to Notifications
           </Button>
         </Link>
       </div>
@@ -123,7 +213,8 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
 
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
   const userName = placingUser?.name || order.userId;
-  const canAttachInvoices = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role) && ['Delivered', 'Processing'].includes(order.status);
+  const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
+  const canAttachInvoices = canManageOrder && ['Arrived', 'Closed', 'Delivered'].includes(order.status);
 
   return (
     <>
@@ -133,9 +224,9 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
             <h1 className="text-3xl font-headline tracking-tight">Order Details</h1>
             <p className="text-muted-foreground">Information for order #{order.id.substring(0,8)}...</p>
           </div>
-          <Link href="/orders" className="w-full md:w-auto">
+          <Link href="/purchase/notifications" className="w-full md:w-auto">
             <Button variant="outline" className="w-full md:w-auto">
-              <Icons.ClipboardList className="mr-2 h-4 w-4" /> All Orders
+              <Icons.Bell className="mr-2 h-4 w-4" /> All Notifications
             </Button>
           </Link>
         </header>
@@ -150,9 +241,25 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
               <CardTitle className="text-base font-semibold">Date Placed</CardTitle>
               <CardDescription>{new Date(order.createdAt).toLocaleString()}</CardDescription>
             </div>
-            <div>
+             <div>
               <CardTitle className="text-base font-semibold">Status</CardTitle>
-              <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm capitalize">{order.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm capitalize">{order.status}</Badge>
+                {canManageOrder && order.status !== 'Closed' && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                       <Button variant="ghost" size="icon" className="h-6 w-6"><Icons.Settings className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                       {availableStatuses.map(status => (
+                        <DropdownMenuItem key={status} onClick={() => handleStatusChange(status)} disabled={order.status === status}>
+                            {status}
+                        </DropdownMenuItem>
+                       ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
             <div>
               <CardTitle className="text-base font-semibold">Branch</CardTitle>
@@ -183,15 +290,14 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {order.items.map((item) => {
-                    return (
+                  {order.items.map((item) => (
                     <TableRow key={item.itemId}>
                       <TableCell className="font-medium">{item.itemId}</TableCell>
                       <TableCell>{item.description}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell>{item.units}</TableCell>
                     </TableRow>
-                  )})}
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -228,41 +334,75 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
       </div>
 
       <Dialog open={isAttachInvoiceOpen} onOpenChange={setIsAttachInvoiceOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                  <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
-                  <DialogDescription>
-                      Select from the recently uploaded invoices to link them to this order.
-                  </DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-3 max-h-60 overflow-y-auto">
-                  {recentUploads.length > 0 ? (
-                      recentUploads.map(fileName => (
-                          <div key={fileName} className="flex items-center space-x-2">
-                              <Checkbox 
-                                id={fileName}
-                                onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
-                                checked={selectedInvoices.includes(fileName)}
-                              />
-                              <label htmlFor={fileName} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                  {fileName}
-                              </label>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
+            <DialogDescription>Attach existing uploads or capture a new invoice image.</DialogDescription>
+          </DialogHeader>
+            <Tabs defaultValue="upload" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="upload">Select Upload</TabsTrigger>
+                    <TabsTrigger value="capture">Capture Image</TabsTrigger>
+                </TabsList>
+                <TabsContent value="upload">
+                     <div className="py-4 space-y-3 max-h-60 overflow-y-auto">
+                        {recentUploads.length > 0 ? (
+                            recentUploads.map(fileName => (
+                                <div key={fileName} className="flex items-center space-x-2">
+                                    <Checkbox 
+                                        id={fileName}
+                                        onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
+                                        checked={selectedInvoices.includes(fileName)}
+                                    />
+                                    <label htmlFor={fileName} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        {fileName}
+                                    </label>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">No recent invoices available to attach.</p>
+                        )}
+                    </div>
+                </TabsContent>
+                <TabsContent value="capture">
+                   <div className="py-4 space-y-4">
+                      {capturedImage ? (
+                          <div className="space-y-4">
+                              <Image src={capturedImage} alt="Captured Invoice" width={400} height={300} className="rounded-md mx-auto" />
+                              <Button variant="outline" onClick={() => setCapturedImage(null)} className="w-full">
+                                <Icons.Remove className="mr-2 h-4 w-4" /> Retake
+                              </Button>
                           </div>
-                      ))
-                  ) : (
-                      <p className="text-sm text-muted-foreground text-center">No recent invoices available to attach.</p>
-                  )}
-              </div>
-              <DialogFooter>
-                  <DialogClose asChild>
-                    <Button type="button" variant="secondary">Cancel</Button>
-                  </DialogClose>
-                  <Button onClick={handleAttachInvoices} disabled={isAttaching || selectedInvoices.length === 0}>
-                      {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
-                      Attach Selected
-                  </Button>
-              </DialogFooter>
-          </DialogContent>
+                      ) : (
+                        <>
+                          <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
+                              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                              {hasCameraPermission === false && (
+                                <div className="absolute inset-0 flex items-center justify-center p-4">
+                                  <Alert variant="destructive">
+                                    <AlertTitle>Camera Access Required</AlertTitle>
+                                    <AlertDescription>Please allow camera access to use this feature.</AlertDescription>
+                                  </Alert>
+                                </div>
+                              )}
+                          </div>
+                          <Button onClick={handleCaptureImage} disabled={!hasCameraPermission} className="w-full">
+                              <Icons.Camera className="mr-2 h-4 w-4" /> Capture Invoice
+                          </Button>
+                        </>
+                      )}
+                      <canvas ref={canvasRef} className="hidden"></canvas>
+                   </div>
+                </TabsContent>
+            </Tabs>
+          <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+            <Button onClick={handleAttachInvoices} disabled={isAttaching || (selectedInvoices.length === 0 && !capturedImage)}>
+              {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
+              Attach Selected
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </>
   );

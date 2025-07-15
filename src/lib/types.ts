@@ -21,12 +21,14 @@ export interface OrderItem {
   units: string;
 }
 
+export type OrderStatus = 'Pending' | 'Order Received' | 'Arrived' | 'Closed' | 'Cancelled' | 'Approved' | 'Processing' | 'Shipped' | 'Delivered';
+
 export interface Order {
   id: string;
   branchId: string;
   userId: string; // For simplicity, could be a name or ID
   createdAt: string; // ISO date string
-  status: 'Pending' | 'Approved' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  status: OrderStatus;
   items: OrderItem[];
   totalItems: number;
   invoiceFileNames?: string[]; // Optional: List of attached invoice filenames

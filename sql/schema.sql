@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `branchId` VARCHAR(191) NOT NULL,
   `userId` VARCHAR(191) NOT NULL,
   `createdAt` DATETIME NOT NULL,
-  `status` ENUM('Pending', 'Approved', 'Processing', 'Shipped', 'Delivered', 'Cancelled') NOT NULL,
+  `status` ENUM('Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled', 'Approved', 'Processing', 'Shipped', 'Delivered') NOT NULL,
   `totalItems` INT NOT NULL,
   FOREIGN KEY (`userId`) REFERENCES `users`(`id`)
 );
