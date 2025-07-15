@@ -40,28 +40,17 @@ import {
   Upload,
   File,
   BarChartHorizontal,
+  Bell,
 } from 'lucide-react';
 import type React from 'react';
 import Image from 'next/image';
-
-const Logo = ({ className }: { className?: string }) => (
-  <Image 
-    src="/logo.png" 
-    alt="Dutch Oriental Logo" 
-    width={140} 
-    height={43} 
-    priority 
-    className={className} 
-    data-ai-hint="company logo"
-  />
-);
 
 
 export const Icons = {
   Dashboard: LayoutGrid,
   Inventory: Package,
   Order: ShoppingCart,
-  OrderList: ClipboardList,
+  ClipboardList: ClipboardList,
   Branches: Users, 
   Settings: Settings, 
   Login: LogIn, 
@@ -98,7 +87,7 @@ export const Icons = {
   File: File,
   Reports: BarChartHorizontal,
   ChevronRight: ChevronRight,
-  Logo: Logo, // Use the new Image-based Logo component
+  Bell: Bell,
 };
 
 // Fallback or generic category icons
