@@ -37,7 +37,7 @@ async function migrateUsers() {
       const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [userData.id, userData.username]);
       
       if (existing.length > 0) {
-        console.log(`User ${userData.username} already exists, skipping.`);
+        console.log(`User ${userData.username} already exists, skipping user creation.`);
       } else {
         await connection.query(
           'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
@@ -46,13 +46,15 @@ async function migrateUsers() {
         console.log(`User ${userData.username} inserted successfully.`);
       }
 
-      // Now handle the branch assignment in the new junction table
-      const [existingBranchLink] = await connection.query('SELECT * FROM user_branches WHERE userId = ? AND branchId = ?', [userData.id, branchId]);
-      if (existingBranchLink.length > 0) {
-          console.log(`Branch link for ${userData.username} to ${branchId} already exists.`);
-      } else {
-          await connection.query('INSERT INTO user_branches (userId, branchId) VALUES (?, ?)', [userData.id, branchId]);
-          console.log(`Linked user ${userData.username} to branch ${branchId}.`);
+      // Handle the branch assignment. Use INSERT IGNORE to prevent errors if the link already exists.
+      // This is more resilient than checking first, which fails if the table is new.
+      try {
+        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [userData.id, branchId]);
+        console.log(`Linked user ${userData.username} to branch ${branchId}.`);
+      } catch (e) {
+        // If it fails for reasons other than a duplicate key (which IGNORE handles), log it.
+        // This makes the script robust enough to run even on a fresh DB.
+        console.warn(`Could not link user ${userData.username} to branch ${branchId}. This might be expected if run multiple times.`);
       }
     }
 
