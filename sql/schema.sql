@@ -1,7 +1,8 @@
 
 -- Main schema for the Restaurant Supply Hub application
+-- Defines tables for users, branches, orders, items, and invoices.
+-- Key lengths are set to VARCHAR(128) to avoid "key was too long" errors on some MySQL setups.
 
--- Users table to store user credentials and roles
 CREATE TABLE IF NOT EXISTS `users` (
   `id` VARCHAR(128) NOT NULL,
   `username` VARCHAR(128) NOT NULL UNIQUE,
@@ -11,7 +12,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`)
 );
 
--- Branches are static, but this table links users to one or more branches
 CREATE TABLE IF NOT EXISTS `user_branches` (
   `userId` VARCHAR(128) NOT NULL,
   `branchId` VARCHAR(128) NOT NULL,
@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS `user_branches` (
   FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
 
--- Orders table to store purchase order headers
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` VARCHAR(128) NOT NULL,
   `branchId` VARCHAR(128) NOT NULL,
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS `orders` (
   FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT
 );
 
--- Order items table for details of each order
 CREATE TABLE IF NOT EXISTS `order_items` (
   `orderId` VARCHAR(128) NOT NULL,
   `itemId` VARCHAR(128) NOT NULL,
@@ -42,9 +40,8 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE CASCADE
 );
 
--- Invoices table to track uploaded invoice files
 CREATE TABLE IF NOT EXISTS `invoices` (
-  `fileName` VARCHAR(255) NOT NULL,
+  `fileName` VARCHAR(128) NOT NULL,
   `uploaderId` VARCHAR(128) NOT NULL,
   `orderId` VARCHAR(128),
   `uploadedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
