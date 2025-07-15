@@ -16,13 +16,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Icons, getCategoryIcon } from '@/components/icons';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const ITEMS_PER_PAGE = 12;
 
 export default function OrderingPage() {
   const { addToCart, cartItems, updateQuantity, getItemQuantity } = useCart();
+  const { currentUser } = useAuth();
+  const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStoreId, setSelectedStoreId] = useState<string>(branches[0]?.id || '');
@@ -31,9 +35,19 @@ export default function OrderingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   
   const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    // Protect the route: redirect 'purchase' role away from this page
+    if (currentUser && currentUser.role === 'purchase') {
+      toast({
+        title: "Access Denied",
+        description: "You do not have permission to create new orders.",
+        variant: "destructive"
+      });
+      router.push('/orders'); // Redirect to a page they can access
+    }
+  }, [currentUser, router]);
 
 
   const itemTypes = useMemo(() => getItemTypes(), []);
@@ -83,19 +97,12 @@ export default function OrderingPage() {
   const getItemByCode = (code: string) => allItems.find(item => item.code === code);
 
 
-  if (!isClient) {
+  if (!isClient || (currentUser && currentUser.role === 'purchase')) {
+    // Render a loading/redirecting state if not client-side yet or if user is being redirected
     return (
-       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <div className="w-full md:w-1/3 h-10 bg-muted rounded-md animate-pulse"></div>
-          <div className="w-full md:w-1/4 h-10 bg-muted rounded-md animate-pulse"></div>
-          <div className="w-full md:w-1/4 h-10 bg-muted rounded-md animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
-            <Card key={i} className="h-80 bg-muted rounded-lg animate-pulse"></Card>
-          ))}
-        </div>
+       <div className="flex justify-center items-center h-full">
+        <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-lg">Loading...</p>
       </div>
     );
   }
