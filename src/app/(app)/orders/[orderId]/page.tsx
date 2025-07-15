@@ -114,7 +114,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
         <p className="text-muted-foreground mb-6">The order you are looking for does not exist or could not be retrieved.</p>
         <Link href="/orders">
           <Button variant="outline">
-            <Icons.OrderList className="mr-2 h-4 w-4" /> Back to Orders
+            <Icons.ClipboardList className="mr-2 h-4 w-4" /> Back to Orders
           </Button>
         </Link>
       </div>
@@ -135,7 +135,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
           </div>
           <Link href="/orders" className="w-full md:w-auto">
             <Button variant="outline" className="w-full md:w-auto">
-              <Icons.OrderList className="mr-2 h-4 w-4" /> All Orders
+              <Icons.ClipboardList className="mr-2 h-4 w-4" /> All Orders
             </Button>
           </Link>
         </header>
@@ -267,7 +267,3 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     </>
   );
 }
-
-    
-
-    
