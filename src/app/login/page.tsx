@@ -51,7 +51,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="space-y-1 text-center">
-          <Icons.Logo className="mx-auto h-16 w-auto text-primary mb-4" />
+          <Icons.Logo className="mx-auto h-auto text-primary mb-4" />
           <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
           <CardDescription>Enter your credentials to log in</CardDescription>
         </CardHeader>
@@ -100,6 +100,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-// Ensure Login icon is available
-Icons.Login = Icons.Login || Icons.ChevronRight; // Fallback if Login icon doesn't exist
