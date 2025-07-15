@@ -1,8 +1,9 @@
 
-import mysql from 'mysql2/promise';
-import fs from 'fs/promises';
-import path from 'path';
+// scripts/db-setup.js
 require('dotenv').config();
+const mysql = require('mysql2/promise');
+const fs = require('fs/promises');
+const path = require('path');
 
 async function setupDatabase() {
   console.log('Starting database setup...');

@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:setup": "ts-node scripts/db-setup.ts",
+    "db:setup": "node scripts/db-setup.js",
     "migrate:data": "node scripts/migrate-data.js",
     "postinstall": "patch-package"
   },
