@@ -173,6 +173,49 @@ export async function addUserAction(userData: Omit<User, 'id'>): Promise<{ succe
     }
 }
 
+export async function updateUserAction(userId: string, userData: Partial<Pick<User, 'name' | 'branchId' | 'role' | 'password'>>): Promise<{ success: boolean, error?: string }> {
+    const { name, branchId, role, password } = userData;
+    if (!name || !branchId || !role) {
+        return { success: false, error: 'Name, branch, and role are required.' };
+    }
+    try {
+        if (password && password.length >= 6) {
+            // If a new password is provided, update it
+            await pool.query(
+                "UPDATE users SET name = ?, branchId = ?, role = ?, password = ? WHERE id = ?", 
+                [name, branchId, role, password, userId]
+            );
+        } else {
+            // Otherwise, update everything except the password
+            await pool.query(
+                "UPDATE users SET name = ?, branchId = ?, role = ? WHERE id = ?",
+                [name, branchId, role, userId]
+            );
+        }
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update user:', error);
+        return { success: false, error: 'Database error occurred while updating user.' };
+    }
+}
+
+
+export async function deleteUserAction(userId: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        // You might want to add a check here to prevent a user from deleting themselves
+        const [result] = await pool.query<OkPacket>("DELETE FROM users WHERE id = ?", [userId]);
+        if (result.affectedRows > 0) {
+            return { success: true };
+        } else {
+            return { success: false, error: 'User not found or could not be deleted.' };
+        }
+    } catch (error) {
+        console.error('Failed to delete user:', error);
+        return { success: false, error: 'Database error occurred while deleting user.' };
+    }
+}
+
+
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
   try {
     const files = formData.getAll('invoices') as File[];
