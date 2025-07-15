@@ -14,6 +14,7 @@ import { uploadInvoicesAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface UploadableFile {
   file: File;
@@ -175,7 +176,17 @@ export default function InvoiceUploadPage() {
           )}
 
           <div className="flex justify-end pt-4">
-            <Button onClick={handleUpload} disabled={isUploading || files.length === 0} size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Button 
+              onClick={handleUpload} 
+              disabled={isUploading || files.length === 0} 
+              size="lg" 
+              className={cn(
+                "text-accent-foreground",
+                currentUser?.role === 'purchase' 
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : "bg-accent hover:bg-accent/90"
+              )}
+            >
               {isUploading ? (
                 <>
                   <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" />

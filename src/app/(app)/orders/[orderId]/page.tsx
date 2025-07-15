@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDropzone } from 'react-dropzone';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
 
@@ -214,7 +215,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
   const userName = placingUser?.name || order.userId;
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
-  const canAttachInvoices = canManageOrder && ['Arrived', 'Closed', 'Delivered'].includes(order.status);
+  const canAttachInvoices = canManageOrder && ['Arrived', 'Closed'].includes(order.status);
 
   return (
     <>
@@ -325,7 +326,14 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
               Contact support for any questions about this order.
             </p>
             {canAttachInvoices && (
-              <Button onClick={handleOpenAttachDialog}>
+              <Button 
+                onClick={handleOpenAttachDialog}
+                className={cn(
+                  currentUser?.role === 'purchase'
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : ""
+                )}
+              >
                   <Icons.Upload className="mr-2 h-4 w-4" /> Attach Invoices
               </Button>
             )}
@@ -397,7 +405,15 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
             </Tabs>
           <DialogFooter>
             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-            <Button onClick={handleAttachInvoices} disabled={isAttaching || (selectedInvoices.length === 0 && !capturedImage)}>
+            <Button 
+              onClick={handleAttachInvoices} 
+              disabled={isAttaching || (selectedInvoices.length === 0 && !capturedImage)}
+              className={cn(
+                  currentUser?.role === 'purchase'
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : ""
+                )}
+            >
               {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
               Attach Selected
             </Button>
