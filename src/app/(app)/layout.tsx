@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const navItems = [
   { href: "/", label: "Dashboard", icon: Icons.Dashboard, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
-  { href: "/orders", label: "My Orders", icon: Icons.OrderList, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/orders", label: "My Orders", icon: Icons.ClipboardList, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/invoices/upload", label: "Upload Invoices", icon: Icons.UploadCloud, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
