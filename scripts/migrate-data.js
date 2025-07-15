@@ -13,7 +13,7 @@ const initialUsers = [
 ];
 
 async function migrateUsers() {
-  console.log('Starting user migration...');
+  console.log('Starting user migration with multi-branch support...');
   
   let connection;
   try {
@@ -32,17 +32,27 @@ async function migrateUsers() {
       // For this script, we'll use a simple default password 'password123'
       // In a real application, passwords should be securely hashed.
       const password = 'password123'; 
+      const { branchId, ...userData } = user;
       
-      const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [user.id, user.username]);
+      const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [userData.id, userData.username]);
       
       if (existing.length > 0) {
-        console.log(`User ${user.username} already exists, skipping.`);
+        console.log(`User ${userData.username} already exists, skipping.`);
       } else {
         await connection.query(
-          'INSERT INTO users (id, username, password, name, branchId, role) VALUES (?, ?, ?, ?, ?, ?)',
-          [user.id, user.username, password, user.name, user.branchId, user.role]
+          'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
+          [userData.id, userData.username, password, userData.name, userData.role]
         );
-        console.log(`User ${user.username} inserted successfully.`);
+        console.log(`User ${userData.username} inserted successfully.`);
+      }
+
+      // Now handle the branch assignment in the new junction table
+      const [existingBranchLink] = await connection.query('SELECT * FROM user_branches WHERE userId = ? AND branchId = ?', [userData.id, branchId]);
+      if (existingBranchLink.length > 0) {
+          console.log(`Branch link for ${userData.username} to ${branchId} already exists.`);
+      } else {
+          await connection.query('INSERT INTO user_branches (userId, branchId) VALUES (?, ?)', [userData.id, branchId]);
+          console.log(`Linked user ${userData.username} to branch ${branchId}.`);
       }
     }
 

@@ -5,11 +5,20 @@ import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus } from "@/l
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 
-// Helper to get all users, now from the database
-async function getAllUsersFromDB(): Promise<User[]> {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, branchId, role FROM users");
-    return rows as User[];
+async function fetchUsersWithBranches(): Promise<User[]> {
+    const query = `
+        SELECT u.id, u.username, u.name, u.role, GROUP_CONCAT(ub.branchId) as branchIds
+        FROM users u
+        LEFT JOIN user_branches ub ON u.id = ub.userId
+        GROUP BY u.id, u.username, u.name, u.role
+    `;
+    const [rows] = await pool.query<RowDataPacket[]>(query);
+    return rows.map(row => ({
+        ...row,
+        branchIds: row.branchIds ? row.branchIds.split(',') : [],
+    })) as User[];
 }
+
 
 export async function submitOrderAction(cartItems: CartItem[], branchId: string, userId: string): Promise<{ success: boolean; orderId?: string; error?: string }> {
   if (!cartItems || cartItems.length === 0) {
@@ -134,75 +143,109 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
 
 
 export async function getUser(userId: string): Promise<User | null> {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, branchId, role FROM users WHERE id = ?", [userId]);
-    return (rows[0] as User) || null;
+    const [userRows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, role FROM users WHERE id = ?", [userId]);
+    if(userRows.length === 0) return null;
+
+    const [branchRows] = await pool.query<RowDataPacket[]>("SELECT branchId FROM user_branches WHERE userId = ?", [userId]);
+    
+    const user = userRows[0] as User;
+    user.branchIds = branchRows.map(r => r.branchId);
+    
+    return user;
 }
 
 export async function getUserByUsername(username: string): Promise<User | null> {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM users WHERE username = ?", [username]);
-    return (rows[0] as User) || null;
+    const [userRows] = await pool.query<RowDataPacket[]>("SELECT * FROM users WHERE username = ?", [username]);
+    if (userRows.length === 0) return null;
+
+    const user = userRows[0] as User;
+    const [branchRows] = await pool.query<RowDataPacket[]>("SELECT branchId FROM user_branches WHERE userId = ?", [user.id]);
+    user.branchIds = branchRows.map(r => r.branchId);
+
+    return user;
 }
 
 export async function getUsersAction(): Promise<User[]> {
-    return getAllUsersFromDB();
+    return fetchUsersWithBranches();
 }
 
-export async function addUserAction(userData: Omit<User, 'id'>): Promise<{ success: boolean; error?: string }> {
-    if (!userData.username || !userData.password || !userData.name || !userData.branchId || !userData.role) {
-        return { success: false, error: "All fields are required." };
+export async function addUserAction(data: Omit<User, 'id' | 'password'> & { password?: string; branchIds: string[] }): Promise<{ success: boolean; error?: string }> {
+    const { username, name, role, password, branchIds } = data;
+    if (!username || !name || !role || !password || !branchIds || branchIds.length === 0) {
+        return { success: false, error: "All fields including at least one branch are required." };
     }
     
-    const existingUser = await getUserByUsername(userData.username);
+    const existingUser = await getUserByUsername(username);
     if (existingUser) {
         return { success: false, error: "Username already exists. Please choose another." };
     }
 
-    const newUser: User = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        ...userData,
-    };
+    const userId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const connection = await pool.getConnection();
 
     try {
-        await pool.query("INSERT INTO users (id, username, password, name, branchId, role) VALUES (?, ?, ?, ?, ?, ?)", 
-          [newUser.id, newUser.username, newUser.password, newUser.name, newUser.branchId, newUser.role]
+        await connection.beginTransaction();
+
+        await connection.query("INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)", 
+          [userId, username, password, name, role]
         );
+
+        const branchValues = branchIds.map(branchId => [userId, branchId]);
+        await connection.query("INSERT INTO user_branches (userId, branchId) VALUES ?", [branchValues]);
+
+        await connection.commit();
         return { success: true };
     } catch (error) {
+        await connection.rollback();
         console.error("Error adding user:", error);
         return { success: false, error: "Database error occurred while adding user." };
+    } finally {
+        connection.release();
     }
 }
 
-export async function updateUserAction(userId: string, userData: Partial<Pick<User, 'name' | 'branchId' | 'role' | 'password'>>): Promise<{ success: boolean, error?: string }> {
-    const { name, branchId, role, password } = userData;
-    if (!name || !branchId || !role) {
-        return { success: false, error: 'Name, branch, and role are required.' };
+export async function updateUserAction(userId: string, data: Partial<Pick<User, 'name' | 'role' | 'password' | 'branchIds'>>): Promise<{ success: boolean, error?: string }> {
+    const { name, role, password, branchIds } = data;
+    if (!name || !role || !branchIds || branchIds.length === 0) {
+        return { success: false, error: 'Name, role, and at least one branch are required.' };
     }
+
+    const connection = await pool.getConnection();
+
     try {
+        await connection.beginTransaction();
+
+        let query = "UPDATE users SET name = ?, role = ?";
+        const params: (string|string[])[] = [name, role];
+
         if (password && password.length >= 6) {
-            // If a new password is provided, update it
-            await pool.query(
-                "UPDATE users SET name = ?, branchId = ?, role = ?, password = ? WHERE id = ?", 
-                [name, branchId, role, password, userId]
-            );
-        } else {
-            // Otherwise, update everything except the password
-            await pool.query(
-                "UPDATE users SET name = ?, branchId = ?, role = ? WHERE id = ?",
-                [name, branchId, role, userId]
-            );
+            query += ", password = ?";
+            params.push(password);
         }
+        query += " WHERE id = ?";
+        params.push(userId);
+
+        await connection.query(query, params);
+        
+        // Update branches by deleting old ones and inserting new ones
+        await connection.query("DELETE FROM user_branches WHERE userId = ?", [userId]);
+        const branchValues = branchIds.map(branchId => [userId, branchId]);
+        await connection.query("INSERT INTO user_branches (userId, branchId) VALUES ?", [branchValues]);
+
+        await connection.commit();
         return { success: true };
     } catch (error) {
+        await connection.rollback();
         console.error('Failed to update user:', error);
         return { success: false, error: 'Database error occurred while updating user.' };
+    } finally {
+        connection.release();
     }
 }
 
 
 export async function deleteUserAction(userId: string): Promise<{ success: boolean, error?: string }> {
     try {
-        // You might want to add a check here to prevent a user from deleting themselves
         const [result] = await pool.query<OkPacket>("DELETE FROM users WHERE id = ?", [userId]);
         if (result.affectedRows > 0) {
             return { success: true };

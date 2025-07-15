@@ -46,7 +46,7 @@ export interface User {
   username: string; // Changed from name to username for login
   password?: string; // Added password (plain text for prototype - NOT SECURE)
   name: string; // Display name
-  branchId: string;
+  branchIds: string[]; // Changed from branchId to branchIds
   role: UserRole;
 }
 

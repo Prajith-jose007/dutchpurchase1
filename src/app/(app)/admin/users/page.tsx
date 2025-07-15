@@ -14,6 +14,7 @@ import { branches } from '@/data/appRepository';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -22,25 +23,27 @@ import { Icons } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const addUserSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
   username: z.string().min(3, "Username must be at least 3 characters."),
   password: z.string().min(6, "Password must be at least 6 characters."),
-  branchId: z.string().nonempty("Please select a branch."),
+  branchIds: z.array(z.string()).nonempty({ message: "Please select at least one branch." }),
   role: z.enum(['admin', 'purchase', 'employee']),
 });
 
 const editUserSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
-  branchId: z.string().nonempty("Please select a branch."),
+  branchIds: z.array(z.string()).nonempty({ message: "Please select at least one branch." }),
   role: z.enum(['admin', 'purchase', 'employee']),
   password: z.string().min(6, "New password must be at least 6 characters.").optional().or(z.literal('')),
 });
 
 type AddUserFormData = z.infer<typeof addUserSchema>;
 type EditUserFormData = z.infer<typeof editUserSchema>;
+
+const branchOptions = branches.map(b => ({ value: b.id, label: b.name }));
 
 export default function UserManagementPage() {
   const { currentUser } = useAuth();
@@ -52,12 +55,12 @@ export default function UserManagementPage() {
 
   const addUserForm = useForm<AddUserFormData>({
     resolver: zodResolver(addUserSchema),
-    defaultValues: { name: '', username: '', password: '', branchId: '', role: 'employee' },
+    defaultValues: { name: '', username: '', password: '', branchIds: [], role: 'employee' },
   });
 
   const editUserForm = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
-    defaultValues: { name: '', branchId: '', role: 'employee', password: '' },
+    defaultValues: { name: '', branchIds: [], role: 'employee', password: '' },
   });
 
   const fetchUsers = async () => {
@@ -85,7 +88,7 @@ export default function UserManagementPage() {
     if (selectedUser) {
       editUserForm.reset({
         name: selectedUser.name,
-        branchId: selectedUser.branchId,
+        branchIds: selectedUser.branchIds,
         role: selectedUser.role as 'admin' | 'purchase' | 'employee',
         password: '',
       });
@@ -158,7 +161,7 @@ export default function UserManagementPage() {
                   <FormField control={addUserForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="username" render={({ field }) => (<FormItem><FormLabel>Username</FormLabel><FormControl><Input placeholder="johndoe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="password" render={({ field }) => (<FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={addUserForm.control} name="branchId" render={({ field }) => (<FormItem><FormLabel>Branch</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a branch" /></SelectTrigger></FormControl><SelectContent>{branches.map(branch => (<SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                  <FormField control={addUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="role" render={({ field }) => (<FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent><SelectItem value="employee">Employee</SelectItem><SelectItem value="purchase">Purchase</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                   <Button type="submit" className="w-full" disabled={addUserForm.formState.isSubmitting}>
                     {addUserForm.formState.isSubmitting ? (<Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" />) : (<Icons.Add className="mr-2 h-4 w-4" />)}
@@ -181,7 +184,7 @@ export default function UserManagementPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Username</TableHead>
-                      <TableHead>Branch</TableHead>
+                      <TableHead>Branches</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -191,7 +194,14 @@ export default function UserManagementPage() {
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.username}</TableCell>
-                        <TableCell>{branches.find(b => b.id === user.branchId)?.name || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {user.branchIds.map(branchId => {
+                                const branch = branches.find(b => b.id === branchId);
+                                return branch ? <Badge key={branchId} variant="secondary">{branch.name}</Badge> : null;
+                            })}
+                           </div>
+                        </TableCell>
                         <TableCell><Badge variant={user.role === 'admin' || user.role === 'superadmin' ? 'default' : 'secondary'} className="capitalize">{user.role}</Badge></TableCell>
                         <TableCell className="text-right">
                           {currentUser?.id !== user.id && (
@@ -238,7 +248,7 @@ export default function UserManagementPage() {
           <Form {...editUserForm}>
             <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-4 pt-4">
               <FormField control={editUserForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={editUserForm.control} name="branchId" render={({ field }) => (<FormItem><FormLabel>Branch</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{branches.map(branch => (<SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+              <FormField control={editUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={editUserForm.control} name="role" render={({ field }) => (<FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="employee">Employee</SelectItem><SelectItem value="purchase">Purchase</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               <FormField control={editUserForm.control} name="password" render={({ field }) => (<FormItem><FormLabel>New Password (optional)</FormLabel><FormControl><Input type="password" placeholder="Enter new password" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <DialogFooter className="pt-4">
@@ -255,5 +265,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    

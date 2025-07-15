@@ -29,7 +29,7 @@ export default function OrderingPage() {
   const router = useRouter();
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStoreId, setSelectedStoreId] = useState<string>(branches[0]?.id || '');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedItemType, setSelectedItemType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,6 +38,15 @@ export default function OrderingPage() {
 
   useEffect(() => {
     setIsClient(true);
+    // Set default store if user has one
+    if(currentUser?.branchIds && currentUser.branchIds.length > 0) {
+      // Check if branchId 'branch-all' is not the only one.
+      const userBranches = currentUser.branchIds.filter(b => b !== 'branch-all');
+      if (userBranches.length > 0) {
+        setSelectedStoreId(userBranches[0]);
+      }
+    }
+
     // Protect the route: redirect 'purchase' role away from this page
     if (currentUser && currentUser.role === 'purchase') {
       toast({
@@ -45,7 +54,7 @@ export default function OrderingPage() {
         description: "You do not have permission to create new orders.",
         variant: "destructive"
       });
-      router.push('/orders'); // Redirect to a page they can access
+      router.push('/purchase/notifications'); // Redirect to a page they can access
     }
   }, [currentUser, router]);
 
@@ -95,6 +104,15 @@ export default function OrderingPage() {
   };
 
   const getItemByCode = (code: string) => allItems.find(item => item.code === code);
+  
+  const userSelectableBranches = useMemo(() => {
+     if (!currentUser) return [];
+     if (currentUser.branchIds.includes('branch-all')) {
+         // Exclude 'All Branches' from the list of selectable stores for placing an order
+         return branches.filter(b => b.id !== 'branch-all');
+     }
+     return branches.filter(branch => currentUser.branchIds.includes(branch.id));
+  }, [currentUser]);
 
 
   if (!isClient || (currentUser && currentUser.role === 'purchase')) {
@@ -131,7 +149,7 @@ export default function OrderingPage() {
                   <SelectValue placeholder="Select Store" />
                 </SelectTrigger>
                 <SelectContent>
-                  {branches.map(branch => (
+                  {userSelectableBranches.map(branch => (
                     <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -264,8 +282,8 @@ export default function OrderingPage() {
                 <span>Total Items:</span>
                 <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
               </div>
-              <Link href="/orders/create" className="w-full">
-                <Button size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Link href={`/orders/create?branchId=${selectedStoreId}`} className="w-full">
+                <Button size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={!selectedStoreId}>
                   <Icons.Success className="mr-2 h-5 w-5" /> Proceed to Checkout
                 </Button>
               </Link>

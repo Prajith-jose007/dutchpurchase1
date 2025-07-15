@@ -8,31 +8,39 @@ import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icons } from '@/components/icons';
 import { submitOrderAction } from '@/lib/actions';
-import { branches } from '@/data/appRepository'; // No need for users import here anymore for current user
+import { branches } from '@/data/appRepository';
 import { toast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CreateOrderPage() {
   const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
-  const { currentUser } = useAuth(); // Get current user from AuthContext
+  const { currentUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [selectedBranch, setSelectedBranch] = useState<string>(branches[0]?.id || '');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
     setIsClient(true);
+    const branchIdFromUrl = searchParams.get('branchId');
+    if (branchIdFromUrl) {
+      setSelectedBranchId(branchIdFromUrl);
+    } else if (currentUser?.branchIds && currentUser.branchIds.length === 1 && currentUser.branchIds[0] !== 'branch-all') {
+      setSelectedBranchId(currentUser.branchIds[0]);
+    }
+    
     if (cartItems.length === 0 && isClient) { 
        router.push('/ordering'); 
     }
-  }, [cartItems, router, isClient]);
+  }, [cartItems, router, isClient, searchParams, currentUser]);
 
 
   const handleQuantityChange = (itemId: string, newQuantity: number) => {
@@ -49,8 +57,8 @@ export default function CreateOrderPage() {
       router.push('/login');
       return;
     }
-    if (!selectedBranch) {
-      toast({ title: "Missing Information", description: "Please select a branch.", variant: "destructive" });
+    if (!selectedBranchId) {
+      toast({ title: "Missing Information", description: "Could not determine the branch for this order.", variant: "destructive" });
       return;
     }
     if (cartItems.length === 0) {
@@ -59,8 +67,7 @@ export default function CreateOrderPage() {
     }
 
     setIsSubmitting(true);
-    // Use currentUser.id for the userId parameter
-    const result = await submitOrderAction(cartItems, selectedBranch, currentUser.id);
+    const result = await submitOrderAction(cartItems, selectedBranchId, currentUser.id);
     setIsSubmitting(false);
 
     if (result.success && result.orderId) {
@@ -72,7 +79,7 @@ export default function CreateOrderPage() {
     }
   };
   
-  if (!isClient || !currentUser) { // Also check for currentUser before rendering
+  if (!isClient || !currentUser) {
     return <div className="flex justify-center items-center h-screen"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /> <p className="ml-4 text-lg">Loading checkout...</p></div>;
   }
 
@@ -90,6 +97,8 @@ export default function CreateOrderPage() {
       </div>
     );
   }
+  
+  const selectedBranchName = branches.find(b => b.id === selectedBranchId)?.name || 'N/A';
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
@@ -106,17 +115,8 @@ export default function CreateOrderPage() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="branch-select">Branch</Label>
-              <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled={isSubmitting}>
-                <SelectTrigger id="branch-select" aria-label="Select branch">
-                  <SelectValue placeholder="Select a branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="branch-info">Branch</Label>
+              <Input id="branch-info" value={selectedBranchName} readOnly disabled className="bg-muted/50"/>
             </div>
             <div>
               <Label htmlFor="user-info">User</Label>
@@ -165,7 +165,7 @@ export default function CreateOrderPage() {
               <Icons.Order className="mr-2 h-4 w-4" /> Continue Shopping
             </Button>
           </Link>
-          <Button size="lg" onClick={handleSubmitOrder} disabled={isSubmitting || cartItems.length === 0} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Button size="lg" onClick={handleSubmitOrder} disabled={isSubmitting || cartItems.length === 0 || !selectedBranchId} className="bg-accent hover:bg-accent/90 text-accent-foreground">
             {isSubmitting ? (
               <Icons.Dashboard className="mr-2 h-5 w-5 animate-spin" /> 
             ) : (
