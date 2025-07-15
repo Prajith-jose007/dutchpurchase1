@@ -1,11 +1,10 @@
-
 // src/contexts/AuthContext.tsx
 "use client";
 
 import type { User } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, getUserByUsername } from '@/lib/actions'; // Import server actions
+import { getUser, getUserByUsername, verifyPasswordAction } from '@/lib/actions'; // Import server actions
 
 interface AuthContextType {
   currentUser: User | null;
@@ -40,12 +39,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = useCallback(async (username_input: string, password_input: string): Promise<boolean> => {
-    // Now we call the server action to find the user
-    const user = await getUserByUsername(username_input);
+    // Call the server action to verify the password.
+    const verificationResult = await verifyPasswordAction(username_input, password_input);
     
-    if (user && user.password === password_input) {
-      // Don't store the password in the client state
-      const { password, ...userToStore } = user;
+    if (verificationResult.success && verificationResult.user) {
+      const { password, ...userToStore } = verificationResult.user;
       setCurrentUser(userToStore);
       localStorage.setItem('currentUserId', userToStore.id);
       return true;

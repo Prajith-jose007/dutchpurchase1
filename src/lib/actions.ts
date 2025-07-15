@@ -4,6 +4,9 @@
 import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
+import bcrypt from 'bcrypt';
+
+const SALT_ROUNDS = 10;
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -185,9 +188,11 @@ export async function addUserAction(data: Omit<User, 'id' | 'password'> & { pass
 
     try {
         await connection.beginTransaction();
+        
+        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
         await connection.query("INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)", 
-          [userId, username, password, name, role]
+          [userId, username, hashedPassword, name, role]
         );
 
         const branchValues = branchIds.map(branchId => [userId, branchId]);
@@ -219,8 +224,9 @@ export async function updateUserAction(userId: string, data: Partial<Pick<User, 
         const params: (string|string[])[] = [name, role];
 
         if (password && password.length >= 6) {
+            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
             query += ", password = ?";
-            params.push(password);
+            params.push(hashedPassword);
         }
         query += " WHERE id = ?";
         params.push(userId);
@@ -303,4 +309,26 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
       fileName: r.fileName,
       orderId: r.orderId || null,
   }));
+}
+
+export async function verifyPasswordAction(username: string, plainTextPassword: string): Promise<{ success: boolean; user?: User; error?: string }> {
+    try {
+        const user = await getUserByUsername(username);
+        if (!user || !user.password) {
+            return { success: false, error: "Invalid username or password." };
+        }
+
+        const isMatch = await bcrypt.compare(plainTextPassword, user.password);
+
+        if (isMatch) {
+            // Do not send the password hash back to the client
+            const { password, ...userWithoutPassword } = user;
+            return { success: true, user: userWithoutPassword };
+        } else {
+            return { success: false, error: "Invalid username or password." };
+        }
+    } catch (error) {
+        console.error('Password verification error:', error);
+        return { success: false, error: 'An unexpected server error occurred.' };
+    }
 }

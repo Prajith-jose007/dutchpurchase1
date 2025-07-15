@@ -1,13 +1,11 @@
-
 -- Main schema for the Restaurant Supply Hub application
 -- Defines tables for users, branches, orders, items, and invoices.
--- Key lengths are set to a safe VARCHAR(50) and character sets are explicitly defined
--- to prevent "key was too long" errors on restrictive MySQL setups.
+-- This schema uses utf8mb4 character set for full Unicode support.
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` VARCHAR(50) NOT NULL,
   `username` VARCHAR(50) NOT NULL UNIQUE,
-  `password` VARCHAR(255) NOT NULL,
+  `password` VARCHAR(72) NOT NULL, -- Increased size for bcrypt hashes
   `name` VARCHAR(255) NOT NULL,
   `role` ENUM('superadmin', 'admin', 'purchase', 'employee') NOT NULL,
   PRIMARY KEY (`id`)
@@ -42,7 +40,7 @@ CREATE TABLE IF NOT EXISTS `order_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `invoices` (
-  `fileName` VARCHAR(255) NOT NULL,
+  `fileName` VARCHAR(255) NOT NULL, -- Filename can be long
   `uploaderId` VARCHAR(50) NOT NULL,
   `orderId` VARCHAR(50),
   `uploadedAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
