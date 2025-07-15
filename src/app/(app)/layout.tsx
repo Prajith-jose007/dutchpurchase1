@@ -66,7 +66,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Sidebar>
           <SidebarHeader className="p-4">
             <Link href="/" className="flex items-center gap-2">
-              <Icons.Logo className="h-auto" />
+              <h2 className="font-headline text-2xl font-semibold text-primary">Dutch Oriental</h2>
             </Link>
           </SidebarHeader>
           <SidebarContent>
