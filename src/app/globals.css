@@ -22,7 +22,7 @@
     --muted: 48 15% 85%;
     --muted-foreground: 240 5% 35%;
 
-    --accent: 18 93% 48%; /* HSL(18, 93%, 48%) - #F06210 */
+    --accent: 217 91% 60%; /* HSL(217, 91%, 60%) - A nice blue color */
     --accent-foreground: 0 0% 98%; /* Light text on accent */
 
     --destructive: 0 84.2% 60.2%;
@@ -69,7 +69,7 @@
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 18 93% 48%; /* HSL(18, 93%, 48%) - #F06210 */
+    --accent: 217 91% 60%; /* HSL(217, 91%, 60%) - A nice blue color */
     --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
