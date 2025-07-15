@@ -50,8 +50,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-headline pt-8">Welcome Back</CardTitle>
+        <CardHeader className="space-y-1 text-center p-6">
+           <h1 className="font-headline text-2xl font-bold">Dutch Oriental</h1>
+          <CardTitle className="text-2xl !mt-4">Welcome Back</CardTitle>
           <CardDescription>Enter your credentials to log in</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

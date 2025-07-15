@@ -64,8 +64,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
       <SidebarProvider defaultOpen>
         <Sidebar>
-          <SidebarHeader className="p-4">
-            
+          <SidebarHeader className="p-4 text-center">
+            <h1 className="font-headline text-2xl font-bold text-primary-foreground group-data-[collapsible=icon]:hidden">Dutch Oriental</h1>
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
