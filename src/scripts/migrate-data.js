@@ -1,3 +1,4 @@
+
 // Use require for CommonJS compatibility with node
 require('dotenv').config();
 const mysql = require('mysql2/promise');
@@ -14,7 +15,7 @@ const initialUsers = [
 ];
 
 async function migrateUsers() {
-  console.log('Starting user migration with password hashing...');
+  console.log('Starting user migration and password hashing...');
   
   let connection;
   try {
@@ -30,16 +31,26 @@ async function migrateUsers() {
     await connection.beginTransaction();
     
     for (const user of initialUsers) {
-      // Use a simple default password 'password123' and hash it.
+      // The default password 'password123' will be used for inserts or updates.
       const plainPassword = 'password123'; 
       const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
       const { branchId, ...userData } = user;
       
-      const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [userData.id, userData.username]);
+      const [existing] = await connection.query('SELECT id, password FROM users WHERE username = ?', [userData.username]);
       
       if (existing.length > 0) {
-        console.log(`User ${userData.username} already exists, skipping user creation.`);
+        // User exists, check if password needs hashing/updating
+        const existingUser = existing[0];
+        // A simple check to see if the password is already hashed.
+        // bcrypt hashes start with '$2a$', '$2b$', or '$2y$'.
+        if (!existingUser.password || !existingUser.password.startsWith('$2')) {
+          await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, existingUser.id]);
+          console.log(`Updated password for existing user ${userData.username} to a hashed version.`);
+        } else {
+          console.log(`User ${userData.username} already exists with a hashed password. Skipping password update.`);
+        }
       } else {
+        // User does not exist, insert them with a hashed password
         await connection.query(
           'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
           [userData.id, userData.username, hashedPassword, userData.name, userData.role]
@@ -57,7 +68,7 @@ async function migrateUsers() {
     }
 
     await connection.commit();
-    console.log('User migration completed successfully!');
+    console.log('User migration and hashing completed successfully!');
   } catch (error) {
     if (connection) {
       await connection.rollback();
@@ -65,7 +76,7 @@ async function migrateUsers() {
     console.error('Error during user migration:', error);
   } finally {
     if (connection) {
-      await connection.end(); // End the connection to allow the script to exit
+      await connection.end();
     }
   }
 }

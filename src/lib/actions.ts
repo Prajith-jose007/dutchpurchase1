@@ -97,12 +97,15 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             };
         }
         if (row.itemId) {
-            ordersMap[row.id].items.push({
-                itemId: row.itemId,
-                description: row.description,
-                quantity: row.quantity,
-                units: row.units,
-            });
+            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId);
+            if (!existingItem) {
+                ordersMap[row.id].items.push({
+                    itemId: row.itemId,
+                    description: row.description,
+                    quantity: row.quantity,
+                    units: row.units,
+                });
+            }
         }
          if (row.invoiceFileName && !ordersMap[row.id].invoiceFileNames?.includes(row.invoiceFileName)) {
             ordersMap[row.id].invoiceFileNames?.push(row.invoiceFileName);

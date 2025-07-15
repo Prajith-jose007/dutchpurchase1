@@ -4,7 +4,7 @@
 import type { User } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUser, getUserByUsername, verifyPasswordAction } from '@/lib/actions'; // Import server actions
+import { getUser, verifyPasswordAction } from '@/lib/actions'; // Updated imports
 
 interface AuthContextType {
   currentUser: User | null;
