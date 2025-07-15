@@ -175,12 +175,11 @@ export default function OrderingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
-                const IconComponent = getCategoryIcon(item.category, item.itemType);
+                const IconComponent = getCategoryIcon(item.category, item.itemType) || Icons.Inventory;
 
                 return (
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
                   <CardContent className="p-4 flex-grow">
-                    {item.remark && <Badge variant="destructive" className="mb-2">{item.remark}</Badge>}
                     <CardTitle className="text-lg font-semibold mb-1 line-clamp-2 h-[3em]">{item.description}</CardTitle>
                     <div className="flex items-center text-xs text-muted-foreground mb-2">
                        <IconComponent className="w-3.5 h-3.5 mr-1.5 text-primary" />
@@ -188,7 +187,6 @@ export default function OrderingPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">Code: {item.code}</p>
                     <p className="text-sm text-muted-foreground">Unit: {item.units} (Pack: {item.packing})</p>
-                    <p className="text-sm text-muted-foreground">Shelf Life: {item.shelfLifeDays} days</p>
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
                     {quantityInCart > 0 ? (
@@ -214,8 +212,7 @@ export default function OrderingPage() {
               <div className="flex justify-center items-center space-x-2 pt-6">
                 <Button variant="outline" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
                 <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
-                <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
-              </div>
+                <Button variant="outline" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>              </div>
             )}
           </>
         )}

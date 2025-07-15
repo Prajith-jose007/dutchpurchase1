@@ -102,17 +102,42 @@ export const Icons = {
 };
 
 // Fallback or generic category icons
-export const getCategoryIcon = (categoryType: string, itemType?: string) => {
-  const lowerCategory = categoryType.toLowerCase();
-  const lowerItemType = itemType?.toLowerCase();
+export const getCategoryIcon = (categoryType: string, itemType?: string): React.ComponentType<{ className?: string }> => {
+  const lowerCategory = categoryType?.toLowerCase() || '';
+  const lowerItemType = itemType?.toLowerCase() || '';
 
-  if (lowerCategory.includes('veg') || lowerCategory.includes('fruit') || lowerItemType?.includes('veg') || lowerItemType?.includes('fruit')) return Icons.Vegetables;
-  if (lowerCategory.includes('meat') || lowerCategory.includes('beef') || lowerCategory.includes('chicken')|| lowerCategory.includes('lamb') || lowerItemType?.includes('meat')) return Icons.Meat;
-  if (lowerCategory.includes('fish') || lowerCategory.includes('shrimp') || lowerItemType?.includes('seafood')) return Icons.Seafood;
-  if (lowerCategory.includes('frozen') || lowerItemType?.includes('frozen')) return Icons.Frozen;
-  if (lowerCategory.includes('diary') || lowerCategory.includes('milk') || lowerCategory.includes('cheese') || lowerItemType?.includes('diary')) return Icons.Dairy;
-  if (lowerCategory.includes('dry') || lowerCategory.includes('pasta') || lowerCategory.includes('rice') || lowerCategory.includes('flour') || lowerItemType?.includes('dry')) return Icons.DryGoods;
-  if (lowerCategory.includes('drink') || lowerCategory.includes('juice') || lowerCategory.includes('soda') || lowerItemType?.includes('drinks')) return Icons.Drinks;
+  const iconMap: { [key: string]: React.ComponentType<{ className?: string }> } = {
+    veg: Icons.Vegetables,
+    fruit: Icons.Vegetables,
+    meat: Icons.Meat,
+    beef: Icons.Meat,
+    chicken: Icons.Meat,
+    lamb: Icons.Meat,
+    seafood: Icons.Seafood,
+    fish: Icons.Seafood,
+    shrimp: Icons.Seafood,
+    frozen: Icons.Frozen,
+    diary: Icons.Dairy,
+    milk: Icons.Dairy,
+    cheese: Icons.Dairy,
+    dry: Icons.DryGoods,
+    pasta: Icons.DryGoods,
+    rice: Icons.DryGoods,
+    flour: Icons.DryGoods,
+    drink: Icons.Drinks,
+    juice: Icons.Drinks,
+    soda: Icons.Drinks,
+  };
   
-  return Icons.Inventory; // Default icon
+  const checkKeywords = (keywords: string[], text: string) => {
+    for (const keyword of keywords) {
+      if(text.includes(keyword)) return iconMap[keyword];
+    }
+    return null;
+  }
+
+  const keywords = Object.keys(iconMap);
+  const icon = checkKeywords(keywords, lowerCategory) || checkKeywords(keywords, lowerItemType);
+
+  return icon || Icons.Inventory; // Default icon
 };
