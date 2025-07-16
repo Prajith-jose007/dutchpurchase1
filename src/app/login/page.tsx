@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authLoading && currentUser) {
-      router.push('/ordering'); // Redirect if already logged in
+      router.push('/'); // Redirect if already logged in
     }
   }, [currentUser, authLoading, router]);
 
@@ -33,7 +33,7 @@ export default function LoginPage() {
 
     if (success) {
       toast({ title: "Login Successful", description: "Welcome back!"});
-      router.push('/ordering'); // Redirect to a dashboard or main app page
+      router.push('/'); // Redirect to the dashboard
     } else {
       toast({ title: "Login Failed", description: "Invalid username or password.", variant: "destructive" });
     }
