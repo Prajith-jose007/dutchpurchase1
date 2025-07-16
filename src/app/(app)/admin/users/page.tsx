@@ -93,7 +93,7 @@ export default function UserManagementPage() {
         password: '',
       });
     }
-  }, [selectedUser, editUserForm]);
+  }, [selectedUser]);
 
   const onAddUserSubmit = async (data: AddUserFormData) => {
     const result = await addUserAction(data);
