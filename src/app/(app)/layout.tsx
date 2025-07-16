@@ -19,6 +19,7 @@ const navItems = [
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/invoices/upload", label: "Upload Invoices", icon: Icons.UploadCloud, roles: ['superadmin', 'admin', 'purchase'] },
+  { href: "/admin/inventory", label: "Manage Inventory", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
   { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin'] },
 ];
@@ -60,7 +61,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
      );
   }
   
-  const accessibleNavItems = navItems.filter(item => item.roles.includes(currentUser.role));
+  const accessibleNavItems = navItems.filter(item => currentUser.role && item.roles.includes(currentUser.role));
 
 
   return (
