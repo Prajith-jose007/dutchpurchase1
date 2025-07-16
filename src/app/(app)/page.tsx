@@ -10,7 +10,7 @@ import { Icons } from '@/components/icons';
 import { useEffect, useState, useMemo } from 'react';
 import { getOrdersAction, getUsersAction } from '@/lib/actions';
 import { useAuth } from '@/contexts/AuthContext';
-import { Order, User, UserRole } from '@/lib/types';
+import { Order, User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { allItems } from '@/data/inventoryItems';
 import { branches } from '@/data/appRepository';
@@ -235,13 +235,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
         if (currentUser) {
+            setIsLoading(true);
             try {
-                const [fetchedOrders, fetchedUsers] = await Promise.all([
-                    getOrdersAction(currentUser),
-                    isAdmin ? getUsersAction() : Promise.resolve([]) // Only fetch all users if admin
-                ]);
+                const fetchedOrders = await getOrdersAction(currentUser);
                 setOrders(fetchedOrders);
-                setUsers(fetchedUsers);
+
+                if (isAdmin) {
+                    const fetchedUsers = await getUsersAction();
+                    setUsers(fetchedUsers);
+                }
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
             } finally {
@@ -255,7 +257,7 @@ export default function DashboardPage() {
   }, [currentUser, isAdmin]);
 
 
-  if (!currentUser) {
+  if (isLoading || !currentUser) {
     return (
        <div className="flex justify-center items-center h-full">
         <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
