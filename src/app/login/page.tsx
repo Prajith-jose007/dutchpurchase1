@@ -20,7 +20,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect if auth is finished loading and a user is present.
+    // If auth isn't loading and a user is logged in, redirect them away from the login page.
     if (!authLoading && currentUser) {
       router.push('/'); 
     }
@@ -40,21 +40,16 @@ export default function LoginPage() {
     }
   };
 
-  // Show a loading spinner while checking auth state, even if there's no current user yet.
-  if (authLoading) {
+  // Show a loading screen while checking auth state or if a user is already logged in (and redirecting).
+  if (authLoading || currentUser) {
      return (
       <div className="flex h-screen items-center justify-center">
         <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
-  
-  // If auth is done, and we have a user, this component will be redirecting, so we can return null.
-  if (currentUser) {
-      return null;
-  }
 
-  // Otherwise, show the login form.
+  // Only show the login form if auth is done and there's no user.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl">

@@ -40,26 +40,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // If authentication is done loading and there is still no user, redirect to login.
-    // This prevents redirecting before the initial auth check is complete.
     if (!isLoading && !currentUser) {
       router.push('/login');
     }
-  }, [isLoading, currentUser, router, pathname]);
+  }, [isLoading, currentUser, router]);
 
   // Show a loading screen while the authentication state is being determined.
-  if (isLoading) {
+  if (isLoading || !currentUser) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Icons.Dashboard className="h-16 w-16 animate-spin text-primary" />
         <p className="ml-4 text-lg text-muted-foreground">Loading application...</p>
       </div>
     );
-  }
-  
-  // If auth is done and there's no user, it means we are redirecting.
-  // Render null to avoid a flash of content.
-  if (!currentUser) {
-     return null;
   }
   
   const accessibleNavItems = navItems.filter(item => currentUser.role && item.roles.includes(currentUser.role));
