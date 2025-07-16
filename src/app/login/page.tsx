@@ -30,21 +30,23 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoggingIn(true);
     const success = await login(username, password);
-    setIsLoggingIn(false);
 
     if (success) {
       toast({ title: "Login Successful", description: "Welcome back!"});
-      router.push('/'); // Redirect to the dashboard
+      // The useEffect hook will handle the redirection.
+      // We don't need to call router.push here anymore which helps prevent the race condition.
     } else {
       toast({ title: "Login Failed", description: "Invalid username or password.", variant: "destructive" });
+      setIsLoggingIn(false); // Only set loading to false on failure. On success, the redirect will happen.
     }
   };
 
   // Show a loading screen while checking auth state or if a user is already logged in (and redirecting).
   if (authLoading || currentUser) {
      return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">Loading...</p>
       </div>
     );
   }
