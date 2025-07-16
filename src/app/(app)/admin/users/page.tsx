@@ -2,7 +2,7 @@
 // src/app/(app)/admin/users/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,8 +43,6 @@ const editUserSchema = z.object({
 type AddUserFormData = z.infer<typeof addUserSchema>;
 type EditUserFormData = z.infer<typeof editUserSchema>;
 
-const branchOptions = branches.map(b => ({ value: b.id, label: b.name }));
-
 export default function UserManagementPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
@@ -52,6 +50,8 @@ export default function UserManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  const branchOptions = useMemo(() => branches.map(b => ({ value: b.id, label: b.name })), []);
 
   const addUserForm = useForm<AddUserFormData>({
     resolver: zodResolver(addUserSchema),
@@ -93,7 +93,7 @@ export default function UserManagementPage() {
         password: '',
       });
     }
-  }, [selectedUser]);
+  }, [selectedUser, editUserForm]);
 
   const onAddUserSubmit = async (data: AddUserFormData) => {
     const result = await addUserAction(data);
@@ -161,7 +161,7 @@ export default function UserManagementPage() {
                   <FormField control={addUserForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="username" render={({ field }) => (<FormItem><FormLabel>Username</FormLabel><FormControl><Input placeholder="johndoe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="password" render={({ field }) => (<FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={addUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={addUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} defaultValue={field.value} onValueChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={addUserForm.control} name="role" render={({ field }) => (<FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent><SelectItem value="employee">Employee</SelectItem><SelectItem value="purchase">Purchase</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                   <Button type="submit" className="w-full" disabled={addUserForm.formState.isSubmitting}>
                     {addUserForm.formState.isSubmitting ? (<Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" />) : (<Icons.Add className="mr-2 h-4 w-4" />)}
@@ -248,7 +248,7 @@ export default function UserManagementPage() {
           <Form {...editUserForm}>
             <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-4 pt-4">
               <FormField control={editUserForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={editUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={editUserForm.control} name="branchIds" render={({ field }) => (<FormItem><FormLabel>Branches</FormLabel><FormControl><MultiSelect placeholder="Select branches..." options={branchOptions} {...field} defaultValue={field.value} onValueChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={editUserForm.control} name="role" render={({ field }) => (<FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="employee">Employee</SelectItem><SelectItem value="purchase">Purchase</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               <FormField control={editUserForm.control} name="password" render={({ field }) => (<FormItem><FormLabel>New Password (optional)</FormLabel><FormControl><Input type="password" placeholder="Enter new password" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <DialogFooter className="pt-4">
