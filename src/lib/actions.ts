@@ -329,11 +329,8 @@ export async function verifyPasswordAction(username: string, plainTextPassword: 
             return { success: false, error: "Invalid username or password." };
         }
 
-        // Direct password comparison (insecure)
-        const isMatch = plainTextPassword === user.password;
-
-        if (isMatch) {
-            // Do not send the password back to the client
+        // Direct password comparison (insecure, for prototype only)
+        if (plainTextPassword === user.password) {
             const { password, ...userWithoutPassword } = user;
             return { success: true, user: userWithoutPassword as User };
         } else {
