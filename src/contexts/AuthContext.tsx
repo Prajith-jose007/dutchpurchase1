@@ -43,8 +43,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const verificationResult = await verifyPasswordAction(username_input, password_input);
     
     if (verificationResult.success && verificationResult.user) {
+      // Do not store the password hash in the user state
       const { password, ...userToStore } = verificationResult.user;
-      setCurrentUser(userToStore);
+      setCurrentUser(userToStore as User);
       localStorage.setItem('currentUserId', userToStore.id);
       return true;
     }
