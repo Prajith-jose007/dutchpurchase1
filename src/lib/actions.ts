@@ -30,21 +30,25 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     await connection.beginTransaction();
 
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
     const newOrder: Omit<Order, 'items' | 'invoiceFileNames'> = {
       id: orderId,
       branchId,
       userId,
       createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
       status: "Pending",
-      totalItems: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      totalItems,
+      totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems) VALUES (?, ?, ?, ?, ?, ?)", 
-      [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems]
+    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+      [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
-    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units]);
-    await connection.query("INSERT INTO order_items (orderId, itemId, description, quantity, units) VALUES ?", [orderItemsValues]);
+    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units, item.price]);
+    await connection.query("INSERT INTO order_items (orderId, itemId, description, quantity, units, price) VALUES ?", [orderItemsValues]);
 
     await connection.commit();
     return { success: true, orderId: orderId };
@@ -61,8 +65,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     if (!user) return [];
 
     let query = `
-        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems,
-               oi.itemId, oi.description, oi.quantity, oi.units,
+        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice,
+               oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
                inv.fileName as invoiceFileName
         FROM orders o
         LEFT JOIN order_items oi ON o.id = oi.orderId
@@ -89,6 +93,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 createdAt: new Date(row.createdAt).toISOString(),
                 status: row.status,
                 totalItems: row.totalItems,
+                totalPrice: row.totalPrice,
                 items: [],
                 invoiceFileNames: [],
             };
@@ -101,6 +106,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                     description: row.description,
                     quantity: row.quantity,
                     units: row.units,
+                    price: row.itemPrice,
                 });
             }
         }
@@ -128,7 +134,14 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         createdAt: new Date(orderData.createdAt).toISOString(),
         status: orderData.status,
         totalItems: orderData.totalItems,
-        items: itemRows as OrderItem[],
+        totalPrice: orderData.totalPrice,
+        items: itemRows.map(item => ({
+          itemId: item.itemId,
+          description: item.description,
+          quantity: item.quantity,
+          units: item.units,
+          price: item.price,
+        })),
         invoiceFileNames: invoiceRows.map(r => r.fileName)
     };
     return order;
@@ -321,7 +334,7 @@ export async function verifyPasswordAction(username: string, plainTextPassword: 
         if (isMatch) {
             // Do not send the password back to the client
             const { password, ...userWithoutPassword } = user;
-            return { success: true, user: userWithoutPassword };
+            return { success: true, user: userWithoutPassword as User };
         } else {
             return { success: false, error: "Invalid username or password." };
         }

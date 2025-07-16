@@ -18,7 +18,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CreateOrderPage() {
-  const { cartItems, totalCartItems, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, totalCartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -128,26 +128,29 @@ export default function CreateOrderPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item Code</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>Item</TableHead>
                   <TableHead className="text-center">Quantity</TableHead>
-                  <TableHead>Units</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Subtotal</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cartItems.map(item => (
                   <TableRow key={item.code}>
-                    <TableCell className="font-medium">{item.code}</TableCell>
-                    <TableCell>{item.description}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell>
+                      <div className="font-medium">{item.description}</div>
+                      <div className="text-xs text-muted-foreground">{item.code}</div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center justify-center gap-1.5">
                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity - 1)} disabled={isSubmitting} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
                          <span className="text-sm font-medium tabular-nums w-5 text-center">{item.quantity}</span>
                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity + 1)} disabled={isSubmitting} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
                       </div>
                     </TableCell>
-                    <TableCell>{item.units}</TableCell>
+                    <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.code)} disabled={isSubmitting} aria-label={`Remove ${item.description} from cart`}>
                         <Icons.Delete className="h-4 w-4 text-destructive" />
@@ -159,20 +162,26 @@ export default function CreateOrderPage() {
             </Table>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col md:flex-row justify-between items-center gap-4 border-t pt-6">
+        <CardFooter className="flex flex-col md:flex-row justify-between items-start gap-4 border-t pt-6">
           <Link href="/ordering">
             <Button variant="outline" disabled={isSubmitting}>
               <Icons.Order className="mr-2 h-4 w-4" /> Continue Shopping
             </Button>
           </Link>
-          <Button size="lg" onClick={handleSubmitOrder} disabled={isSubmitting || cartItems.length === 0 || !selectedBranchId} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            {isSubmitting ? (
-              <Icons.Dashboard className="mr-2 h-5 w-5 animate-spin" /> 
-            ) : (
-              <Icons.Success className="mr-2 h-5 w-5" />
-            )}
-            {isSubmitting ? "Submitting Order..." : "Confirm & Submit Order"}
-          </Button>
+          <div className="flex-grow flex flex-col items-end gap-2">
+            <div className="text-lg font-semibold">
+              <span>Total Price: </span>
+              <span className="text-primary">AED {totalCartPrice.toFixed(2)}</span>
+            </div>
+            <Button size="lg" onClick={handleSubmitOrder} disabled={isSubmitting || cartItems.length === 0 || !selectedBranchId} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              {isSubmitting ? (
+                <Icons.Dashboard className="mr-2 h-5 w-5 animate-spin" /> 
+              ) : (
+                <Icons.Success className="mr-2 h-5 w-5" />
+              )}
+              {isSubmitting ? "Submitting Order..." : "Confirm & Submit Order"}
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </div>

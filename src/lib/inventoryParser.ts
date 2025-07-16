@@ -24,16 +24,17 @@ export function parseInventoryData(rawData: string): Item[] {
     if (!line.trim()) continue;
 
     const parts = line.split(/\s+/);
-    if (parts.length < 5) continue; // Basic validation for enough parts
+    if (parts.length < 6) continue; // Basic validation for enough parts
 
     const code = parts[0];
-    const shelfLifeDays = parseInt(parts[parts.length - 1], 10);
-    const packing = parseFloat(parts[parts.length - 2]);
-    const units = parts[parts.length - 3];
+    const price = parseFloat(parts[parts.length - 1]);
+    const shelfLifeDays = parseInt(parts[parts.length - 2], 10);
+    const packing = parseFloat(parts[parts.length - 3]);
+    const units = parts[parts.length - 4];
 
-    if (isNaN(shelfLifeDays) || isNaN(packing)) continue; // Invalid numeric values
+    if (isNaN(shelfLifeDays) || isNaN(packing) || isNaN(price)) continue; // Invalid numeric values
 
-    let currentParts = parts.slice(1, parts.length - 3);
+    let currentParts = parts.slice(1, parts.length - 4);
     let remark: string | null = null;
     let itemType = "Unknown";
     let category = "Unknown";
@@ -104,6 +105,7 @@ export function parseInventoryData(rawData: string): Item[] {
       units: units.toUpperCase(),
       packing,
       shelfLifeDays,
+      price,
       // imageUrl is removed from here
     });
   }

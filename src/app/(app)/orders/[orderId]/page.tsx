@@ -288,6 +288,8 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
                     <TableHead>Description</TableHead>
                     <TableHead className="text-center">Quantity</TableHead>
                     <TableHead>Units</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -297,10 +299,18 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
                       <TableCell>{item.description}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
                       <TableCell>{item.units}</TableCell>
+                      <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-semibold">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </div>
+            <div className="flex justify-end mt-4">
+              <div className="text-xl font-bold">
+                <span>Total Order Price: </span>
+                <span className="text-primary">AED {order.totalPrice.toFixed(2)}</span>
+              </div>
             </div>
           </CardContent>
           

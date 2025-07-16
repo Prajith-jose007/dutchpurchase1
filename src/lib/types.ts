@@ -8,6 +8,7 @@ export interface Item {
   units: string;
   packing: number;
   shelfLifeDays: number;
+  price: number;
 }
 
 export interface CartItem extends Item {
@@ -19,6 +20,7 @@ export interface OrderItem {
   description: string;
   quantity: number;
   units: string;
+  price: number; // Price per unit at time of order
 }
 
 export type OrderStatus = 'Pending' | 'Order Received' | 'Arrived' | 'Closed' | 'Cancelled' | 'Approved' | 'Processing' | 'Shipped' | 'Delivered';
@@ -31,6 +33,7 @@ export interface Order {
   status: OrderStatus;
   items: OrderItem[];
   totalItems: number;
+  totalPrice: number;
   invoiceFileNames?: string[]; // Optional: List of attached invoice filenames
 }
 

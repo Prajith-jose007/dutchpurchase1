@@ -24,7 +24,7 @@ import { useRouter } from 'next/navigation';
 const ITEMS_PER_PAGE = 12;
 
 export default function OrderingPage() {
-  const { addToCart, cartItems, updateQuantity, getItemQuantity } = useCart();
+  const { addToCart, cartItems, updateQuantity, getItemQuantity, totalCartPrice } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
   
@@ -205,6 +205,7 @@ export default function OrderingPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">Code: {item.code}</p>
                     <p className="text-sm text-muted-foreground">Unit: {item.units} (Pack: {item.packing})</p>
+                    <p className="text-lg font-bold text-primary mt-2">AED {item.price.toFixed(2)}</p>
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
                     {quantityInCart > 0 ? (
@@ -252,7 +253,7 @@ export default function OrderingPage() {
               Your cart is empty.
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-350px)] lg:h-[calc(100vh-420px)] max-h-[500px]">
+            <ScrollArea className="h-[calc(100vh-420px)] lg:h-[calc(100vh-490px)] max-h-[500px]">
               <div className="p-4 space-y-3">
                 {cartItems.map(item => {
                   const cartItemDetails = getItemByCode(item.code);
@@ -260,8 +261,7 @@ export default function OrderingPage() {
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">Unit: {item.units}</p>
-                       <p className="text-xs text-muted-foreground">Code: {item.code}</p>
+                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} x {item.quantity}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.code, -1)} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
@@ -278,9 +278,13 @@ export default function OrderingPage() {
           <>
             <Separator />
             <CardFooter className="p-4 flex flex-col gap-3">
-               <div className="w-full flex justify-between text-lg font-semibold">
+               <div className="w-full flex justify-between text-md font-medium text-muted-foreground">
                 <span>Total Items:</span>
                 <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+              </div>
+               <div className="w-full flex justify-between text-lg font-bold">
+                <span>Total Price:</span>
+                <span>AED {totalCartPrice.toFixed(2)}</span>
               </div>
               <Link href={`/orders/create?branchId=${selectedStoreId}`} className="w-full">
                 <Button size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={!selectedStoreId}>

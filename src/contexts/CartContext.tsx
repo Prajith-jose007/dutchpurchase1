@@ -1,3 +1,4 @@
+
 // src/contexts/CartContext.tsx
 "use client";
 
@@ -11,6 +12,7 @@ interface CartContextType {
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   totalCartItems: number;
+  totalCartPrice: number;
   getItemQuantity: (itemId: string) => number;
 }
 
@@ -63,6 +65,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const totalCartItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
+  const totalCartPrice = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+
   const getItemQuantity = (itemId: string): number => {
     const item = cartItems.find(ci => ci.code === itemId);
     return item ? item.quantity : 0;
@@ -77,6 +81,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         updateQuantity,
         clearCart,
         totalCartItems,
+        totalCartPrice,
         getItemQuantity,
       }}
     >

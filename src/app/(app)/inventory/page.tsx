@@ -120,6 +120,7 @@ export default function InventoryPage() {
                     <TableHead>Category</TableHead>
                     <TableHead>Units</TableHead>
                     <TableHead className="text-center">Packing</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -135,6 +136,7 @@ export default function InventoryPage() {
                       </TableCell>
                       <TableCell>{item.units}</TableCell>
                       <TableCell className="text-center">{item.packing.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium">{item.price.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

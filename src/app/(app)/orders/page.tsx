@@ -130,6 +130,7 @@ export default function OrdersPage() {
                     <TableHead>Branch</TableHead>
                     <TableHead>User</TableHead>
                     <TableHead className="text-center">Items</TableHead>
+                    <TableHead className="text-right">Total Price</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -147,6 +148,7 @@ export default function OrdersPage() {
                       <TableCell>{branchName}</TableCell>
                       <TableCell>{userName}</TableCell>
                       <TableCell className="text-center">{order.totalItems}</TableCell>
+                      <TableCell className="text-right font-medium">AED {order.totalPrice.toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(order.status)} className="capitalize">
                           {order.status}

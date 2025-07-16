@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `createdAt` DATETIME NOT NULL,
   `status` ENUM('Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled', 'Approved', 'Processing', 'Shipped', 'Delivered') NOT NULL,
   `totalItems` INT NOT NULL,
+  `totalPrice` DECIMAL(10, 2) NOT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT
 );
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   `description` VARCHAR(255) NOT NULL,
   `quantity` INT NOT NULL,
   `units` VARCHAR(50) NOT NULL,
+  `price` DECIMAL(10, 2) NOT NULL,
   PRIMARY KEY (`orderId`, `itemId`),
   FOREIGN KEY (`orderId`) REFERENCES `orders`(`id`) ON DELETE CASCADE
 );
