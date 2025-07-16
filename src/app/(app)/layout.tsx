@@ -39,12 +39,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !currentUser && pathname !== '/login') {
+    // If authentication is done loading and there is still no user, redirect to login.
+    // This prevents redirecting before the initial auth check is complete.
+    if (!isLoading && !currentUser) {
       router.push('/login');
     }
   }, [isLoading, currentUser, router, pathname]);
 
-  if (isLoading || (!currentUser && pathname !== '/login')) {
+  // Show a loading screen while the authentication state is being determined.
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Icons.Dashboard className="h-16 w-16 animate-spin text-primary" />
@@ -53,12 +56,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
   
+  // If auth is done and there's no user, it means we are redirecting.
+  // Render null to avoid a flash of content.
   if (!currentUser) {
-     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <p className="text-lg text-muted-foreground">Redirecting to login...</p>
-      </div>
-     );
+     return null;
   }
   
   const accessibleNavItems = navItems.filter(item => currentUser.role && item.roles.includes(currentUser.role));
