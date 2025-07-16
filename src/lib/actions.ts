@@ -343,3 +343,26 @@ export async function verifyPasswordAction(username: string, plainTextPassword: 
         return { success: false, error: 'An unexpected server error occurred.' };
     }
 }
+
+export async function updateMyPasswordAction(userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const [userRows] = await pool.query<RowDataPacket[]>("SELECT password FROM users WHERE id = ?", [userId]);
+        if (userRows.length === 0) {
+            return { success: false, error: "User not found." };
+        }
+        const user = userRows[0];
+
+        // Direct password comparison (insecure)
+        if (user.password !== currentPassword) {
+            return { success: false, error: "Incorrect current password." };
+        }
+
+        // Update to new password
+        await pool.query("UPDATE users SET password = ? WHERE id = ?", [newPassword, userId]);
+        return { success: true };
+
+    } catch (error) {
+        console.error('Error updating password:', error);
+        return { success: false, error: 'A database error occurred.' };
+    }
+}
