@@ -99,8 +99,8 @@ export default function OrderDetailsPage() {
                 setHasCameraPermission(false);
             }
         } else {
-            setHasCameraPermission(false);
             console.error('MediaDevices API not supported in this browser.');
+            setHasCameraPermission(false);
         }
       };
       getCameraPermission();
@@ -442,6 +442,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    
-
