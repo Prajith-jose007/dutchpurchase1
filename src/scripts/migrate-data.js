@@ -60,7 +60,7 @@ async function migrateUsers() {
 
       // Handle the branch assignment. Use INSERT IGNORE to prevent errors if the link already exists.
       try {
-        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [userData.id, branchId]);
+        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [user.id, branchId]);
         console.log(`Linked user ${userData.username} to branch ${branchId}.`);
       } catch (e) {
         console.warn(`Could not link user ${userData.username} to branch ${branchId}. This might be expected if run multiple times.`);
