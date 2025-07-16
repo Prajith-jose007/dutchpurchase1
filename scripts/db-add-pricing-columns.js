@@ -1,13 +1,25 @@
 
 // scripts/db-add-pricing-columns.js
 require('dotenv').config();
-const pool = require('../src/lib/db').default;
+const mysql = require('mysql2/promise');
 
 async function addPricingColumns() {
   console.log('Starting to add pricing columns to the database...');
   let connection;
 
   try {
+    // Create a new connection pool directly in this script to avoid import issues
+    const pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+      waitForConnections: true,
+      connectionLimit: 1, // Only need one connection for this script
+      queueLimit: 0,
+    });
+
     connection = await pool.getConnection();
     console.log('Successfully connected to the database.');
 
@@ -50,9 +62,11 @@ async function addPricingColumns() {
     if (connection) {
       await connection.release();
     }
-    // Since the pool is managed, we may not need to explicitly end it if the app is still running.
-    // For a script, it's good practice to ensure it exits.
-    await pool.end();
+    // We must end the pool for the script to exit gracefully
+    if (mysql.pool) {
+       await mysql.pool.end();
+    }
+    process.exit(0);
   }
 }
 
