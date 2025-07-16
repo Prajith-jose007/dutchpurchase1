@@ -87,15 +87,20 @@ export default function OrderDetailsPage() {
   useEffect(() => {
     if (isAttachInvoiceOpen) {
       const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
+        if (typeof window !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setHasCameraPermission(true);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+            }
+        } else {
+            setHasCameraPermission(false);
+            console.error('MediaDevices API not supported in this browser.');
         }
       };
       getCameraPermission();
@@ -439,3 +444,4 @@ export default function OrderDetailsPage() {
 }
 
     
+
