@@ -74,6 +74,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     `;
     const params: (string | number)[] = [];
 
+    // Admins and Purchase roles see all orders. Employees see only their own.
     if (user.role === 'employee') {
         query += " WHERE o.userId = ?";
         params.push(user.id);

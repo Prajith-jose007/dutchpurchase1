@@ -42,6 +42,8 @@ import {
   BarChartHorizontal,
   Bell,
   Camera,
+  DollarSign,
+  Building,
 } from 'lucide-react';
 import type React from 'react';
 import Image from 'next/image';
@@ -52,7 +54,7 @@ export const Icons = {
   Inventory: Package,
   Order: ShoppingCart,
   ClipboardList: ClipboardList,
-  Branches: Users, 
+  Branches: Building, 
   Settings: Settings, 
   Login: LogIn, 
   Logout: LogOut,
@@ -90,6 +92,7 @@ export const Icons = {
   ChevronRight: ChevronRight,
   Bell: Bell,
   Camera: Camera,
+  Dollar: DollarSign,
 };
 
 // Fallback or generic category icons
