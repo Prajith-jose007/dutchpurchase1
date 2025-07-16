@@ -92,8 +92,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 userId: row.userId,
                 createdAt: new Date(row.createdAt).toISOString(),
                 status: row.status,
-                totalItems: row.totalItems,
-                totalPrice: row.totalPrice,
+                totalItems: Number(row.totalItems),
+                totalPrice: Number(row.totalPrice),
                 items: [],
                 invoiceFileNames: [],
             };
@@ -104,9 +104,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 ordersMap[row.id].items.push({
                     itemId: row.itemId,
                     description: row.description,
-                    quantity: row.quantity,
+                    quantity: Number(row.quantity),
                     units: row.units,
-                    price: row.itemPrice,
+                    price: Number(row.itemPrice),
                 });
             }
         }
@@ -133,14 +133,14 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         userId: orderData.userId,
         createdAt: new Date(orderData.createdAt).toISOString(),
         status: orderData.status,
-        totalItems: orderData.totalItems,
-        totalPrice: orderData.totalPrice,
+        totalItems: Number(orderData.totalItems),
+        totalPrice: Number(orderData.totalPrice),
         items: itemRows.map(item => ({
           itemId: item.itemId,
           description: item.description,
-          quantity: item.quantity,
+          quantity: Number(item.quantity),
           units: item.units,
-          price: item.price,
+          price: Number(item.price),
         })),
         invoiceFileNames: invoiceRows.map(r => r.fileName)
     };
