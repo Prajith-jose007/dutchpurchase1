@@ -39,18 +39,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = useCallback(async (username_input: string, password_input: string): Promise<boolean> => {
-    // Call the server action to verify the password.
     const verificationResult = await verifyPasswordAction(username_input, password_input);
     
     if (verificationResult.success && verificationResult.user) {
-      // Do not store the password hash in the user state
       const { password, ...userToStore } = verificationResult.user;
       setCurrentUser(userToStore as User);
       localStorage.setItem('currentUserId', userToStore.id);
+      router.push('/'); // Force redirect on successful login
       return true;
     }
     return false;
-  }, []);
+  }, [router]);
 
   const logout = useCallback(() => {
     setCurrentUser(null);

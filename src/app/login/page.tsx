@@ -1,4 +1,3 @@
-
 // src/app/login/page.tsx
 "use client";
 
@@ -20,7 +19,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If auth isn't loading and a user is logged in, redirect them away from the login page.
+    // If a user is already logged in (e.g. from a previous session), redirect them.
     if (!authLoading && currentUser) {
       router.push('/'); 
     }
@@ -33,15 +32,14 @@ export default function LoginPage() {
 
     if (success) {
       toast({ title: "Login Successful", description: "Welcome back!"});
-      // The useEffect hook will handle the redirection.
-      // We don't need to call router.push here anymore which helps prevent the race condition.
+      // The login function now handles the redirection, so we don't need to do it here.
     } else {
       toast({ title: "Login Failed", description: "Invalid username or password.", variant: "destructive" });
-      setIsLoggingIn(false); // Only set loading to false on failure. On success, the redirect will happen.
+      setIsLoggingIn(false); // Only set loading to false on failure.
     }
   };
 
-  // Show a loading screen while checking auth state or if a user is already logged in (and redirecting).
+  // While checking auth state, or if a user is already logged in and being redirected.
   if (authLoading || currentUser) {
      return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -51,7 +49,7 @@ export default function LoginPage() {
     );
   }
 
-  // Only show the login form if auth is done and there's no user.
+  // Render the login form only when we are sure there is no logged-in user.
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl">
