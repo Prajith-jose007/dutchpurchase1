@@ -22,6 +22,7 @@ import { useDropzone } from 'react-dropzone';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useParams } from 'next/navigation';
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
 
@@ -36,7 +37,10 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
   }
 }
 
-export default function OrderDetailsPage({ params }: { params: { orderId: string } }) {
+export default function OrderDetailsPage() {
+  const params = useParams();
+  const orderId = params.orderId as string;
+
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
@@ -58,7 +62,7 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
   const fetchOrderData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const fetchedOrder = await getOrderByIdAction(params.orderId);
+      const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
         const user = await getUser(fetchedOrder.userId);
@@ -71,13 +75,13 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     } finally {
       setIsLoading(false);
     }
-  }, [params.orderId, toast]);
+  }, [orderId, toast]);
 
   useEffect(() => {
-    if (params.orderId) {
+    if (orderId) {
       fetchOrderData();
     }
-  }, [params.orderId, fetchOrderData]);
+  }, [orderId, fetchOrderData]);
   
   // Camera permission logic
   useEffect(() => {
@@ -433,3 +437,5 @@ export default function OrderDetailsPage({ params }: { params: { orderId: string
     </>
   );
 }
+
+    
