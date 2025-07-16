@@ -1,3 +1,4 @@
+
 // scripts/db-add-pricing-columns.js
 require('dotenv').config();
 const pool = require('../src/lib/db').default;
@@ -17,7 +18,7 @@ async function addPricingColumns() {
         "ALTER TABLE `orders` ADD COLUMN `totalPrice` DECIMAL(10, 2) NOT NULL DEFAULT 0.00"
       );
       console.log('Successfully added `totalPrice` column to `orders` table.');
-    } catch (error: any) {
+    } catch (error) {
       if (error.code === 'ER_DUP_FIELDNAME') {
         console.log('`totalPrice` column already exists in `orders` table. Skipping.');
       } else {
@@ -32,7 +33,7 @@ async function addPricingColumns() {
         "ALTER TABLE `order_items` ADD COLUMN `price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00"
       );
       console.log('Successfully added `price` column to `order_items` table.');
-    } catch (error: any) {
+    } catch (error) {
       if (error.code === 'ER_DUP_FIELDNAME') {
         console.log('`price` column already exists in `order_items` table. Skipping.');
       } else {
