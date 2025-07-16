@@ -45,14 +45,20 @@ export default function ReportsPage() {
         } finally {
           setIsLoading(false);
         }
-      } else if (!currentUser && !isLoading) {
-        // If not loading and no user, redirect
+      } else {
+        // If no user is logged in after checking, redirect.
         router.push('/');
       }
     };
 
-    fetchData();
-  }, [currentUser, router, isLoading]);
+    // Only run fetch logic if we have a user or are still in the initial loading state.
+    if (currentUser) {
+      fetchData();
+    } else if(!isLoading) {
+      // If loading is finished and there's no user, redirect away.
+      router.push('/login');
+    }
+  }, [currentUser, router]);
 
   // Calculate monthly summary
   const now = new Date();
