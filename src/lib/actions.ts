@@ -4,9 +4,6 @@
 import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
-import bcrypt from 'bcrypt';
-
-const SALT_ROUNDS = 10;
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -191,11 +188,9 @@ export async function addUserAction(data: Omit<User, 'id' | 'password'> & { pass
 
     try {
         await connection.beginTransaction();
-        
-        const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
         await connection.query("INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)", 
-          [userId, username, hashedPassword, name, role]
+          [userId, username, password, name, role]
         );
 
         const branchValues = branchIds.map(branchId => [userId, branchId]);
@@ -226,10 +221,9 @@ export async function updateUserAction(userId: string, data: Partial<Pick<User, 
         let query = "UPDATE users SET name = ?, role = ?";
         const params: (string|string[])[] = [name, role];
 
-        if (password && password.length >= 6) {
-            const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+        if (password && password.length > 0) {
             query += ", password = ?";
-            params.push(hashedPassword);
+            params.push(password);
         }
         query += " WHERE id = ?";
         params.push(userId);
@@ -321,10 +315,11 @@ export async function verifyPasswordAction(username: string, plainTextPassword: 
             return { success: false, error: "Invalid username or password." };
         }
 
-        const isMatch = await bcrypt.compare(plainTextPassword, user.password);
+        // Direct password comparison (insecure)
+        const isMatch = plainTextPassword === user.password;
 
         if (isMatch) {
-            // Do not send the password hash back to the client
+            // Do not send the password back to the client
             const { password, ...userWithoutPassword } = user;
             return { success: true, user: userWithoutPassword };
         } else {

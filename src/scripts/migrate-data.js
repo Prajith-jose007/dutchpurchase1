@@ -2,8 +2,6 @@
 // Use require for CommonJS compatibility with node
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
-const SALT_ROUNDS = 10;
 
 // The initial set of users that used to be in the appRepository
 const initialUsers = [
@@ -15,7 +13,7 @@ const initialUsers = [
 ];
 
 async function migrateUsers() {
-  console.log('Starting user migration and password hashing...');
+  console.log('Starting user migration with plain text passwords...');
   
   let connection;
   try {
@@ -31,36 +29,28 @@ async function migrateUsers() {
     await connection.beginTransaction();
     
     for (const user of initialUsers) {
-      // The default password 'password123' will be used for inserts or updates.
-      const plainPassword = 'password123'; 
-      const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+      // For this script, we'll use a simple default password 'password123'
+      const password = 'password123'; 
       const { branchId, ...userData } = user;
       
-      const [existing] = await connection.query('SELECT id, password FROM users WHERE username = ?', [userData.username]);
+      const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [userData.id, userData.username]);
       
       if (existing.length > 0) {
-        // User exists, check if password needs hashing/updating
-        const existingUser = existing[0];
-        // A simple check to see if the password is already hashed.
-        // bcrypt hashes start with '$2a$', '$2b$', or '$2y$'.
-        if (!existingUser.password || !existingUser.password.startsWith('$2')) {
-          await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, existingUser.id]);
-          console.log(`Updated password for existing user ${userData.username} to a hashed version.`);
-        } else {
-          console.log(`User ${userData.username} already exists with a hashed password. Skipping password update.`);
-        }
+        // User exists, so update their password to the plain text version.
+        await connection.query('UPDATE users SET password = ? WHERE id = ?', [password, existing[0].id]);
+        console.log(`Updated password for existing user ${userData.username}.`);
       } else {
-        // User does not exist, insert them with a hashed password
+        // User does not exist, insert them with the plain text password.
         await connection.query(
           'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
-          [userData.id, userData.username, hashedPassword, userData.name, userData.role]
+          [userData.id, userData.username, password, userData.name, userData.role]
         );
-        console.log(`User ${userData.username} inserted successfully with a hashed password.`);
+        console.log(`User ${userData.username} inserted successfully.`);
       }
 
       // Handle the branch assignment. Use INSERT IGNORE to prevent errors if the link already exists.
       try {
-        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [userData.id, branchId]);
+        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [user.id, branchId]);
         console.log(`Linked user ${userData.username} to branch ${branchId}.`);
       } catch (e) {
         console.warn(`Could not link user ${userData.username} to branch ${branchId}. This might be expected if run multiple times.`);
@@ -68,7 +58,7 @@ async function migrateUsers() {
     }
 
     await connection.commit();
-    console.log('User migration and hashing completed successfully!');
+    console.log('User migration completed successfully!');
   } catch (error) {
     if (connection) {
       await connection.rollback();
@@ -76,7 +66,7 @@ async function migrateUsers() {
     console.error('Error during user migration:', error);
   } finally {
     if (connection) {
-      await connection.end();
+      await connection.end(); // End the connection to allow the script to exit
     }
   }
 }
