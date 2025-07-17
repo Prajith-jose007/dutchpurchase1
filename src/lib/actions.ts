@@ -65,7 +65,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     if (!user) return [];
 
     let query = `
-        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice,
+        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, o.receivedByUserId, o.receivedAt,
                oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
                inv.fileName as invoiceFileName
         FROM orders o
@@ -95,6 +95,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 status: row.status,
                 totalItems: Number(row.totalItems),
                 totalPrice: Number(row.totalPrice),
+                receivedByUserId: row.receivedByUserId,
+                receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
                 invoiceFileNames: [],
             };
@@ -136,6 +138,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
+        receivedByUserId: orderData.receivedByUserId,
+        receivedAt: orderData.receivedAt ? new Date(orderData.receivedAt).toISOString() : null,
         items: itemRows.map(item => ({
           itemId: item.itemId,
           description: item.description,
@@ -148,18 +152,50 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     return order;
 }
 
-export async function updateOrderStatusAction(orderId: string, status: OrderStatus): Promise<{ success: boolean; error?: string }> {
+export async function updateOrderStatusAction(orderId: string, status: OrderStatus, actorUserId: string): Promise<{ success: boolean; error?: string }> {
     try {
-        await pool.query("UPDATE orders SET status = ? WHERE id = ?", [status, orderId]);
-        return { success: true };
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT receivedByUserId FROM orders WHERE id = ?", [orderId]);
+
+            if (currentOrderRows.length === 0) {
+                return { success: false, error: "Order not found." };
+            }
+
+            const currentOrder = currentOrderRows[0];
+            let query = "UPDATE orders SET status = ?";
+            const params: (string | Date)[] = [status];
+
+            // If the status is being set to "Arrived" or "Closed" AND it hasn't been received before,
+            // set the receivedByUserId and receivedAt timestamp.
+            if (['Arrived', 'Closed'].includes(status) && !currentOrder.receivedByUserId) {
+                query += ", receivedByUserId = ?, receivedAt = ?";
+                params.push(actorUserId, new Date());
+            }
+
+            query += " WHERE id = ?";
+            params.push(orderId);
+
+            await connection.query(query, params);
+            await connection.commit();
+            return { success: true };
+        } catch (error) {
+            await connection.rollback();
+            console.error("Failed to update order status:", error);
+            return { success: false, error: "Database error: Failed to update status." };
+        } finally {
+            connection.release();
+        }
     } catch (error) {
-        console.error("Failed to update order status:", error);
-        return { success: false, error: "Database error: Failed to update status." };
+         console.error("Failed to get DB connection:", error);
+         return { success: false, error: "Database connection error." };
     }
 }
 
-
 export async function getUser(userId: string): Promise<User | null> {
+    if (!userId) return null;
     const [userRows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, role FROM users WHERE id = ?", [userId]);
     if(userRows.length === 0) return null;
 

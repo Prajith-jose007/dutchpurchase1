@@ -45,6 +45,7 @@ export default function OrderDetailsPage() {
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
+  const [receivingUser, setReceivingUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // State for invoice attachment dialog
@@ -65,8 +66,13 @@ export default function OrderDetailsPage() {
       const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
-        const user = await getUser(fetchedOrder.userId);
-        setPlacingUser(user);
+        // Fetch both users in parallel
+        const [pUser, rUser] = await Promise.all([
+          getUser(fetchedOrder.userId),
+          getUser(fetchedOrder.receivedByUserId || '')
+        ]);
+        setPlacingUser(pUser);
+        setReceivingUser(rUser);
       }
     } catch (error) {
       console.error("Failed to fetch order data:", error);
@@ -115,12 +121,12 @@ export default function OrderDetailsPage() {
   }, [isAttachInvoiceOpen]);
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (!order) return;
-    const result = await updateOrderStatusAction(order.id, newStatus);
+    if (!order || !currentUser) return;
+    const result = await updateOrderStatusAction(order.id, newStatus, currentUser.id);
     if (result.success) {
       toast({ title: "Status Updated", description: `Order status changed to ${newStatus}.` });
-      setOrder(prev => prev ? { ...prev, status: newStatus } : null);
-      if (newStatus === 'Closed') {
+      fetchOrderData(); // Refetch to get updated receiver info
+      if (newStatus === 'Closed' && (!order.invoiceFileNames || order.invoiceFileNames.length === 0)) {
         handleOpenAttachDialog();
       }
     } else {
@@ -223,12 +229,13 @@ export default function OrderDetailsPage() {
 
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
   const userName = placingUser?.name || order.userId;
+  const receiverName = receivingUser?.name;
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
   const canAttachInvoices = canManageOrder && ['Arrived', 'Closed'].includes(order.status);
 
   return (
     <>
-      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-headline tracking-tight">Order Details</h1>
@@ -242,23 +249,23 @@ export default function OrderDetailsPage() {
         </header>
 
         <Card className="shadow-lg">
-          <CardHeader className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardHeader className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
-              <CardTitle className="text-base font-semibold">Order ID</CardTitle>
-              <CardDescription>{order.id}</CardDescription>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Order ID</CardTitle>
+              <CardDescription className="text-lg font-mono text-foreground">{order.id}</CardDescription>
             </div>
             <div>
-              <CardTitle className="text-base font-semibold">Date Placed</CardTitle>
-              <CardDescription>{new Date(order.createdAt).toLocaleString()}</CardDescription>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Date Placed</CardTitle>
+              <CardDescription className="text-lg text-foreground">{new Date(order.createdAt).toLocaleString()}</CardDescription>
             </div>
              <div>
-              <CardTitle className="text-base font-semibold">Status</CardTitle>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Status</CardTitle>
               <div className="flex items-center gap-2">
-                <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm capitalize">{order.status}</Badge>
+                <Badge variant={getStatusBadgeVariant(order.status)} className="text-base capitalize py-1 px-3">{order.status}</Badge>
                 {canManageOrder && order.status !== 'Closed' && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                       <Button variant="ghost" size="icon" className="h-6 w-6"><Icons.Settings className="h-4 w-4" /></Button>
+                       <Button variant="ghost" size="icon"><Icons.Settings className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                        {availableStatuses.map(status => (
@@ -272,17 +279,29 @@ export default function OrderDetailsPage() {
               </div>
             </div>
             <div>
-              <CardTitle className="text-base font-semibold">Branch</CardTitle>
-              <CardDescription>{branchName}</CardDescription>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Branch</CardTitle>
+              <CardDescription className="text-lg text-foreground">{branchName}</CardDescription>
             </div>
             <div>
-              <CardTitle className="text-base font-semibold">Placed By</CardTitle>
-              <CardDescription>{userName}</CardDescription>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Placed By</CardTitle>
+              <CardDescription className="text-lg text-foreground">{userName}</CardDescription>
             </div>
              <div>
-              <CardTitle className="text-base font-semibold">Total Items</CardTitle>
-              <CardDescription>{order.totalItems}</CardDescription>
+              <CardTitle className="text-base font-semibold text-muted-foreground">Total Items</CardTitle>
+              <CardDescription className="text-lg font-bold text-foreground">{order.totalItems}</CardDescription>
             </div>
+             {receiverName && order.receivedAt && (
+              <>
+                <div>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Received By</CardTitle>
+                  <CardDescription className="text-lg text-foreground">{receiverName}</CardDescription>
+                </div>
+                <div>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Received At</CardTitle>
+                  <CardDescription className="text-lg text-foreground">{new Date(order.receivedAt).toLocaleString()}</CardDescription>
+                </div>
+              </>
+            )}
           </CardHeader>
           
           <Separator />

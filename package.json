@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "db:setup": "node scripts/db-setup.js",
     "db:add-pricing": "node scripts/db-add-pricing-columns.js",
+    "db:add-receiving": "node scripts/db-add-receiving-info.js",
     "migrate:data": "node src/scripts/migrate-data.js",
     "postinstall": "patch-package"
   },

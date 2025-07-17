@@ -35,6 +35,8 @@ export interface Order {
   totalItems: number;
   totalPrice: number;
   invoiceFileNames?: string[]; // Optional: List of attached invoice filenames
+  receivedByUserId?: string | null;
+  receivedAt?: string | null;
 }
 
 export interface Branch {
