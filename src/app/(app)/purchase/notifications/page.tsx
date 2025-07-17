@@ -110,9 +110,9 @@ export default function PurchaseNotificationsPage() {
                     <TableHead>Order ID</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Branch</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Purchase ID</TableHead>
-                    <TableHead>Date of Closed</TableHead>
+                    <TableHead>Placed By</TableHead>
+                    <TableHead>Received By</TableHead>
+                    <TableHead>Date of Closure</TableHead>
                     <TableHead className="text-right">Total Price</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -133,7 +133,7 @@ export default function PurchaseNotificationsPage() {
                       <TableCell>{placingUser}</TableCell>
                       <TableCell>{receivingUser}</TableCell>
                       <TableCell>
-                        {order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}
+                        {order.status === 'Closed' && order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right font-medium">AED {order.totalPrice.toFixed(2)}</TableCell>
                       <TableCell>
