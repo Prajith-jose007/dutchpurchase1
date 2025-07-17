@@ -19,7 +19,8 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If a user is already logged in (e.g. from a previous session), redirect them.
+    // If auth is not loading and a user is found, it means a session exists.
+    // Redirect them to the main page. This prevents a logged-in user from seeing the login page.
     if (!authLoading && currentUser) {
       router.push('/'); 
     }
@@ -32,10 +33,10 @@ export default function LoginPage() {
 
     if (success) {
       toast({ title: "Login Successful", description: "Welcome back!"});
-      // The login function now handles the redirection, so we don't need to do it here.
+      // The login function in AuthContext now handles the redirection.
     } else {
       toast({ title: "Login Failed", description: "Invalid username or password.", variant: "destructive" });
-      setIsLoggingIn(false); // Only set loading to false on failure.
+      setIsLoggingIn(false);
     }
   };
 
