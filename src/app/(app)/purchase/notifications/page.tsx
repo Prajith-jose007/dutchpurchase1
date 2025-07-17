@@ -19,10 +19,9 @@ import { useAuth } from '@/contexts/AuthContext';
 function getStatusBadgeVariant(status: Order['status']): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case 'Pending': return 'outline';
-    case 'Approved': return 'default'; 
-    case 'Processing': return 'default';
-    case 'Shipped': return 'secondary';
-    case 'Delivered': return 'default'; 
+    case 'Order Received': return 'secondary';
+    case 'Arrived': return 'secondary';
+    case 'Closed': return 'default';
     case 'Cancelled': return 'destructive';
     default: return 'outline';
   }
@@ -66,8 +65,9 @@ export default function PurchaseNotificationsPage() {
     fetchData();
   }, [toast, currentUser, router]);
 
-  const getUserName = (userId: string) => {
-    return users.find(u => u.id === userId)?.name || 'N/A';
+  const getUserName = (userId: string | null | undefined): string => {
+    if (!userId) return 'N/A';
+    return users.find(u => u.id === userId)?.name || userId.substring(0, 8) + '...';
   };
   
   if (isLoading) {
@@ -103,7 +103,7 @@ export default function PurchaseNotificationsPage() {
             <CardDescription>A list of all submitted purchase orders from all branches.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto border rounded-lg">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -111,7 +111,8 @@ export default function PurchaseNotificationsPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Branch</TableHead>
                     <TableHead>User</TableHead>
-                    <TableHead className="text-center">Items</TableHead>
+                    <TableHead>Purchase ID</TableHead>
+                    <TableHead>Date of Closed</TableHead>
                     <TableHead className="text-right">Total Price</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -120,16 +121,20 @@ export default function PurchaseNotificationsPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-                    const userName = getUserName(order.userId);
+                    const placingUser = getUserName(order.userId);
+                    const receivingUser = getUserName(order.receivedByUserId);
                     return (
                     <TableRow key={order.id}>
-                      <TableCell className="font-medium text-primary hover:underline">
-                        <Link href={`/orders/${order.id}`}>{order.id.substring(0,15)}...</Link>
+                      <TableCell className="font-medium">
+                        <Link href={`/orders/${order.id}`} className="text-primary hover:underline">{order.id.substring(0,8)}...</Link>
                       </TableCell>
                       <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>{branchName}</TableCell>
-                      <TableCell>{userName}</TableCell>
-                      <TableCell className="text-center">{order.totalItems}</TableCell>
+                      <TableCell>{placingUser}</TableCell>
+                      <TableCell>{receivingUser}</TableCell>
+                      <TableCell>
+                        {order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}
+                      </TableCell>
                       <TableCell className="text-right font-medium">AED {order.totalPrice.toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(order.status)} className="capitalize">
