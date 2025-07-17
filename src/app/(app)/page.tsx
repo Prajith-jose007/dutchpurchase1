@@ -1,3 +1,4 @@
+
 // src/app/(app)/page.tsx
 "use client";
 
@@ -6,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
 import { useAuth } from '@/contexts/AuthContext';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const { currentUser, isLoading } = useAuth();
