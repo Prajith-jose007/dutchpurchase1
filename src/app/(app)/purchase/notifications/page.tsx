@@ -5,8 +5,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getOrdersAction, getUsersAction } from '@/lib/actions';
-import type { Order, User } from '@/lib/types';
+import { getOrdersAction } from '@/lib/actions';
+import type { Order } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,7 +29,6 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 export default function PurchaseNotificationsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { currentUser } = useAuth();
@@ -49,12 +48,8 @@ export default function PurchaseNotificationsPage() {
       }
       setIsLoading(true);
       try {
-        const [fetchedOrders, fetchedUsers] = await Promise.all([
-          getOrdersAction(currentUser),
-          getUsersAction()
-        ]);
+        const fetchedOrders = await getOrdersAction(currentUser);
         setOrders(fetchedOrders);
-        setUsers(fetchedUsers);
       } catch (error) {
         console.error("Failed to fetch data:", error);
         toast({ title: "Error", description: "Could not fetch orders or user data.", variant: "destructive" });
@@ -65,11 +60,6 @@ export default function PurchaseNotificationsPage() {
     fetchData();
   }, [toast, currentUser, router]);
 
-  const getUserName = (userId: string | null | undefined): string => {
-    if (!userId) return 'N/A';
-    return users.find(u => u.id === userId)?.name || userId.substring(0, 8) + '...';
-  };
-  
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -121,8 +111,7 @@ export default function PurchaseNotificationsPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-                    const placingUser = getUserName(order.userId);
-                    const receivingUser = getUserName(order.receivedByUserId);
+                    
                     return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">
@@ -130,8 +119,8 @@ export default function PurchaseNotificationsPage() {
                       </TableCell>
                       <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell>{branchName}</TableCell>
-                      <TableCell>{placingUser}</TableCell>
-                      <TableCell>{receivingUser}</TableCell>
+                      <TableCell>{order.placingUserName || 'N/A'}</TableCell>
+                      <TableCell>{order.receivingUserName || 'N/A'}</TableCell>
                       <TableCell>
                         {order.status === 'Closed' && order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}
                       </TableCell>

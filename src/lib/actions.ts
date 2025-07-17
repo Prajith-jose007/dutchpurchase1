@@ -65,10 +65,16 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     if (!user) return [];
 
     let query = `
-        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, o.receivedByUserId, o.receivedAt,
-               oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
-               inv.fileName as invoiceFileName
+        SELECT 
+            o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.receivedByUserId, o.receivedAt,
+            placingUser.name as placingUserName,
+            receivingUser.name as receivingUserName,
+            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
+            inv.fileName as invoiceFileName
         FROM orders o
+        LEFT JOIN users placingUser ON o.userId = placingUser.id
+        LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
         LEFT JOIN order_items oi ON o.id = oi.orderId
         LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
@@ -97,6 +103,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 totalPrice: Number(row.totalPrice),
                 receivedByUserId: row.receivedByUserId,
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
+                placingUserName: row.placingUserName,
+                receivingUserName: row.receivingUserName,
                 items: [],
                 invoiceFileNames: [],
             };

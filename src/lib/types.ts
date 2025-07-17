@@ -37,6 +37,8 @@ export interface Order {
   invoiceFileNames?: string[]; // Optional: List of attached invoice filenames
   receivedByUserId?: string | null;
   receivedAt?: string | null;
+  placingUserName?: string; // New field for display
+  receivingUserName?: string; // New field for display
 }
 
 export interface Branch {
