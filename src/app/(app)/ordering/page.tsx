@@ -3,7 +3,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { allItems, getItemTypes, getCategories } from '@/data/inventoryItems';
+import { getItemsAction } from '@/lib/actions';
+import { getItemTypes, getCategories, getItemByCode } from '@/data/inventoryItems';
 import { branches } from '@/data/appRepository'; // Import branches
 import type { Item } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import OrderingLoading from './loading';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -27,6 +29,9 @@ export default function OrderingPage() {
   const { addToCart, cartItems, updateQuantity, getItemQuantity, totalCartPrice } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
+
+  const [allItems, setAllItems] = useState<Item[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
@@ -34,10 +39,21 @@ export default function OrderingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   
-  const [isClient, setIsClient] = useState(false);
-
   useEffect(() => {
-    setIsClient(true);
+    // Fetch items when component mounts
+    const fetchItems = async () => {
+        try {
+            const items = await getItemsAction();
+            setAllItems(items);
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to load inventory.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchItems();
+
     // Set default store if user has one
     if(currentUser?.branchIds && currentUser.branchIds.length > 0) {
       // Check if branchId 'branch-all' is not the only one.
@@ -59,8 +75,8 @@ export default function OrderingPage() {
   }, [currentUser, router]);
 
 
-  const itemTypes = useMemo(() => getItemTypes(), []);
-  const categories = useMemo(() => getCategories(selectedItemType || undefined), [selectedItemType]);
+  const itemTypes = useMemo(() => getItemTypes(allItems), [allItems]);
+  const categories = useMemo(() => getCategories(allItems, selectedItemType || undefined), [allItems, selectedItemType]);
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
@@ -70,7 +86,7 @@ export default function OrderingPage() {
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       return matchesSearchTerm && matchesItemType && matchesCategory;
     });
-  }, [searchTerm, selectedItemType, selectedCategory, selectedStoreId]);
+  }, [allItems, searchTerm, selectedItemType, selectedCategory, selectedStoreId]);
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -91,7 +107,7 @@ export default function OrderingPage() {
   const handleUpdateQuantity = (itemCode: string, change: number) => {
     const currentQuantity = getItemQuantity(itemCode);
     const newQuantity = currentQuantity + change;
-    const item = getItemByCode(itemCode);
+    const item = getItemByCode(allItems, itemCode);
     if (!item) return;
 
     if (newQuantity <= 0) {
@@ -102,8 +118,6 @@ export default function OrderingPage() {
        toast({ title: "Quantity updated", description: `${item.description} quantity now ${newQuantity}.`});
     }
   };
-
-  const getItemByCode = (code: string) => allItems.find(item => item.code === code);
   
   const userSelectableBranches = useMemo(() => {
      if (!currentUser) return [];
@@ -115,14 +129,9 @@ export default function OrderingPage() {
   }, [currentUser]);
 
 
-  if (!isClient || (currentUser && currentUser.role === 'purchase')) {
+  if (isLoading || (currentUser && currentUser.role === 'purchase')) {
     // Render a loading/redirecting state if not client-side yet or if user is being redirected
-    return (
-       <div className="flex justify-center items-center h-full">
-        <Icons.Dashboard className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg">Loading...</p>
-      </div>
-    );
+    return <OrderingLoading />;
   }
 
 
@@ -256,7 +265,7 @@ export default function OrderingPage() {
             <ScrollArea className="h-[calc(100vh-420px)] lg:h-[calc(100vh-490px)] max-h-[500px]">
               <div className="p-4 space-y-3">
                 {cartItems.map(item => {
-                  const cartItemDetails = getItemByCode(item.code);
+                  const cartItemDetails = getItemByCode(allItems, item.code);
                   return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">

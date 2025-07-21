@@ -3,7 +3,8 @@
 "use client"; // This page uses client-side filtering and state
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { allItems, getItemTypes, getCategories } from '@/data/inventoryItems';
+import { getItemsAction } from '@/lib/actions';
+import { getItemTypes, getCategories } from '@/data/inventoryItems';
 import type { Item } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,23 +14,35 @@ import { Badge } from '@/components/ui/badge';
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { toast } from '@/hooks/use-toast';
 
 const ITEMS_PER_PAGE = 15;
 
 export default function InventoryPage() {
+  const [allItems, setAllItems] = useState<Item[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItemType, setSelectedItemType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   
-  // Client-side rendering guard
-  const [isClient, setIsClient] = useState(false);
   useEffect(() => {
-    setIsClient(true);
+    const fetchItems = async () => {
+        try {
+            const items = await getItemsAction();
+            setAllItems(items);
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to load inventory.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchItems();
   }, []);
 
-  const itemTypes = useMemo(() => getItemTypes(), []);
-  const categories = useMemo(() => getCategories(selectedItemType || undefined), [selectedItemType]);
+  const itemTypes = useMemo(() => getItemTypes(allItems), [allItems]);
+  const categories = useMemo(() => getCategories(allItems, selectedItemType || undefined), [allItems, selectedItemType]);
 
   const filteredItems = useMemo(() => {
     return allItems.filter(item => {
@@ -41,7 +54,7 @@ export default function InventoryPage() {
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       return matchesSearchTerm && matchesItemType && matchesCategory;
     });
-  }, [searchTerm, selectedItemType, selectedCategory]);
+  }, [allItems, searchTerm, selectedItemType, selectedCategory]);
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -50,7 +63,7 @@ export default function InventoryPage() {
 
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
   
-  if (!isClient) {
+  if (isLoading) {
      return ( // Skeleton loader
       <div className="space-y-6">
         <Skeleton className="h-10 w-1/3" /> <Skeleton className="h-4 w-2/3" />
