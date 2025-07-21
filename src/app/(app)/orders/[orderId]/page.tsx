@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, deleteOrderAction } from '@/lib/actions';
+import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction } from '@/lib/actions';
 import type { Order, User, OrderStatus } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useDropzone } from 'react-dropzone';
 
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
@@ -52,6 +53,7 @@ export default function OrderDetailsPage() {
   const [recentUploads, setRecentUploads] = useState<string[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchOrderData = useCallback(async () => {
     setIsLoading(true);
@@ -81,6 +83,38 @@ export default function OrderDetailsPage() {
       fetchOrderData();
     }
   }, [orderId, fetchOrderData]);
+  
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0 || !currentUser) return;
+    setIsUploading(true);
+
+    const formData = new FormData();
+    acceptedFiles.forEach(file => {
+      formData.append('invoices', file);
+    });
+    formData.append('userId', currentUser.id);
+
+    try {
+      const result = await uploadInvoicesAction(formData);
+      if (result.success && result.fileCount && result.fileCount > 0) {
+        toast({ title: "Upload Successful", description: `${result.fileCount} file(s) ready to be attached.` });
+        // Refresh the list of available invoices
+        const newUploads = await getRecentUploadsAction();
+        setRecentUploads(newUploads);
+        // Automatically select the newly uploaded files
+        const newFileNames = acceptedFiles.map(f => f.name);
+        setSelectedInvoices(prev => [...new Set([...prev, ...newFileNames])]);
+      } else {
+        toast({ title: "Upload Failed", description: result.error || "Could not upload files.", variant: "destructive" });
+      }
+    } catch (error) {
+       toast({ title: "Upload Error", description: "An error occurred during upload.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  }, [currentUser, toast]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: {'application/pdf': ['.pdf'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png']} });
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order || !currentUser) return;
@@ -340,43 +374,70 @@ export default function OrderDetailsPage() {
 
       <Dialog open={isAttachInvoiceOpen} onOpenChange={setIsAttachInvoiceOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
-            <DialogDescription>Select one or more uploaded invoices to link to this order.</DialogDescription>
-          </DialogHeader>
-            <div className="py-4 space-y-3 max-h-60 overflow-y-auto">
-              {recentUploads.length > 0 ? (
-                  recentUploads.map(fileName => (
-                      <div key={fileName} className="flex items-center space-x-2">
-                          <Checkbox 
-                              id={fileName}
-                              onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
-                              checked={selectedInvoices.includes(fileName)}
-                          />
-                          <label htmlFor={fileName} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                              {fileName}
-                          </label>
-                      </div>
-                  ))
-              ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No recent invoices available to attach.</p>
-              )}
+            <DialogHeader>
+              <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
+              <DialogDescription>Select invoices to link, or upload new ones.</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+                <div {...getRootProps()} className={`p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
+                    <input {...getInputProps()} disabled={isUploading} />
+                    {isUploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                           <Icons.Dashboard className="h-8 w-8 animate-spin text-primary" />
+                           <p>Uploading files...</p>
+                        </div>
+                    ) : isDragActive ? (
+                        <p className="font-semibold text-primary">Drop files here...</p>
+                    ) : (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <Icons.UploadCloud className="h-8 w-8" />
+                            <p>Drag & drop or click to upload</p>
+                            <p className="text-xs">PDF, JPG, PNG</p>
+                        </div>
+                    )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                    <h4 className="font-medium">Available Invoices</h4>
+                    <div className="py-2 space-y-3 max-h-40 overflow-y-auto border rounded-md p-2">
+                    {recentUploads.length > 0 ? (
+                        recentUploads.map(fileName => (
+                            <div key={fileName} className="flex items-center space-x-2">
+                                <Checkbox 
+                                    id={`cb-${fileName}`}
+                                    onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
+                                    checked={selectedInvoices.includes(fileName)}
+                                />
+                                <label htmlFor={`cb-${fileName}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate">
+                                    {fileName}
+                                </label>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No recent invoices available to attach.</p>
+                    )}
+                    </div>
+                </div>
             </div>
-          <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-            <Button 
-              onClick={handleAttachInvoices} 
-              disabled={isAttaching || selectedInvoices.length === 0}
-              className={cn(
-                  currentUser?.role === 'purchase'
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : ""
-                )}
-            >
-              {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
-              Attach Selected
-            </Button>
-          </DialogFooter>
+
+            <DialogFooter>
+                <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                <Button 
+                    onClick={handleAttachInvoices} 
+                    disabled={isAttaching || selectedInvoices.length === 0}
+                    className={cn(
+                        currentUser?.role === 'purchase'
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : ""
+                    )}
+                >
+                    {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
+                    Attach Selected ({selectedInvoices.length})
+                </Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
