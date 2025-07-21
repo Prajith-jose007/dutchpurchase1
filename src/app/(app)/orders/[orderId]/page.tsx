@@ -95,8 +95,7 @@ export default function OrderDetailsPage() {
   // Camera permission logic
   useEffect(() => {
     const getCameraPermission = async () => {
-      // Use optional chaining to safely access getUserMedia
-      if (navigator.mediaDevices?.getUserMedia) {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           setHasCameraPermission(true);
@@ -108,7 +107,7 @@ export default function OrderDetailsPage() {
           setHasCameraPermission(false);
         }
       } else {
-        console.error('MediaDevices API not supported in this browser.');
+        console.error('MediaDevices API not available.');
         setHasCameraPermission(false);
       }
     };
@@ -502,5 +501,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    
