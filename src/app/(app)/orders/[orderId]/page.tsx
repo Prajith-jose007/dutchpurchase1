@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, uploadInvoicesAction } from '@/lib/actions';
+import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, uploadInvoicesAction, deleteOrderAction } from '@/lib/actions';
 import type { Order, User, OrderStatus } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,7 +22,9 @@ import { useDropzone } from 'react-dropzone';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
 
@@ -40,6 +42,7 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 export default function OrderDetailsPage() {
   const params = useParams();
   const orderId = params.orderId as string;
+  const router = useRouter();
 
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -131,6 +134,18 @@ export default function OrderDetailsPage() {
       }
     } else {
       toast({ title: "Update Failed", description: result.error, variant: "destructive" });
+    }
+  };
+  
+  const handleDeleteOrder = async () => {
+    if (!order || !currentUser) return;
+
+    const result = await deleteOrderAction(order.id, currentUser);
+    if (result.success) {
+        toast({ title: "Order Deleted", description: "The purchase order has been permanently removed." });
+        router.push('/purchase/notifications');
+    } else {
+        toast({ title: "Deletion Failed", description: result.error, variant: "destructive" });
     }
   };
 
@@ -231,6 +246,7 @@ export default function OrderDetailsPage() {
   const userName = placingUser?.name || order.userId;
   const receiverName = receivingUser?.name;
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
+  const canDeleteOrder = currentUser && ['admin', 'superadmin'].includes(currentUser.role);
   const canAttachInvoices = canManageOrder && ['Arrived', 'Closed'].includes(order.status);
 
   return (
@@ -262,7 +278,7 @@ export default function OrderDetailsPage() {
               <CardTitle className="text-base font-semibold text-muted-foreground">Status</CardTitle>
               <div className="flex items-center gap-2">
                 <Badge variant={getStatusBadgeVariant(order.status)} className="text-base capitalize py-1 px-3">{order.status}</Badge>
-                {canManageOrder && order.status !== 'Closed' && (
+                {canManageOrder && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                        <Button variant="ghost" size="icon"><Icons.Settings className="h-4 w-4" /></Button>
@@ -360,9 +376,32 @@ export default function OrderDetailsPage() {
           )}
 
           <CardFooter className="border-t pt-6 flex justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              Contact support for any questions about this order.
-            </p>
+            <div>
+            {canDeleteOrder && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive">
+                            <Icons.Delete className="mr-2 h-4 w-4" /> Delete Order
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the purchase order
+                                #{order.id.substring(0, 8)} and all its data.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteOrder} className="bg-destructive hover:bg-destructive/90">
+                                Yes, delete order
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
+            </div>
             {canAttachInvoices && (
               <Button 
                 onClick={handleOpenAttachDialog}

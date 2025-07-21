@@ -199,6 +199,42 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
     }
 }
 
+export async function deleteOrderAction(orderId: string, actor: User): Promise<{ success: boolean, error?: string }> {
+    if (!actor || !['admin', 'superadmin'].includes(actor.role)) {
+        return { success: false, error: "Permission denied. Only admins can delete orders." };
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Delete associated order items first to respect foreign key constraints
+        await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
+        
+        // Unlink any attached invoices (set orderId to NULL)
+        await connection.query("UPDATE invoices SET orderId = NULL WHERE orderId = ?", [orderId]);
+
+        // Delete the order itself
+        const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return { success: false, error: "Order not found or could not be deleted." };
+        }
+
+        await connection.commit();
+        return { success: true };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error('Failed to delete order:', error);
+        return { success: false, error: 'Database error occurred while deleting the order.' };
+    } finally {
+        connection.release();
+    }
+}
+
+
 export async function getUser(userId: string): Promise<User | null> {
     if (!userId) return null;
     const [userRows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, role FROM users WHERE id = ?", [userId]);
