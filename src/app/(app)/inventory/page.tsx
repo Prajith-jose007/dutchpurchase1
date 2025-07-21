@@ -1,4 +1,3 @@
-
 // src/app/(app)/inventory/page.tsx
 "use client"; // This page uses client-side filtering and state
 
@@ -15,6 +14,7 @@ import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -169,9 +169,4 @@ export default function InventoryPage() {
       </Card>
     </div>
   );
-}
-
-// Skeleton for loading state
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-muted rounded-md ${className}`} />;
 }

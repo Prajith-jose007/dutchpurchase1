@@ -1,4 +1,3 @@
-
 // src/app/(app)/ordering/page.tsx
 "use client";
 
@@ -86,7 +85,7 @@ export default function OrderingPage() {
       const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
       return matchesSearchTerm && matchesItemType && matchesCategory;
     });
-  }, [allItems, searchTerm, selectedItemType, selectedCategory, selectedStoreId]);
+  }, [allItems, searchTerm, selectedItemType, selectedCategory]);
 
   const paginatedItems = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
