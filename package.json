@@ -15,7 +15,7 @@
     "db:add-pricing": "node scripts/db-add-pricing-columns.js",
     "db:add-receiving": "node scripts/db-add-receiving-info.js",
     "migrate:data": "node src/scripts/migrate-data.js",
-    "migrate:inventory": "node scripts/migrate-inventory.js",
+    "migrate:inventory": "ts-node scripts/migrate-inventory.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
