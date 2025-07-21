@@ -106,7 +106,6 @@ export function parseInventoryData(rawData: string): Item[] {
       packing,
       shelfLifeDays,
       price,
-      // imageUrl is removed from here
     });
   }
 
