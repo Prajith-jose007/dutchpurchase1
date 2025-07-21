@@ -95,8 +95,7 @@ export default function OrderDetailsPage() {
   // Camera permission logic
   useEffect(() => {
     const getCameraPermission = async () => {
-      // Robust check for camera API availability
-      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+      if (typeof window !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           setHasCameraPermission(true);
@@ -104,10 +103,11 @@ export default function OrderDetailsPage() {
             videoRef.current.srcObject = stream;
           }
         } catch (error) {
-          console.error('Error accessing camera:', error);
+          console.error('Camera access denied:', error);
           setHasCameraPermission(false);
         }
       } else {
+        console.error('MediaDevices API not available in this browser.');
         setHasCameraPermission(false);
       }
     };
