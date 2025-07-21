@@ -3,12 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-
-    "dev:https": "node server.js",
-
+    "dev:https": "next dev --experimental-https",
     "dev": "next dev --turbopack -p 3000",
-    
-
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -19,6 +15,7 @@
     "db:add-pricing": "node scripts/db-add-pricing-columns.js",
     "db:add-receiving": "node scripts/db-add-receiving-info.js",
     "migrate:data": "node src/scripts/migrate-data.js",
+    "migrate:inventory": "node scripts/migrate-inventory.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
