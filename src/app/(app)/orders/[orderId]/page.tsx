@@ -455,7 +455,7 @@ export default function OrderDetailsPage() {
                    <div className="py-4 space-y-4">
                       {capturedImage ? (
                           <div className="space-y-4">
-                              <Image src={capturedImage} alt="Captured Invoice" width={400} height={300} className="rounded-md mx-auto" />
+                              <Image src={capturedImage} alt="Captured Invoice" width={400} height={300} className="rounded-md mx-auto" data-ai-hint="invoice document"/>
                               <Button variant="outline" onClick={() => setCapturedImage(null)} className="w-full">
                                 <Icons.Remove className="mr-2 h-4 w-4" /> Retake
                               </Button>
@@ -502,3 +502,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    
