@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, uploadInvoicesAction, deleteOrderAction } from '@/lib/actions';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getOrderByIdAction, getUser, getRecentUploadsAction, attachInvoicesToOrderAction, updateOrderStatusAction, deleteOrderAction } from '@/lib/actions';
 import type { Order, User, OrderStatus } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,10 +17,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useDropzone } from 'react-dropzone';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -56,12 +52,6 @@ export default function OrderDetailsPage() {
   const [recentUploads, setRecentUploads] = useState<string[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
-  
-  // State for camera capture
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   const fetchOrderData = useCallback(async () => {
     setIsLoading(true);
@@ -91,38 +81,6 @@ export default function OrderDetailsPage() {
       fetchOrderData();
     }
   }, [orderId, fetchOrderData]);
-  
-  // Camera permission logic
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      if (typeof window !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Camera access denied:', error);
-          setHasCameraPermission(false);
-        }
-      } else {
-        console.error('MediaDevices API not available in this browser.');
-        setHasCameraPermission(false);
-      }
-    };
-
-    if (isAttachInvoiceOpen) {
-      getCameraPermission();
-    } else {
-      // Stop camera stream when dialog closes
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-    }
-  }, [isAttachInvoiceOpen]);
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order || !currentUser) return;
@@ -154,63 +112,24 @@ export default function OrderDetailsPage() {
     const uploads = await getRecentUploadsAction();
     setRecentUploads(uploads);
     setSelectedInvoices([]);
-    setCapturedImage(null);
     setIsAttachInvoiceOpen(true);
   };
 
   const handleAttachInvoices = async () => {
-    if (!order) return;
+    if (!order || selectedInvoices.length === 0) return;
     
-    let invoicesToAttach = [...selectedInvoices];
     setIsAttaching(true);
 
-    if (capturedImage && currentUser) {
-      try {
-        const blob = await (await fetch(capturedImage)).blob();
-        const fileName = `capture-${order.id}-${Date.now()}.png`;
-        const capturedFile = new File([blob], fileName, { type: 'image/png' });
-
-        const formData = new FormData();
-        formData.append('invoices', capturedFile);
-        formData.append('userId', currentUser.id);
-
-        const uploadResult = await uploadInvoicesAction(formData);
-        if (uploadResult.success) {
-            invoicesToAttach.push(fileName);
-        } else {
-             toast({ title: "Capture Upload Failed", description: uploadResult.error, variant: "destructive" });
-        }
-      } catch(e) {
-         toast({ title: "Capture Error", description: "Could not process captured image.", variant: "destructive" });
-      }
-    }
-
-    if (invoicesToAttach.length > 0) {
-        const result = await attachInvoicesToOrderAction(order.id, invoicesToAttach);
-        if (result.success) {
-            toast({ title: "Invoices Attached", description: `${invoicesToAttach.length} invoice(s) have been linked.` });
-            fetchOrderData(); // Refresh order data
-        } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
-        }
+    const result = await attachInvoicesToOrderAction(order.id, selectedInvoices);
+    if (result.success) {
+        toast({ title: "Invoices Attached", description: `${selectedInvoices.length} invoice(s) have been linked.` });
+        fetchOrderData(); // Refresh order data
+    } else {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
     }
     
     setIsAttaching(false);
     setIsAttachInvoiceOpen(false);
-  };
-  
-  const handleCaptureImage = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (video && canvas) {
-      const context = canvas.getContext('2d');
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        setCapturedImage(canvas.toDataURL('image/png'));
-      }
-    }
   };
 
   const handleInvoiceSelection = (fileName: string, checked: boolean) => {
@@ -423,69 +342,31 @@ export default function OrderDetailsPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
-            <DialogDescription>Attach existing uploads or capture a new invoice image.</DialogDescription>
+            <DialogDescription>Select one or more uploaded invoices to link to this order.</DialogDescription>
           </DialogHeader>
-            <Tabs defaultValue="upload" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="upload">Select Upload</TabsTrigger>
-                    <TabsTrigger value="capture">Capture Image</TabsTrigger>
-                </TabsList>
-                <TabsContent value="upload">
-                     <div className="py-4 space-y-3 max-h-60 overflow-y-auto">
-                        {recentUploads.length > 0 ? (
-                            recentUploads.map(fileName => (
-                                <div key={fileName} className="flex items-center space-x-2">
-                                    <Checkbox 
-                                        id={fileName}
-                                        onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
-                                        checked={selectedInvoices.includes(fileName)}
-                                    />
-                                    <label htmlFor={fileName} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        {fileName}
-                                    </label>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground text-center py-4">No recent invoices available to attach.</p>
-                        )}
-                    </div>
-                </TabsContent>
-                <TabsContent value="capture">
-                   <div className="py-4 space-y-4">
-                      {capturedImage ? (
-                          <div className="space-y-4">
-                              <Image src={capturedImage} alt="Captured Invoice" width={400} height={300} className="rounded-md mx-auto" data-ai-hint="invoice document"/>
-                              <Button variant="outline" onClick={() => setCapturedImage(null)} className="w-full">
-                                <Icons.Remove className="mr-2 h-4 w-4" /> Retake
-                              </Button>
-                          </div>
-                      ) : (
-                        <>
-                          <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
-                              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                              {hasCameraPermission === false && (
-                                <div className="absolute inset-0 flex items-center justify-center p-4">
-                                  <Alert variant="destructive">
-                                    <AlertTitle>Camera Access Required</AlertTitle>
-                                    <AlertDescription>Please allow camera access to use this feature.</AlertDescription>
-                                  </Alert>
-                                </div>
-                              )}
-                          </div>
-                          <Button onClick={handleCaptureImage} disabled={!hasCameraPermission} className="w-full">
-                              <Icons.Camera className="mr-2 h-4 w-4" /> Capture Invoice
-                          </Button>
-                        </>
-                      )}
-                      <canvas ref={canvasRef} className="hidden"></canvas>
-                   </div>
-                </TabsContent>
-            </Tabs>
+            <div className="py-4 space-y-3 max-h-60 overflow-y-auto">
+              {recentUploads.length > 0 ? (
+                  recentUploads.map(fileName => (
+                      <div key={fileName} className="flex items-center space-x-2">
+                          <Checkbox 
+                              id={fileName}
+                              onCheckedChange={(checked) => handleInvoiceSelection(fileName, !!checked)}
+                              checked={selectedInvoices.includes(fileName)}
+                          />
+                          <label htmlFor={fileName} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              {fileName}
+                          </label>
+                      </div>
+                  ))
+              ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">No recent invoices available to attach.</p>
+              )}
+            </div>
           <DialogFooter>
             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
             <Button 
               onClick={handleAttachInvoices} 
-              disabled={isAttaching || (selectedInvoices.length === 0 && !capturedImage)}
+              disabled={isAttaching || selectedInvoices.length === 0}
               className={cn(
                   currentUser?.role === 'purchase'
                     ? "bg-blue-600 hover:bg-blue-700"
