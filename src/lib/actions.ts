@@ -1,9 +1,10 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
+import { parseInventoryData } from "./inventoryParser";
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -442,5 +443,99 @@ export async function updateMyPasswordAction(userId: string, currentPassword: st
     }
 }
 
+// INVENTORY ACTIONS
 
-    
+export async function getItemsAction(): Promise<Item[]> {
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM items ORDER BY code ASC");
+    return rows as Item[];
+}
+
+export async function addItemAction(item: Omit<Item, 'remark'> & { remark?: string }): Promise<{ success: boolean; error?: string }> {
+    try {
+        await pool.query(
+            "INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.remark || null, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, item.price]
+        );
+        return { success: true };
+    } catch (error: any) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return { success: false, error: `Item with code ${item.code} already exists.` };
+        }
+        console.error("Error adding item:", error);
+        return { success: false, error: "A database error occurred." };
+    }
+}
+
+export async function updateItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
+    try {
+        const [result] = await pool.query<OkPacket>(
+            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
+            [item.remark, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, item.price, item.code]
+        );
+        if (result.affectedRows === 0) {
+            return { success: false, error: "Item not found." };
+        }
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating item:", error);
+        return { success: false, error: "A database error occurred." };
+    }
+}
+
+export async function deleteItemAction(code: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const [result] = await pool.query<OkPacket>("DELETE FROM items WHERE code = ?", [code]);
+        if (result.affectedRows > 0) {
+            return { success: true };
+        } else {
+            return { success: false, error: "Item not found." };
+        }
+    } catch (error) {
+        console.error("Error deleting item:", error);
+        return { success: false, error: "A database error occurred." };
+    }
+}
+
+export async function importInventoryAction(formData: FormData): Promise<{ success: boolean; count?: number; error?: string }> {
+    const file = formData.get('inventoryFile') as File;
+    if (!file) {
+        return { success: false, error: "No file was provided." };
+    }
+
+    const fileContent = await file.text();
+    const items = parseInventoryData(fileContent);
+
+    if (items.length === 0) {
+        return { success: false, error: "Could not parse any items from the file. Please check the format." };
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        for (const item of items) {
+            const values = [
+                item.code, item.remark || null, item.itemType, item.category, 
+                item.description, item.units, item.packing, item.shelfLifeDays, item.price
+            ];
+            // Use INSERT ... ON DUPLICATE KEY UPDATE to either insert a new item or update an existing one.
+            await connection.query(
+                `INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE 
+                 remark=VALUES(remark), itemType=VALUES(itemType), category=VALUES(category), description=VALUES(description), 
+                 units=VALUES(units), packing=VALUES(packing), shelfLifeDays=VALUES(shelfLifeDays), price=VALUES(price)`,
+                values
+            );
+        }
+
+        await connection.commit();
+        return { success: true, count: items.length };
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error importing inventory:", error);
+        return { success: false, error: "A database error occurred during the import process." };
+    } finally {
+        connection.release();
+    }
+}
