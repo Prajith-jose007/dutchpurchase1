@@ -94,32 +94,34 @@ export default function OrderDetailsPage() {
   
   // Camera permission logic
   useEffect(() => {
-    if (isAttachInvoiceOpen) {
-      const getCameraPermission = async () => {
-        if (typeof window !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                setHasCameraPermission(true);
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-            } catch (error) {
-                console.error('Error accessing camera:', error);
-                setHasCameraPermission(false);
-            }
-        } else {
-            console.error('MediaDevices API not supported in this browser.');
-            setHasCameraPermission(false);
+    const getCameraPermission = async () => {
+      // Use optional chaining to safely access getUserMedia
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
         }
-      };
+      } else {
+        console.error('MediaDevices API not supported in this browser.');
+        setHasCameraPermission(false);
+      }
+    };
+
+    if (isAttachInvoiceOpen) {
       getCameraPermission();
     } else {
-        // Stop camera stream when dialog closes
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
-            videoRef.current.srcObject = null;
-        }
+      // Stop camera stream when dialog closes
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
     }
   }, [isAttachInvoiceOpen]);
 
