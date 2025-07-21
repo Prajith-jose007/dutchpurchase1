@@ -1,8 +1,10 @@
 
 require('dotenv').config();
 const mysql = require('mysql2/promise');
-const { rawInventoryData } = require('../src/data/rawInventoryData');
-const { parseInventoryData } = require('../src/lib/inventoryParser');
+const path = require('path');
+// Correctly require modules from the `src` directory
+const { rawInventoryData } = require(path.join(__dirname, '..', 'src', 'data', 'rawInventoryData.ts'));
+const { parseInventoryData } = require(path.join(__dirname, '..', 'src', 'lib', 'inventoryParser.ts'));
 
 async function migrateInventory() {
   console.log('Starting inventory data migration...');
