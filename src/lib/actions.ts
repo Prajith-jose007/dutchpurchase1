@@ -161,44 +161,41 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
 }
 
 export async function updateOrderStatusAction(orderId: string, status: OrderStatus, actorUserId: string): Promise<{ success: boolean; error?: string }> {
+    const connection = await pool.getConnection();
     try {
-        const connection = await pool.getConnection();
-        try {
-            await connection.beginTransaction();
+        await connection.beginTransaction();
 
-            const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT receivedByUserId FROM orders WHERE id = ?", [orderId]);
+        const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT receivedByUserId FROM orders WHERE id = ?", [orderId]);
 
-            if (currentOrderRows.length === 0) {
-                return { success: false, error: "Order not found." };
-            }
-
-            const currentOrder = currentOrderRows[0];
-            let query = "UPDATE orders SET status = ?";
-            const params: (string | Date)[] = [status];
-
-            // If the status is being set to "Arrived" or "Closed" AND it hasn't been received before,
-            // set the receivedByUserId and receivedAt timestamp.
-            if (['Arrived', 'Closed'].includes(status) && !currentOrder.receivedByUserId) {
-                query += ", receivedByUserId = ?, receivedAt = ?";
-                params.push(actorUserId, new Date());
-            }
-
-            query += " WHERE id = ?";
-            params.push(orderId);
-
-            await connection.query(query, params);
-            await connection.commit();
-            return { success: true };
-        } catch (error) {
+        if (currentOrderRows.length === 0) {
             await connection.rollback();
-            console.error("Failed to update order status:", error);
-            return { success: false, error: "Database error: Failed to update status." };
-        } finally {
             connection.release();
+            return { success: false, error: "Order not found." };
         }
+
+        const currentOrder = currentOrderRows[0];
+        const updates = ['status = ?'];
+        const params: (string | Date | null)[] = [status];
+
+        // If the status is being set to "Arrived" or "Closed" AND it hasn't been received before,
+        // set the receivedByUserId and receivedAt timestamp.
+        if (['Arrived', 'Closed'].includes(status) && !currentOrder.receivedByUserId) {
+            updates.push('receivedByUserId = ?', 'receivedAt = ?');
+            params.push(actorUserId, new Date());
+        }
+
+        const query = `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`;
+        params.push(orderId);
+
+        await connection.query(query, params);
+        await connection.commit();
+        return { success: true };
     } catch (error) {
-         console.error("Failed to get DB connection:", error);
-         return { success: false, error: "Database connection error." };
+        await connection.rollback();
+        console.error("Failed to update order status:", error);
+        return { success: false, error: "Database error: Failed to update status." };
+    } finally {
+        connection.release();
     }
 }
 
