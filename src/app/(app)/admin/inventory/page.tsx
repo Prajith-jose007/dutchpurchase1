@@ -21,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const itemSchema = z.object({
   code: z.string().min(1, "Item code cannot be empty."),
@@ -152,6 +153,19 @@ export default function InventoryManagementPage() {
     setIsSubmitting(false);
   };
 
+  const handleDownloadSample = () => {
+    const header = "CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,UNITS,PACKING,SHELF,PRICE";
+    const exampleRow = "999,NEW,DRY,SPICE,Sample Spice,KG,1,180,25.50";
+    const csvContent = `data:text/csv;charset=utf-8,${header}\n${exampleRow}`;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "inventory_sample.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading Inventory...</p></div>;
@@ -263,19 +277,31 @@ export default function InventoryManagementPage() {
        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
         <DialogContent>
             <DialogHeader>
-            <DialogTitle>Import Inventory from CSV</DialogTitle>
-            <DialogDescription>Upload a CSV file with inventory data. The file should have a header row: CODE, REMARK, TYPE, CATEGORY, DESCRIPTION, UNITS, PACKING, SHELF, PRICE.</DialogDescription>
+              <DialogTitle>Import Inventory from CSV</DialogTitle>
+              <DialogDescription>
+                Upload a CSV file with inventory data. The file should have a header row: CODE, REMARK, TYPE, CATEGORY, DESCRIPTION, UNITS, PACKING, SHELF, PRICE.
+              </DialogDescription>
             </DialogHeader>
-            <div {...getRootProps()} className={`mt-4 p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
-                <input {...getInputProps()} />
-                <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                {importFile ? (
-                    <p className="font-semibold text-primary">{importFile.name}</p>
-                ) : isDragActive ? (
-                    <p className="font-semibold text-primary">Drop the CSV file here...</p>
-                ) : (
-                    <p className="text-muted-foreground">Drag & drop a CSV file here, or click to select</p>
-                )}
+            <div className="space-y-4">
+                <div {...getRootProps()} className={`mt-4 p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
+                    <input {...getInputProps()} />
+                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+                    {importFile ? (
+                        <p className="font-semibold text-primary">{importFile.name}</p>
+                    ) : isDragActive ? (
+                        <p className="font-semibold text-primary">Drop the CSV file here...</p>
+                    ) : (
+                        <p className="text-muted-foreground">Drag & drop a CSV file here, or click to select</p>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Separator className="flex-1" />
+                    <span className="text-xs text-muted-foreground">OR</span>
+                    <Separator className="flex-1" />
+                </div>
+                <Button variant="outline" className="w-full" onClick={handleDownloadSample}>
+                    <Icons.Download className="mr-2 h-4 w-4" /> Download Sample Format
+                </Button>
             </div>
             <DialogFooter className="pt-4">
                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
