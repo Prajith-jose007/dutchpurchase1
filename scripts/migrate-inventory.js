@@ -1,12 +1,12 @@
-
+// scripts/migrate-inventory.js
 require('dotenv').config();
-import mysql from 'mysql2/promise';
-import { rawInventoryData } from '../src/data/rawInventoryData';
-import { parseInventoryData } from '../src/lib/inventoryParser';
+const mysql = require('mysql2/promise');
+const { rawInventoryData } = require('../src/data/rawInventoryData');
+const { parseInventoryData } = require('../src/lib/inventoryParser');
 
 async function migrateInventory() {
   console.log('Starting inventory data migration...');
-  let connection: mysql.Connection | undefined;
+  let connection;
 
   try {
     connection = await mysql.createConnection({
@@ -29,21 +29,34 @@ async function migrateInventory() {
 
     await connection.beginTransaction();
     
-    // Clear the table before inserting new data to ensure a clean slate
-    await connection.query('TRUNCATE TABLE items');
-    console.log('Cleared existing items from the table.');
-    
     let processedCount = 0;
     for (const item of items) {
         const values = [
-            item.code, item.remark || null, item.itemType, item.category, 
-            item.description, item.units, item.packing, item.shelfLifeDays, item.price
+            item.code, 
+            item.remark || null, 
+            item.itemType, 
+            item.category, 
+            item.description, 
+            item.detailedDescription,
+            item.units, 
+            item.packing, 
+            item.shelfLifeDays, 
+            item.price
         ];
 
-        // Since we truncated, we can just use INSERT.
         const sql = `
-            INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                remark = VALUES(remark),
+                itemType = VALUES(itemType),
+                category = VALUES(category),
+                description = VALUES(description),
+                detailedDescription = VALUES(detailedDescription),
+                units = VALUES(units),
+                packing = VALUES(packing),
+                shelfLifeDays = VALUES(shelfLifeDays),
+                price = VALUES(price)
         `;
         
       await connection.query(sql, values);
