@@ -33,6 +33,12 @@ async function setupDatabase() {
         database: process.env.DB_DATABASE,
         multipleStatements: true // Allow multiple SQL queries in one execution
     });
+    
+    // Drop the items table if it exists to ensure schema updates are applied
+    console.log('Dropping `items` table if it exists to apply new schema...');
+    await connection.query('DROP TABLE IF EXISTS `items`;');
+    console.log('`items` table dropped.');
+
 
     console.log('Reading schema.sql file...');
     const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');
