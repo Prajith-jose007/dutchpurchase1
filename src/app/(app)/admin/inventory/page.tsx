@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 const itemSchema = z.object({
   code: z.string().min(1, "Item code cannot be empty."),
   description: z.string().min(3, "Description must be at least 3 characters."),
+  detailedDescription: z.string().optional(),
   itemType: z.string().min(1, "Item type is required."),
   category: z.string().min(1, "Category is required."),
   units: z.string().min(1, "Units are required."),
@@ -84,7 +85,7 @@ export default function InventoryManagementPage() {
       });
     } else {
       form.reset({
-        code: '', description: '', itemType: '', category: '', units: '', packing: 0, shelfLifeDays: 0, price: 0, remark: ''
+        code: '', description: '', detailedDescription: '', itemType: '', category: '', units: '', packing: 0, shelfLifeDays: 0, price: 0, remark: ''
       });
     }
   }, [editingItem, form]);
@@ -154,8 +155,8 @@ export default function InventoryManagementPage() {
   };
 
   const handleDownloadSample = () => {
-    const header = "CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,UNITS,PACKING,SHELF,PRICE";
-    const exampleRow = "999,NEW,DRY,SPICE,Sample Spice,KG,1,180,25.50";
+    const header = "CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,DETAILED,UNITS,PACKING,PRICE";
+    const exampleRow = "999,NEW,DRY,SPICE,Sample Spice,Detailed Description Here,KG,1,25.50";
     const csvContent = `data:text/csv;charset=utf-8,${header}\n${exampleRow}`;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -253,6 +254,7 @@ export default function InventoryManagementPage() {
             <form onSubmit={form.handleSubmit(handleItemFormSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
               <FormField control={form.control} name="code" render={({ field }) => (<FormItem><FormLabel>Item Code</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} disabled={!!editingItem} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Baby Corn" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="detailedDescription" render={({ field }) => (<FormItem><FormLabel>Detailed Description</FormLabel><FormControl><Input placeholder="e.g., Fresh baby corn, Grade A" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="itemType" render={({ field }) => (<FormItem><FormLabel>Item Type</FormLabel><FormControl><Input placeholder="e.g., Fruits & Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>Category</FormLabel><FormControl><Input placeholder="e.g., Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="units" render={({ field }) => (<FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="e.g., KG" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -279,7 +281,7 @@ export default function InventoryManagementPage() {
             <DialogHeader>
               <DialogTitle>Import Inventory from CSV</DialogTitle>
               <DialogDescription>
-                Upload a CSV file with inventory data. The file should have a header row: CODE, REMARK, TYPE, CATEGORY, DESCRIPTION, UNITS, PACKING, SHELF, PRICE.
+                Upload a CSV file with inventory data. The file should have a header row: CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,DETAILED,UNITS,PACKING,PRICE
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS `items` (
   `itemType` VARCHAR(255) NOT NULL,
   `category` VARCHAR(255) NOT NULL,
   `description` VARCHAR(255) NOT NULL,
+  `detailedDescription` VARCHAR(255) NULL,
   `units` VARCHAR(50) NOT NULL,
   `packing` DECIMAL(10, 2) NOT NULL,
   `shelfLifeDays` INT NOT NULL,

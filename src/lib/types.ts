@@ -5,6 +5,7 @@ export interface Item {
   itemType: string; // This was 'type' in previous thoughts, changed to avoid conflict with TS keyword
   category: string;
   description: string;
+  detailedDescription: string | null;
   units: string;
   packing: number;
   shelfLifeDays: number;

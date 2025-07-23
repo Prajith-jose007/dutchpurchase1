@@ -207,6 +207,7 @@ export default function OrderingPage() {
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
                   <CardContent className="p-4 flex-grow">
                     <CardTitle className="text-lg font-semibold mb-1 line-clamp-2 h-[3em]">{item.description}</CardTitle>
+                    {item.detailedDescription && <p className="text-sm text-muted-foreground mb-2">{item.detailedDescription}</p>}
                     <div className="flex items-center text-xs text-muted-foreground mb-2">
                        <IconComponent className="w-3.5 h-3.5 mr-1.5 text-primary" />
                        <span>{item.itemType} - {item.category}</span>
