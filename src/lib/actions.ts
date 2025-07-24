@@ -1,12 +1,13 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item, PurchaseReportData } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 import { parseInventoryData } from "./inventoryParser";
 import fs from 'fs/promises';
 import path from 'path';
+import { branches } from "@/data/appRepository";
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -351,10 +352,12 @@ export async function deleteUserAction(userId: string): Promise<{ success: boole
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
-    const orderId = formData.get('orderId') as string | null; // Get optional orderId
+    const orderId = formData.get('orderId') as string;
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
+    if (!orderId) return { success: false, error: 'Order ID is missing.' };
+
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const connection = await pool.getConnection();
@@ -366,14 +369,11 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
             const filePath = path.join(invoicesDir, file.name);
-
-            // Save file to the filesystem
             await fs.writeFile(filePath, buffer);
             
-            // Insert record into the database, associating with orderId if provided
             await connection.query(
                 "INSERT INTO invoices (fileName, uploaderId, orderId) VALUES (?, ?, ?)", 
-                [file.name, userId, orderId] // Use orderId here
+                [file.name, userId, orderId]
             );
         }
 
@@ -382,7 +382,6 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
-        // Check for duplicate entry error specifically
         if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
              return { success: false, error: 'One or more files with these names have already been uploaded. Please rename the file and try again.' };
         }
@@ -397,40 +396,6 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
     return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
 }
 
-
-export async function getRecentUploadsAction(): Promise<string[]> {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId IS NULL ORDER BY uploadedAt DESC");
-    return rows.map(r => r.fileName);
-}
-
-export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
-    if (!invoiceFileNames || invoiceFileNames.length === 0) {
-        return { success: false, error: "No invoice files were selected." };
-    }
-    const connection = await pool.getConnection();
-    try {
-        await connection.beginTransaction();
-        const placeholders = invoiceFileNames.map(() => '?').join(',');
-        const query = `UPDATE invoices SET orderId = ? WHERE fileName IN (${placeholders})`;
-        const params = [orderId, ...invoiceFileNames];
-        
-        const [result] = await connection.query<OkPacket>(query, params);
-        
-        await connection.commit();
-
-        if (result.affectedRows === 0) {
-            return { success: false, error: "No invoices found with the provided filenames." };
-        }
-
-        return { success: true };
-    } catch (error) {
-        await connection.rollback();
-        console.error('Attaching invoices failed:', error);
-        return { success: false, error: 'A database error occurred while attaching invoices.' };
-    } finally {
-        connection.release();
-    }
-}
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
   const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices ORDER BY uploadedAt DESC");
@@ -599,4 +564,54 @@ export async function getPendingOrdersCountAction(): Promise<number> {
     }
 }
 
-    
+export async function getPurchaseReportDataAction(): Promise<PurchaseReportData> {
+    try {
+        const baseQuery = "SELECT SUM(totalPrice) as total FROM orders WHERE status = 'Closed'";
+
+        const [[daily]] = await pool.query<RowDataPacket[]>(`${baseQuery} AND DATE(receivedAt) = CURDATE()`);
+        const [[monthly]] = await pool.query<RowDataPacket[]>(`${baseQuery} AND YEAR(receivedAt) = YEAR(CURDATE()) AND MONTH(receivedAt) = MONTH(CURDATE())`);
+        const [[yearly]] = await pool.query<RowDataPacket[]>(`${baseQuery} AND YEAR(receivedAt) = YEAR(CURDATE())`);
+        
+        const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
+            SELECT
+                DATE_FORMAT(receivedAt, '%Y-%m') as month,
+                branchId,
+                SUM(totalPrice) as total
+            FROM orders
+            WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY month, branchId
+            ORDER BY month, branchId
+        `);
+
+        // Format data for the chart
+        const monthlyTotals: { [key: string]: { month: string; [key: string]: number | string } } = {};
+        const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
+
+        branchMonthlyData.forEach(row => {
+            const month = row.month;
+            const branchName = branchNameMap.get(row.branchId) || row.branchId;
+
+            if (!monthlyTotals[month]) {
+                monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
+            }
+            monthlyTotals[month][branchName] = (monthlyTotals[month][branchName] || 0) as number + parseFloat(row.total);
+        });
+        
+        return {
+            totalToday: daily.total || 0,
+            totalThisMonth: monthly.total || 0,
+            totalThisYear: yearly.total || 0,
+            chartData: Object.values(monthlyTotals),
+        };
+
+    } catch (error) {
+        console.error("Failed to fetch purchase report data:", error);
+        // Return a default object on error to prevent crashing the page
+        return {
+            totalToday: 0,
+            totalThisMonth: 0,
+            totalThisYear: 0,
+            chartData: [],
+        };
+    }
+}

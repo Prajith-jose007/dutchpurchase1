@@ -64,3 +64,10 @@ export interface Invoice {
   fileName: string;
   orderId: string | null;
 }
+
+export interface PurchaseReportData {
+  totalToday: number;
+  totalThisMonth: number;
+  totalThisYear: number;
+  chartData: { month: string; [key: string]: any }[];
+}
