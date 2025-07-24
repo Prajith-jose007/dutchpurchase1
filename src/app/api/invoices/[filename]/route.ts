@@ -8,7 +8,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { filename: string } }
 ) {
-  const filename = params.filename;
+  const { filename } = params;
   if (!filename) {
     return new NextResponse('Bad request: filename is required', { status: 400 });
   }
