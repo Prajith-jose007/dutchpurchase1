@@ -12,9 +12,7 @@ const nextConfig: NextConfig = {
   devIndicators: {
     allowedDevOrigins: ['dutchoriental.ddns.net'],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['zod'],
-  },
+  serverExternalPackages: ['zod'],
 };
 
 export default nextConfig;
