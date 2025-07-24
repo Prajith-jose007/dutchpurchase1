@@ -21,7 +21,7 @@ export async function GET(
     const filePath = path.join(invoicesDir, decodedFilename);
 
     // Security: Ensure the resolved path is still within the intended directory.
-    if (!path.resolve(filePath).startsWith(invoicesDir)) {
+    if (!path.resolve(filePath).startsWith(path.resolve(invoicesDir))) {
       return new NextResponse('Forbidden: Access to this file is not allowed.', { status: 403 });
     }
 

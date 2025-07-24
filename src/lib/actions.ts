@@ -394,7 +394,7 @@ export async function getRecentUploadsAction(): Promise<string[]> {
 
 export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
     if (!invoiceFileNames || invoiceFileNames.length === 0) {
-        return { success: true, error: "No invoice files were selected." };
+        return { success: false, error: "No invoice files were selected." };
     }
     const connection = await pool.getConnection();
     try {

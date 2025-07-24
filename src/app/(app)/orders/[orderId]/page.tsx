@@ -56,7 +56,8 @@ export default function OrderDetailsPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchOrderData = useCallback(async () => {
-    setIsLoading(true);
+    // Setting loading to true here was causing a flicker, let's control it more carefully.
+    // setIsLoading(true); 
     try {
       const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
@@ -68,6 +69,9 @@ export default function OrderDetailsPage() {
         ]);
         setPlacingUser(pUser);
         setLastUpdatedByUser(luUser);
+      } else {
+        toast({ title: "Order Not Found", description: "The requested order does not exist.", variant: "destructive" });
+        setOrder(null);
       }
     } catch (error) {
       console.error("Failed to fetch order data:", error);
@@ -80,6 +84,7 @@ export default function OrderDetailsPage() {
 
   useEffect(() => {
     if (orderId) {
+      setIsLoading(true);
       fetchOrderData();
     }
   }, [orderId, fetchOrderData]);
@@ -143,10 +148,10 @@ export default function OrderDetailsPage() {
   };
 
   const handleOpenAttachDialog = async () => {
+    setIsAttachInvoiceOpen(true);
     const uploads = await getRecentUploadsAction();
     setRecentUploads(uploads);
     setSelectedInvoices([]);
-    setIsAttachInvoiceOpen(true);
   };
 
   const handleAttachInvoices = async () => {
@@ -432,6 +437,7 @@ export default function OrderDetailsPage() {
             <DialogFooter>
                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                 <Button 
+                    type="button"
                     onClick={handleAttachInvoices} 
                     disabled={isAttaching || selectedInvoices.length === 0}
                     className={cn(
@@ -441,7 +447,7 @@ export default function OrderDetailsPage() {
                     )}
                 >
                     {isAttaching ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.Add className="mr-2 h-4 w-4" />}
-                    Attach Selected ({selectedInvoices.length})
+                    Submit Attachment
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -449,5 +455,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    
