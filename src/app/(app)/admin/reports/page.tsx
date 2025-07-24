@@ -1,12 +1,11 @@
-
 // src/app/(app)/admin/reports/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getOrdersAction, getInvoicesAction } from '@/lib/actions';
-import type { Order, User, Invoice } from '@/lib/types';
+import { getOrdersAction } from '@/lib/actions';
+import type { Order } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,16 +13,15 @@ import { toast } from '@/hooks/use-toast';
 import { Icons } from '@/components/icons';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { branches } from '@/data/appRepository';
 
 export default function ReportsPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Protect the route for admin/superadmin only
     if (currentUser && !['admin', 'superadmin'].includes(currentUser.role)) {
       toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
       router.push('/');
@@ -33,38 +31,41 @@ export default function ReportsPage() {
     const fetchData = async () => {
       if (currentUser) {
         try {
-          // Await both promises together for efficiency
-          const [fetchedOrders, fetchedInvoices] = await Promise.all([
-            getOrdersAction(currentUser),
-            getInvoicesAction()
-          ]);
+          const fetchedOrders = await getOrdersAction(currentUser);
           setOrders(fetchedOrders);
-          setInvoices(fetchedInvoices);
         } catch (error) {
           toast({ title: "Error", description: "Failed to fetch report data.", variant: "destructive" });
         } finally {
           setIsLoading(false);
         }
       } else {
-        // If no user is logged in after checking, redirect.
-        router.push('/');
+        router.push('/login');
       }
     };
 
-    // Only run fetch logic if we have a user or are still in the initial loading state.
     if (currentUser) {
       fetchData();
     } else if(!isLoading) {
-      // If loading is finished and there's no user, redirect away.
       router.push('/login');
     }
   }, [currentUser, router, isLoading]);
 
-  // Calculate monthly summary
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthlyOrders = orders.filter(o => new Date(o.createdAt) >= startOfMonth);
+  
+  const monthlyOrders = useMemo(() => 
+    orders.filter(o => new Date(o.createdAt) >= startOfMonth),
+    [orders]
+  );
+  
+  const closedOrders = useMemo(() => 
+    orders.filter(o => o.status === 'Closed'),
+    [orders]
+  );
+
   const monthlyItemsPurchased = monthlyOrders.reduce((acc, order) => acc + order.totalItems, 0);
+  
+  const getBranchName = (branchId: string) => branches.find(b => b.id === branchId)?.name || branchId;
 
   if (isLoading) {
     return (
@@ -83,7 +84,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-headline tracking-tight">Admin Reports</h1>
-        <p className="text-muted-foreground">View monthly summaries and all uploaded invoices.</p>
+        <p className="text-muted-foreground">View monthly summaries and all closed orders.</p>
       </header>
 
       <Card className="shadow-lg">
@@ -107,52 +108,43 @@ export default function ReportsPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>All Uploaded Invoices</CardTitle>
-          <CardDescription>A complete log of all invoices uploaded to the system.</CardDescription>
+          <CardTitle>Closed Orders Report</CardTitle>
+          <CardDescription>A complete log of all fulfilled and closed orders.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Invoice Filename</TableHead>
-                  <TableHead>Attached to Order</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Branch</TableHead>
+                  <TableHead>Closed On</TableHead>
+                  <TableHead>Attachments</TableHead>
+                  <TableHead className="text-right">Total Price</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.length > 0 ? invoices.map((invoice) => (
-                  <TableRow key={invoice.fileName}>
+                {closedOrders.length > 0 ? closedOrders.map((order) => (
+                  <TableRow key={order.id}>
                     <TableCell className="font-medium">
-                      <a 
-                        href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-primary hover:underline"
-                      >
-                        <Icons.FileText className="h-4 w-4" />
-                        {invoice.fileName}
-                      </a>
-                    </TableCell>
-                    <TableCell>
-                      {invoice.orderId ? (
-                        <Link href={`/orders/${invoice.orderId}`} className="text-primary hover:underline">
-                            {`#${invoice.orderId.substring(0,8)}...`}
+                       <Link href={`/orders/${order.id}`} className="text-primary hover:underline flex items-center gap-2">
+                            <Icons.ClipboardList className="h-4 w-4" />
+                            {`#${order.id.substring(0,8)}...`}
                         </Link>
-                      ) : (
-                        'N/A'
-                      )}
                     </TableCell>
+                    <TableCell>{getBranchName(order.branchId)}</TableCell>
+                    <TableCell>{order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
-                      <Badge variant={invoice.orderId ? 'default' : 'secondary'}>
-                        {invoice.orderId ? 'Attached' : 'Unattached'}
+                      <Badge variant={order.invoiceFileNames && order.invoiceFileNames.length > 0 ? 'default' : 'secondary'}>
+                        {order.invoiceFileNames?.length || 0} file(s)
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right font-bold">AED {order.totalPrice.toFixed(2)}</TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center h-24">
-                        No invoices have been uploaded yet.
+                    <TableCell colSpan={5} className="text-center h-24">
+                        There are no closed orders yet.
                     </TableCell>
                   </TableRow>
                 )}
