@@ -319,10 +319,16 @@ export default function OrderDetailsPage() {
                 <h3 className="text-xl font-semibold mb-4 font-headline">Attached Invoices</h3>
                  <div className="space-y-2">
                     {order.invoiceFileNames.map(fileName => (
-                        <div key={fileName} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                            <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
-                            <span className="text-sm font-medium">{fileName}</span>
-                        </div>
+                      <a 
+                        key={fileName}
+                        href={`/api/invoices/${encodeURIComponent(fileName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 border rounded-md bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
+                        <span className="text-sm font-medium text-primary hover:underline">{fileName}</span>
+                      </a>
                     ))}
                  </div>
             </CardContent>
@@ -443,3 +449,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    
