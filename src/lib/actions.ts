@@ -545,3 +545,16 @@ export async function importInventoryAction(formData: FormData): Promise<{ succe
         connection.release();
     }
 }
+
+export async function getPendingOrdersCountAction(): Promise<number> {
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
+        if (rows.length > 0) {
+            return Number(rows[0].count);
+        }
+        return 0;
+    } catch (error) {
+        console.error("Failed to fetch pending orders count:", error);
+        return 0; // Return 0 on error to avoid breaking the UI
+    }
+}

@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/contexts/AuthContext';
 import { ChangePasswordDialog } from '@/components/ui/change-password-dialog';
+import { getPendingOrdersCountAction } from '@/lib/actions';
+import { Badge } from '@/components/ui/badge';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
@@ -36,6 +38,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     // If authentication is done loading and there is still no user, redirect to login.
@@ -43,6 +46,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       router.push('/login');
     }
   }, [isLoading, currentUser, router]);
+
+  useEffect(() => {
+    if (currentUser && ['purchase', 'admin', 'superadmin'].includes(currentUser.role)) {
+      getPendingOrdersCountAction().then(setPendingOrdersCount);
+    }
+  }, [currentUser, pathname]); // Re-fetch on path change to keep it fresh
 
   // Show a loading screen while the authentication state is being determined.
   if (isLoading || !currentUser) {
@@ -84,13 +93,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
                       asChild 
-                      className="w-full justify-start"
+                      className="w-full justify-start relative"
                       tooltip={item.label}
                       isActive={pathname.startsWith(item.href)}
                     >
                       <Link href={item.href}>
                         <item.icon className="h-5 w-5" />
                         <span>{item.label}</span>
+                         {item.label === "PO Notifications" && pendingOrdersCount > 0 && (
+                          <Badge className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 p-0 flex items-center justify-center group-data-[collapsible=icon]:hidden">
+                            {pendingOrdersCount}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
