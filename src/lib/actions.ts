@@ -468,7 +468,7 @@ export async function getItemsAction(): Promise<Item[]> {
     })) as Item[];
 }
 
-export async function addItemAction(item: Omit<Item, 'remark'> & { remark?: string }): Promise<{ success: boolean; error?: string }> {
+export async function addItemAction(item: Omit<Item, 'remark' | 'detailedDescription'> & { remark?: string, detailedDescription?: string | null }): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
             "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -488,7 +488,7 @@ export async function updateItemAction(item: Item): Promise<{ success: boolean; 
     try {
         const [result] = await pool.query<OkPacket>(
             "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, detailedDescription = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
-            [item.remark, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price, item.code]
+            [item.remark, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
         );
         if (result.affectedRows === 0) {
             return { success: false, error: "Item not found." };
@@ -570,3 +570,5 @@ export async function getPendingOrdersCountAction(): Promise<number> {
         return 0; // Return 0 on error to avoid breaking the UI
     }
 }
+
+    
