@@ -620,16 +620,16 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData>
 export async function getDashboardDataAction(): Promise<DashboardData> {
     try {
         // 1. Summary Cards
-        const [[totalToday]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()");
-        const [[activeOrders]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')");
-        const [[closedToday]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()");
-        const [[pendingOrders]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
+        const [[totalTodayResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()");
+        const [[activeOrdersResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')");
+        const [[closedTodayResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()");
+        const [[pendingOrdersResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
 
         const summary = {
-            totalOrdersToday: totalToday[0].count,
-            activeOrders: activeOrders[0].count,
-            closedOrdersToday: closedToday[0].count,
-            pendingOrders: pendingOrders[0].count,
+            totalOrdersToday: Number(totalTodayResult.count),
+            activeOrders: Number(activeOrdersResult.count),
+            closedOrdersToday: Number(closedTodayResult.count),
+            pendingOrders: Number(pendingOrdersResult.count),
         };
 
         // 2. Graph Data
