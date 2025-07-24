@@ -17,7 +17,13 @@ import { branches } from '@/data/appRepository';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const formatCurrency = (value: number) => `AED ${value.toFixed(2)}`;
+const formatCurrency = (value: number | string | null | undefined) => {
+  const numValue = Number(value);
+  if (isNaN(numValue)) {
+    return 'AED 0.00';
+  }
+  return `AED ${numValue.toFixed(2)}`;
+};
 
 export default function ReportsPage() {
   const { currentUser } = useAuth();
@@ -132,7 +138,7 @@ export default function ReportsPage() {
               <LineChart data={reportData.chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `AED ${value / 1000}k`} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `AED ${Number(value) / 1000}k`} />
                 <Tooltip
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
                   content={<ChartTooltipContent formatter={formatCurrency} />}
@@ -184,7 +190,7 @@ export default function ReportsPage() {
                         {order.invoiceFileNames?.length || 0} file(s)
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-bold">AED {order.totalPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-bold">{formatCurrency(order.totalPrice)}</TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
