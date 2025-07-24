@@ -118,6 +118,8 @@ export default function ReportsPage() {
                 <TableRow>
                   <TableHead>Order ID</TableHead>
                   <TableHead>Branch</TableHead>
+                  <TableHead>Placed By</TableHead>
+                  <TableHead>Closed By</TableHead>
                   <TableHead>Closed On</TableHead>
                   <TableHead>Attachments</TableHead>
                   <TableHead className="text-right">Total Price</TableHead>
@@ -133,6 +135,8 @@ export default function ReportsPage() {
                         </Link>
                     </TableCell>
                     <TableCell>{getBranchName(order.branchId)}</TableCell>
+                    <TableCell>{order.placingUserName || 'N/A'}</TableCell>
+                    <TableCell>{order.receivingUserName || 'N/A'}</TableCell>
                     <TableCell>{order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       <Badge variant={order.invoiceFileNames && order.invoiceFileNames.length > 0 ? 'default' : 'secondary'}>
@@ -143,7 +147,7 @@ export default function ReportsPage() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">
+                    <TableCell colSpan={7} className="text-center h-24">
                         There are no closed orders yet.
                     </TableCell>
                   </TableRow>
