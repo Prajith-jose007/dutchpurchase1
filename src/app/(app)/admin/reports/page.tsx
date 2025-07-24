@@ -58,7 +58,7 @@ export default function ReportsPage() {
       // If loading is finished and there's no user, redirect away.
       router.push('/login');
     }
-  }, [currentUser, router]);
+  }, [currentUser, router, isLoading]);
 
   // Calculate monthly summary
   const now = new Date();
@@ -123,9 +123,16 @@ export default function ReportsPage() {
               <TableBody>
                 {invoices.length > 0 ? invoices.map((invoice) => (
                   <TableRow key={invoice.fileName}>
-                    <TableCell className="font-medium flex items-center gap-2">
-                        <Icons.FileText className="h-4 w-4 text-muted-foreground" />
+                    <TableCell className="font-medium">
+                      <a 
+                        href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-primary hover:underline"
+                      >
+                        <Icons.FileText className="h-4 w-4" />
                         {invoice.fileName}
+                      </a>
                     </TableCell>
                     <TableCell>
                       {invoice.orderId ? (
