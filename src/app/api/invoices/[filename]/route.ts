@@ -14,7 +14,6 @@ export async function GET(
   }
   
   try {
-    // Use path.resolve for a more robust path construction
     const invoicesDir = path.resolve(process.cwd(), 'public', 'invoices');
     const filePath = path.join(invoicesDir, decodeURIComponent(filename));
 
@@ -30,7 +29,6 @@ export async function GET(
     
     const headers = new Headers();
     headers.set('Content-Type', contentType);
-    // Add Content-Disposition to give the browser more info on how to handle the file
     headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
 
 
