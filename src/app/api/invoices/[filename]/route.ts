@@ -1,3 +1,4 @@
+
 // src/app/api/invoices/[filename]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
@@ -14,23 +15,25 @@ export async function GET(
   }
   
   try {
+    // URL-decode the filename to handle spaces and special characters correctly.
+    const decodedFilename = decodeURIComponent(filename);
     const invoicesDir = path.resolve(process.cwd(), 'public', 'invoices');
-    const filePath = path.join(invoicesDir, decodeURIComponent(filename));
+    const filePath = path.join(invoicesDir, decodedFilename);
 
-    // Security: Ensure the path is within the intended directory
+    // Security: Ensure the resolved path is still within the intended directory.
     if (!path.resolve(filePath).startsWith(invoicesDir)) {
-      return new NextResponse('Forbidden', { status: 403 });
+      return new NextResponse('Forbidden: Access to this file is not allowed.', { status: 403 });
     }
 
     const fileBuffer = await fs.readFile(filePath);
 
-    // Determine content type from file extension
+    // Determine content type from file extension using the correctly imported function.
     const contentType = getType(filePath) || 'application/octet-stream';
     
     const headers = new Headers();
     headers.set('Content-Type', contentType);
-    headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
-
+    // Use the decoded filename for the Content-Disposition header.
+    headers.set('Content-Disposition', `inline; filename="${decodedFilename}"`);
 
     return new NextResponse(fileBuffer, { status: 200, headers });
   } catch (error: any) {
