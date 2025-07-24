@@ -447,7 +447,13 @@ export async function updateMyPasswordAction(userId: string, currentPassword: st
 
 export async function getItemsAction(): Promise<Item[]> {
     const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM items ORDER BY code ASC");
-    return rows as Item[];
+    // Ensure numeric fields are numbers
+    return rows.map(row => ({
+        ...row,
+        packing: Number(row.packing),
+        shelfLifeDays: Number(row.shelfLifeDays),
+        price: Number(row.price),
+    })) as Item[];
 }
 
 export async function addItemAction(item: Omit<Item, 'remark'> & { remark?: string }): Promise<{ success: boolean; error?: string }> {
