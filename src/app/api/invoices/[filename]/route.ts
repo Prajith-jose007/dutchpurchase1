@@ -1,4 +1,3 @@
-
 // src/app/api/invoices/[filename]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
