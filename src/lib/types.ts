@@ -40,6 +40,8 @@ export interface Order {
   receivedAt?: string | null;
   placingUserName?: string; // New field for display
   receivingUserName?: string; // New field for display
+  lastUpdatedByUserName?: string;
+  lastUpdatedAt?: string | null;
 }
 
 export interface Branch {

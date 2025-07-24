@@ -106,6 +106,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
+                lastUpdatedByUserName: row.receivingUserName, // Re-map for clarity
+                lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
                 invoiceFileNames: [],
             };
@@ -166,27 +168,17 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
     try {
         await connection.beginTransaction();
 
-        const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT receivedByUserId FROM orders WHERE id = ?", [orderId]);
+        const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT status FROM orders WHERE id = ?", [orderId]);
 
         if (currentOrderRows.length === 0) {
             await connection.rollback();
             connection.release();
             return { success: false, error: "Order not found." };
         }
-
-        const currentOrder = currentOrderRows[0];
-        const updates = ['status = ?'];
-        const params: (string | Date | null)[] = [status];
-
-        // If the status is being set to "Arrived" or "Closed" AND it hasn't been received before,
-        // set the receivedByUserId and receivedAt timestamp.
-        if (['Arrived', 'Closed'].includes(status) && !currentOrder.receivedByUserId) {
-            updates.push('receivedByUserId = ?', 'receivedAt = ?');
-            params.push(actorUserId, new Date());
-        }
-
-        const query = `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`;
-        params.push(orderId);
+        
+        // Always update status, actor, and timestamp
+        const query = `UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?`;
+        const params = [status, actorUserId, new Date(), orderId];
 
         await connection.query(query, params);
         await connection.commit();

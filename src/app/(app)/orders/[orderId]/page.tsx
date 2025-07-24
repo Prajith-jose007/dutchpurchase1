@@ -45,7 +45,7 @@ export default function OrderDetailsPage() {
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [placingUser, setPlacingUser] = useState<User | null>(null);
-  const [receivingUser, setReceivingUser] = useState<User | null>(null);
+  const [lastUpdatedByUser, setLastUpdatedByUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // State for invoice attachment dialog
@@ -62,12 +62,12 @@ export default function OrderDetailsPage() {
       if (fetchedOrder) {
         setOrder(fetchedOrder);
         // Fetch both users in parallel
-        const [pUser, rUser] = await Promise.all([
+        const [pUser, luUser] = await Promise.all([
           getUser(fetchedOrder.userId),
-          getUser(fetchedOrder.receivedByUserId || '')
+          getUser(fetchedOrder.receivedByUserId || '') // receivedByUserId now means lastUpdatedBy
         ]);
         setPlacingUser(pUser);
-        setReceivingUser(rUser);
+        setLastUpdatedByUser(luUser);
       }
     } catch (error) {
       console.error("Failed to fetch order data:", error);
@@ -198,7 +198,7 @@ export default function OrderDetailsPage() {
 
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
   const userName = placingUser?.name || order.userId;
-  const receiverName = receivingUser?.name;
+  const lastUpdatedByUserName = lastUpdatedByUser?.name;
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
   const canDeleteOrder = currentUser && ['admin', 'superadmin'].includes(currentUser.role);
   const canAttachInvoices = canManageOrder && ['Arrived', 'Closed'].includes(order.status);
@@ -260,14 +260,14 @@ export default function OrderDetailsPage() {
               <CardTitle className="text-base font-semibold text-muted-foreground">Total Items</CardTitle>
               <CardDescription className="text-lg font-bold text-foreground">{order.totalItems}</CardDescription>
             </div>
-             {receiverName && order.receivedAt && (
+             {lastUpdatedByUserName && order.receivedAt && (
               <>
                 <div>
-                  <CardTitle className="text-base font-semibold text-muted-foreground">Received By</CardTitle>
-                  <CardDescription className="text-lg text-foreground">{receiverName}</CardDescription>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Last Updated By</CardTitle>
+                  <CardDescription className="text-lg text-foreground">{lastUpdatedByUserName}</CardDescription>
                 </div>
                 <div>
-                  <CardTitle className="text-base font-semibold text-muted-foreground">Received At</CardTitle>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Last Updated At</CardTitle>
                   <CardDescription className="text-lg text-foreground">{new Date(order.receivedAt).toLocaleString()}</CardDescription>
                 </div>
               </>
