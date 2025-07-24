@@ -1,9 +1,8 @@
-
 // src/app/api/invoices/[filename]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import mime from 'mime';
+import * as mime from 'mime';
 
 export async function GET(
   req: NextRequest,
@@ -16,7 +15,7 @@ export async function GET(
   
   try {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
-    const filePath = path.join(invoicesDir, filename);
+    const filePath = path.join(invoicesDir, decodeURIComponent(filename));
 
     // Security: Ensure the path is within the intended directory
     if (!filePath.startsWith(invoicesDir)) {
