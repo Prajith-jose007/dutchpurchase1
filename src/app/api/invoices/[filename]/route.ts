@@ -16,7 +16,7 @@ export async function GET(
   try {
     // URL-decode the filename to handle spaces and special characters correctly.
     const decodedFilename = decodeURIComponent(filename);
-    const invoicesDir = path.resolve(process.cwd(), 'public', 'invoices');
+    const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const filePath = path.join(invoicesDir, decodedFilename);
 
     // Security: Ensure the resolved path is still within the intended directory.
