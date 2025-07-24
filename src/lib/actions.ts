@@ -5,6 +5,8 @@ import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item } fro
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 import { parseInventoryData } from "./inventoryParser";
+import fs from 'fs/promises';
+import path from 'path';
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -347,24 +349,42 @@ export async function deleteUserAction(userId: string): Promise<{ success: boole
 
 
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
-  try {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
 
-    const invoiceValues = files.map(file => [file.name, userId]);
-    
-    // Using INSERT IGNORE to prevent errors on duplicate filenames.
-    // In a real app, you'd handle file storage and generate unique names first.
-    await pool.query("INSERT IGNORE INTO invoices (fileName, uploaderId) VALUES ?", [invoiceValues]);
-    
-    return { success: true, fileCount: files.length };
-  } catch (error) {
-    console.error('Invoice upload failed:', error);
-    return { success: false, error: 'A database error occurred during invoice upload.' };
-  }
+    const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
+    const connection = await pool.getConnection();
+
+    try {
+        await fs.mkdir(invoicesDir, { recursive: true });
+        await connection.beginTransaction();
+
+        for (const file of files) {
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const filePath = path.join(invoicesDir, file.name);
+
+            // Save file to the filesystem
+            await fs.writeFile(filePath, buffer);
+            
+            // Insert record into the database, ignoring duplicates
+            await connection.query(
+                "INSERT IGNORE INTO invoices (fileName, uploaderId) VALUES (?, ?)", 
+                [file.name, userId]
+            );
+        }
+
+        await connection.commit();
+        return { success: true, fileCount: files.length };
+    } catch (error) {
+        await connection.rollback();
+        console.error('Invoice upload failed:', error);
+        return { success: false, error: 'An error occurred during invoice upload.' };
+    } finally {
+        connection.release();
+    }
 }
 
 export async function getRecentUploadsAction(): Promise<string[]> {
