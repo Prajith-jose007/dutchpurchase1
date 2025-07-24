@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import { getType } from 'mime';
+import mime from 'mime';
 
 export async function GET(
   req: NextRequest,
@@ -27,7 +27,7 @@ export async function GET(
     const fileBuffer = await fs.readFile(filePath);
 
     // Determine content type from file extension using the correctly imported function.
-    const contentType = getType(filePath) || 'application/octet-stream';
+    const contentType = mime.getType(filePath) || 'application/octet-stream';
     
     const headers = new Headers();
     headers.set('Content-Type', contentType);
