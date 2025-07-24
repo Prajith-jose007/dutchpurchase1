@@ -1,13 +1,14 @@
 
 "use server";
 
-import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item, PurchaseReportData } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item, PurchaseReportData, DashboardData } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 import { parseInventoryData } from "./inventoryParser";
 import fs from 'fs/promises';
 import path from 'path';
 import { branches } from "@/data/appRepository";
+import mime from 'mime';
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -613,5 +614,63 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData>
             totalThisYear: 0,
             chartData: [],
         };
+    }
+}
+
+export async function getDashboardDataAction(): Promise<DashboardData> {
+    try {
+        // 1. Summary Cards
+        const [[totalToday]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()");
+        const [[activeOrders]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')");
+        const [[closedToday]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()");
+        const [[pendingOrders]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
+
+        const summary = {
+            totalOrdersToday: totalToday[0].count,
+            activeOrders: activeOrders[0].count,
+            closedOrdersToday: closedToday[0].count,
+            pendingOrders: pendingOrders[0].count,
+        };
+
+        // 2. Graph Data
+        const [totalPurchasesData] = await pool.query<RowDataPacket[]>(`
+            SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
+            FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY month ORDER BY month ASC
+        `);
+
+        const [dailyPurchasesData] = await pool.query<RowDataPacket[]>(`
+            SELECT DATE(receivedAt) as day, SUM(totalPrice) as total
+            FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY day ORDER BY day ASC
+        `);
+        
+        const [monthlyPurchasesData] = await pool.query<RowDataPacket[]>(`
+             SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
+             FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+             GROUP BY month ORDER BY month ASC
+        `);
+
+        const [storePurchasesData] = await pool.query<RowDataPacket[]>(`
+            SELECT branchId, SUM(totalPrice) as total
+            FROM orders WHERE status = 'Closed'
+            GROUP BY branchId
+        `);
+
+        const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
+
+        const dashboardData: DashboardData = {
+            summary,
+            totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
+            dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total) })),
+            monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
+            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total) })),
+        };
+        
+        return dashboardData;
+
+    } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+        throw new Error("Could not load dashboard data.");
     }
 }

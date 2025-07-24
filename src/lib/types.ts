@@ -1,4 +1,5 @@
 
+
 export interface Item {
   code: string;
   remark: string | null;
@@ -70,4 +71,17 @@ export interface PurchaseReportData {
   totalThisMonth: number;
   totalThisYear: number;
   chartData: { month: string; [key: string]: any }[];
+}
+
+export interface DashboardData {
+  summary: {
+    totalOrdersToday: number;
+    activeOrders: number;
+    closedOrdersToday: number;
+    pendingOrders: number;
+  };
+  totalPurchases: { month: string; total: number }[];
+  dailyPurchases: { day: string; total: number }[];
+  monthlyPurchases: { month: string; total: number }[];
+  storePurchases: { name: string; value: number }[];
 }
