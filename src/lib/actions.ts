@@ -393,14 +393,31 @@ export async function getRecentUploadsAction(): Promise<string[]> {
 }
 
 export async function attachInvoicesToOrderAction(orderId: string, invoiceFileNames: string[]): Promise<{ success: boolean; error?: string }> {
-    if (invoiceFileNames.length === 0) return { success: true }; // Nothing to do
+    if (!invoiceFileNames || invoiceFileNames.length === 0) {
+        return { success: true, error: "No invoice files were selected." };
+    }
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const placeholders = invoiceFileNames.map(() => '?').join(',');
-        await pool.query(`UPDATE invoices SET orderId = ? WHERE fileName IN (${placeholders})`, [orderId, ...invoiceFileNames]);
+        const query = `UPDATE invoices SET orderId = ? WHERE fileName IN (${placeholders})`;
+        const params = [orderId, ...invoiceFileNames];
+        
+        const [result] = await connection.query<OkPacket>(query, params);
+        
+        await connection.commit();
+
+        if (result.affectedRows === 0) {
+            return { success: false, error: "No invoices found with the provided filenames." };
+        }
+
         return { success: true };
     } catch (error) {
+        await connection.rollback();
         console.error('Attaching invoices failed:', error);
         return { success: false, error: 'A database error occurred while attaching invoices.' };
+    } finally {
+        connection.release();
     }
 }
 
