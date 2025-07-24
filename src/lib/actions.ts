@@ -351,6 +351,7 @@ export async function deleteUserAction(userId: string): Promise<{ success: boole
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
+    const orderId = formData.get('orderId') as string | null; // Get optional orderId
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
@@ -369,10 +370,10 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             // Save file to the filesystem
             await fs.writeFile(filePath, buffer);
             
-            // Insert record into the database, ignoring duplicates
+            // Insert record into the database, associating with orderId if provided
             await connection.query(
-                "INSERT IGNORE INTO invoices (fileName, uploaderId) VALUES (?, ?)", 
-                [file.name, userId]
+                "INSERT INTO invoices (fileName, uploaderId, orderId) VALUES (?, ?, ?)", 
+                [file.name, userId, orderId] // Use orderId here
             );
         }
 
@@ -381,11 +382,21 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
+        // Check for duplicate entry error specifically
+        if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
+             return { success: false, error: 'One or more files with these names have already been uploaded. Please rename the file and try again.' };
+        }
         return { success: false, error: 'An error occurred during invoice upload.' };
     } finally {
         connection.release();
     }
 }
+
+// Type guard to check for MySQL errors
+function isMysqlError(error: unknown): error is { code: string; errno: number; sql: string; sqlState: string; sqlMessage: string } {
+    return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
+}
+
 
 export async function getRecentUploadsAction(): Promise<string[]> {
     const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId IS NULL ORDER BY uploadedAt DESC");
