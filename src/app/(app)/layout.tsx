@@ -19,7 +19,6 @@ const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
-  { href: "/invoices/upload", label: "Upload Invoices", icon: Icons.UploadCloud, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
   { href: "/admin/inventory", label: "Inventory Mgt.", icon: Icons.Archive, roles: ['superadmin', 'admin'] },
   { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin'] },
