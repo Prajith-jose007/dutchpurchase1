@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import * as mime from 'mime';
+import mime from 'mime'; // Correct way to import for this library version
 
 export async function GET(
   req: NextRequest,
@@ -18,7 +18,7 @@ export async function GET(
     const filePath = path.join(invoicesDir, decodeURIComponent(filename));
 
     // Security: Ensure the path is within the intended directory
-    if (!filePath.startsWith(invoicesDir)) {
+    if (!path.resolve(filePath).startsWith(path.resolve(invoicesDir))) {
       return new NextResponse('Forbidden', { status: 403 });
     }
 
@@ -29,6 +29,8 @@ export async function GET(
     
     const headers = new Headers();
     headers.set('Content-Type', contentType);
+    headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`);
+
 
     return new NextResponse(fileBuffer, { status: 200, headers });
   } catch (error: any) {
