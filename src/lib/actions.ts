@@ -35,6 +35,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     await connection.beginTransaction();
 
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    // FIX: Correctly sum floating-point quantities without rounding.
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
