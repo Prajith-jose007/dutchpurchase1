@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { password, ...userToStore } = verificationResult.user;
       setCurrentUser(userToStore as User);
       localStorage.setItem('currentUserId', userToStore.id);
-      router.push('/'); // Force redirect on successful login
+      router.push('/'); // Force redirect on successful login to the dashboard
       return true;
     }
     return false;

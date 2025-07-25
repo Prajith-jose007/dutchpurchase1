@@ -15,7 +15,7 @@ export default function RootPage() {
     if (!isLoading) {
       if (currentUser) {
         // If user is logged in, send them to the main dashboard/app page
-        router.push('/ordering');
+        router.push('/');
       } else {
         // If no user, send them to the login page
         router.push('/login');
