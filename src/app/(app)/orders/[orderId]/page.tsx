@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getOrderByIdAction, getUser, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction } from '@/lib/actions';
-import type { Order, User, OrderStatus } from '@/lib/types';
+import type { Order, User, OrderStatus, OrderItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,15 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
     default: return 'outline';
   }
 }
+
+// Helper to format quantity for display
+const formatQuantity = (item: OrderItem) => {
+    if (item.units === 'KG' && item.quantity < 1) {
+        return `${(item.quantity * 1000).toFixed(0)} g`;
+    }
+    return `${item.quantity.toFixed(3)} ${item.units}`;
+};
+
 
 export default function OrderDetailsPage() {
   const params = useParams();
@@ -250,8 +259,7 @@ export default function OrderDetailsPage() {
                     <TableHead>Item Code</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-center">Quantity</TableHead>
-                    <TableHead>Units</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Price Per Unit</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -260,9 +268,8 @@ export default function OrderDetailsPage() {
                     <TableRow key={item.itemId}>
                       <TableCell className="font-medium">{item.itemId}</TableCell>
                       <TableCell>{item.description}</TableCell>
-                      <TableCell className="text-center">{item.quantity}</TableCell>
-                      <TableCell>{item.units}</TableCell>
-                      <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
+                      <TableCell className="text-center">{formatQuantity(item)}</TableCell>
+                      <TableCell className="text-right">AED {item.price.toFixed(2)} / {item.units}</TableCell>
                       <TableCell className="text-right font-semibold">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
