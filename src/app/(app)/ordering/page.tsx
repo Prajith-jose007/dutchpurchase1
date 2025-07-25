@@ -27,6 +27,7 @@ const ITEMS_PER_PAGE = 12;
 const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
     const { addToCart, getItemQuantity } = useCart();
     const [quantityStr, setQuantityStr] = useState('');
+    const [selectedUnit, setSelectedUnit] = useState(isKg ? 'G' : item.units);
     const quantityInCart = getItemQuantity(item.code);
 
     const handleAddToCart = () => {
@@ -36,15 +37,15 @@ const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
             return;
         }
 
-        // For KG items, convert from grams to KG. For others, use the value directly.
-        const quantityToAdd = isKg ? newQuantity / 1000 : newQuantity;
+        // For KG items, convert from grams to KG if needed. For others, use the value directly.
+        const quantityToAdd = isKg ? (selectedUnit === 'G' ? newQuantity / 1000 : newQuantity) : newQuantity;
         const totalNewQuantity = quantityInCart + quantityToAdd;
         
         addToCart(item, totalNewQuantity);
 
         toast({
             title: `${item.description} added`,
-            description: `${isKg ? newQuantity : quantityToAdd} ${isKg ? 'g' : item.units} added to cart.`,
+            description: `${newQuantity} ${selectedUnit} added to cart.`,
         });
         setQuantityStr(''); // Reset input after adding
     };
@@ -53,16 +54,27 @@ const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
         <div className="flex items-center gap-2">
             <Input
                 type="number"
-                placeholder={isKg ? "grams" : "quantity"}
+                placeholder="quantity"
                 value={quantityStr}
                 onChange={(e) => setQuantityStr(e.target.value)}
-                className="h-10"
+                className="h-10 w-24"
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                         handleAddToCart();
                     }
                 }}
             />
+             {isKg && (
+                <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                    <SelectTrigger className="w-[80px] h-10">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="KG">KG</SelectItem>
+                    </SelectContent>
+                </Select>
+            )}
             <Button onClick={handleAddToCart} size="icon" className="h-10 w-12 flex-shrink-0">
                 <Icons.Add className="h-5 w-5" />
             </Button>
