@@ -37,13 +37,17 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 // Helper to format quantity for display
 const formatQuantity = (item: OrderItem) => {
-    if (item.units.toUpperCase() === 'KG') {
-        if (item.quantity > 0 && item.quantity < 1) {
-            return `${item.quantity * 1000}g`;
+    const { quantity, units } = item;
+    if (units.toUpperCase() === 'KG') {
+        if (quantity < 1 && quantity > 0) {
+            // Convert to grams if less than 1 KG
+            return `${Math.round(quantity * 1000)}g`;
         }
-        return `${item.quantity} KG`;
+        // Show up to 3 decimal places for KG if needed
+        return `${parseFloat(quantity.toFixed(3))} KG`;
     }
-    return `${item.quantity} ${item.units}`;
+    // For other units (like PCS), show as a whole number
+    return `${Math.round(quantity)} ${units}`;
 };
 
 
@@ -385,3 +389,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    
