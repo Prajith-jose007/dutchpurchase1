@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ChangePasswordDialog } from '@/components/ui/change-password-dialog';
 import { getPendingOrdersCountAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
+import { AppProviders } from './providers';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
@@ -31,8 +32,7 @@ const getInitials = (name: string | undefined) => {
   return parts[0].charAt(0).toUpperCase() + parts[parts.length - 1].charAt(0).toUpperCase();
 };
 
-
-export default function AppLayout({ children }: { children: ReactNode }) {
+function InnerAppLayout({ children }: { children: ReactNode }) {
   const { currentUser, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -174,4 +174,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       </>
   );
+}
+
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <AppProviders>
+      <InnerAppLayout>{children}</InnerAppLayout>
+    </AppProviders>
+  )
 }
