@@ -38,12 +38,12 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 // Helper to format quantity for display
 const formatQuantity = (item: OrderItem) => {
     if (item.units.toUpperCase() === 'KG') {
-        if (item.quantity < 1) {
-            return `${Math.round(item.quantity * 1000)}g`;
+        if (item.quantity > 0 && item.quantity < 1) {
+            return `${item.quantity * 1000}g`;
         }
-        return `${item.quantity.toFixed(2)} KG`;
+        return `${item.quantity} KG`;
     }
-    return `${item.quantity.toFixed(2)} ${item.units}`;
+    return `${item.quantity} ${item.units}`;
 };
 
 
@@ -385,5 +385,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    

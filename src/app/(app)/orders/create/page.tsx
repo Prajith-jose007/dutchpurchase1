@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/create/page.tsx
 "use client";
 
@@ -15,6 +16,59 @@ import { branches } from '@/data/appRepository';
 import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+
+// A custom component for the quantity input logic on the checkout page
+const CheckoutQuantityInput = ({ item, isSubmitting }: { item: { code: string; quantity: number; units: string; }, isSubmitting: boolean }) => {
+    const { updateQuantity, removeFromCart } = useCart();
+    
+    // Determine if the input should be in grams
+    const isKg = item.units.toUpperCase() === 'KG';
+    const isGramsDisplay = isKg && item.quantity < 1 && item.quantity > 0;
+    
+    // Local state to manage the input value (as a string)
+    const [displayQuantity, setDisplayQuantity] = useState(
+      isGramsDisplay ? (item.quantity * 1000).toString() : item.quantity.toString()
+    );
+
+    // Update local state if the cart item changes from elsewhere
+    useEffect(() => {
+        const newDisplay = isGramsDisplay ? (item.quantity * 1000).toString() : item.quantity.toString();
+        setDisplayQuantity(newDisplay);
+    }, [item.quantity, isGramsDisplay]);
+
+    const handleQuantityChange = (newValueStr: string) => {
+        setDisplayQuantity(newValueStr); // Update the input visually immediately
+
+        const newQuantityNum = parseFloat(newValueStr);
+        if (isNaN(newQuantityNum) || newQuantityNum < 0) return;
+
+        // Convert from grams to KG before updating the cart context
+        const finalQuantity = isGramsDisplay ? newQuantityNum / 1000 : newQuantityNum;
+        
+        if (finalQuantity === 0) {
+            removeFromCart(item.code);
+        } else {
+            updateQuantity(item.code, finalQuantity);
+        }
+    };
+    
+    return (
+        <div className="flex items-center justify-center gap-1.5">
+            <Input
+                type="number"
+                value={displayQuantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                className="w-24 text-center"
+                disabled={isSubmitting}
+                step={isGramsDisplay ? "1" : (isKg ? "0.001" : "1")}
+            />
+            <span className="text-sm text-muted-foreground">
+                {isGramsDisplay ? 'g' : item.units}
+            </span>
+        </div>
+    );
+};
+
 
 export default function CreateOrderPage() {
   const { cartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
@@ -41,19 +95,6 @@ export default function CreateOrderPage() {
     }
   }, [cartItems, router, isClient, searchParams, currentUser]);
 
-
-  const handleQuantityChange = (itemId: string, newQuantityStr: string) => {
-    const newQuantity = parseFloat(newQuantityStr);
-    if (isNaN(newQuantity) || newQuantity < 0) {
-      // Handle invalid input, maybe show a toast or just ignore
-      return;
-    }
-    if (newQuantity === 0) {
-      removeFromCart(itemId);
-    } else {
-      updateQuantity(itemId, newQuantity);
-    }
-  };
 
   const handleSubmitOrder = async () => {
     if (!currentUser) {
@@ -147,17 +188,7 @@ export default function CreateOrderPage() {
                       <div className="text-xs text-muted-foreground">{item.code}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-center gap-1.5">
-                         <Input
-                           type="number"
-                           value={item.quantity}
-                           onChange={(e) => handleQuantityChange(item.code, e.target.value)}
-                           className="w-24 text-center"
-                           disabled={isSubmitting}
-                           step={item.units === 'KG' ? "0.001" : "1"}
-                         />
-                         <span className="text-sm text-muted-foreground">{item.units}</span>
-                      </div>
+                      <CheckoutQuantityInput item={item} isSubmitting={isSubmitting} />
                     </TableCell>
                     <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-medium">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
