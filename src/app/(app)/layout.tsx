@@ -74,20 +74,6 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
             </SidebarHeader>
             <SidebarContent>
               <SidebarMenu>
-                 {/* Dashboard Link */}
-                <SidebarMenuItem>
-                    <SidebarMenuButton 
-                        asChild 
-                        className="w-full justify-start"
-                        tooltip="Dashboard"
-                        isActive={pathname === '/'}
-                    >
-                        <Link href="/">
-                            <Icons.Dashboard className="h-5 w-5" />
-                            <span>Dashboard</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
                 {accessibleNavItems.map((item) => (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
