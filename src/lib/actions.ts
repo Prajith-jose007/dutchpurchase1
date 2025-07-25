@@ -234,7 +234,7 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
 export async function getUser(userId: string): Promise<User | null> {
     if (!userId) return null;
-    const [userRows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, role FROM users WHERE id = ?", [userId]);
+    const [userRows] = await pool.query<RowDataPacket[]>("SELECT id, username, name, role, password FROM users WHERE id = ?", [userId]);
     if(userRows.length === 0) return null;
 
     const [branchRows] = await pool.query<RowDataPacket[]>("SELECT branchId FROM user_branches WHERE userId = ?", [userId]);
@@ -637,11 +637,6 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
                 GROUP BY day ORDER BY day ASC
             `),
             pool.query<RowDataPacket[]>(`
-                 SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
-                 FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-                 GROUP BY month ORDER BY month ASC
-            `),
-            pool.query<RowDataPacket[]>(`
                 SELECT branchId, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
                 GROUP BY branchId
@@ -651,20 +646,24 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
         const results = await Promise.all(allQueries);
 
         const summary = {
-            totalOrdersToday: Number(results[0][0][0].count),
-            activeOrders: Number(results[1][0][0].count),
-            closedOrdersToday: Number(results[2][0][0].count),
-            pendingOrders: Number(results[3][0][0].count),
+            totalOrdersToday: Number(results[0][0]?.[0]?.count ?? 0),
+            activeOrders: Number(results[1][0]?.[0]?.count ?? 0),
+            closedOrdersToday: Number(results[2][0]?.[0]?.count ?? 0),
+            pendingOrders: Number(results[3][0]?.[0]?.count ?? 0),
         };
 
         const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
+        const totalPurchasesData = results[4][0] || [];
+        const dailyPurchasesData = results[5][0] || [];
+        const storePurchasesData = results[6][0] || [];
+
         const dashboardData: DashboardData = {
             summary,
-            totalPurchases: results[4][0].map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
-            dailyPurchases: results[5][0].map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total) })),
-            monthlyPurchases: results[6][0].map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
-            storePurchases: results[7][0].map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total) })),
+            totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
+            dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total || 0) })),
+            monthlyPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
+            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total || 0) })),
         };
         
         return dashboardData;
