@@ -1,4 +1,3 @@
-
 // src/app/(app)/orders/create/page.tsx
 "use client";
 
@@ -18,7 +17,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 export default function CreateOrderPage() {
-  const { cartItems, totalCartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,8 +42,13 @@ export default function CreateOrderPage() {
   }, [cartItems, router, isClient, searchParams, currentUser]);
 
 
-  const handleQuantityChange = (itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
+  const handleQuantityChange = (itemId: string, newQuantityStr: string) => {
+    const newQuantity = parseFloat(newQuantityStr);
+    if (isNaN(newQuantity) || newQuantity < 0) {
+      // Handle invalid input, maybe show a toast or just ignore
+      return;
+    }
+    if (newQuantity === 0) {
       removeFromCart(itemId);
     } else {
       updateQuantity(itemId, newQuantity);
@@ -110,7 +114,7 @@ export default function CreateOrderPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle>Order Summary</CardTitle>
-          <CardDescription>You have {totalCartItems} item(s) in your cart.</CardDescription>
+          <CardDescription>You have {cartItems.length} item(s) in your cart.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -129,7 +133,7 @@ export default function CreateOrderPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
-                  <TableHead className="text-center">Quantity</TableHead>
+                  <TableHead className="text-center w-40">Quantity</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Subtotal</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -144,9 +148,15 @@ export default function CreateOrderPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1.5">
-                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity - 1)} disabled={isSubmitting} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
-                         <span className="text-sm font-medium tabular-nums w-5 text-center">{item.quantity}</span>
-                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity + 1)} disabled={isSubmitting} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
+                         <Input
+                           type="number"
+                           value={item.quantity}
+                           onChange={(e) => handleQuantityChange(item.code, e.target.value)}
+                           className="w-24 text-center"
+                           disabled={isSubmitting}
+                           step={item.units === 'KG' ? "0.001" : "1"}
+                         />
+                         <span className="text-sm text-muted-foreground">{item.units}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>

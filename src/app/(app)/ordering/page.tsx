@@ -23,8 +23,56 @@ import { useRouter } from 'next/navigation';
 
 const ITEMS_PER_PAGE = 12;
 
+// A new component for the quantity input logic on each product card
+const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
+    const { addToCart, getItemQuantity } = useCart();
+    const [quantityStr, setQuantityStr] = useState('');
+    const quantityInCart = getItemQuantity(item.code);
+
+    const handleAddToCart = () => {
+        const newQuantity = parseFloat(quantityStr);
+        if (isNaN(newQuantity) || newQuantity <= 0) {
+            toast({ title: "Invalid Quantity", description: "Please enter a positive number.", variant: "destructive" });
+            return;
+        }
+
+        // For KG items, convert from grams to KG. For others, use the value directly.
+        const quantityToAdd = isKg ? newQuantity / 1000 : newQuantity;
+        const totalNewQuantity = quantityInCart + quantityToAdd;
+        
+        addToCart(item, totalNewQuantity);
+
+        toast({
+            title: `${item.description} added`,
+            description: `${isKg ? newQuantity : quantityToAdd} ${isKg ? 'g' : item.units} added to cart.`,
+        });
+        setQuantityStr(''); // Reset input after adding
+    };
+
+    return (
+        <div className="flex items-center gap-2">
+            <Input
+                type="number"
+                placeholder={isKg ? "grams" : "quantity"}
+                value={quantityStr}
+                onChange={(e) => setQuantityStr(e.target.value)}
+                className="h-10"
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        handleAddToCart();
+                    }
+                }}
+            />
+            <Button onClick={handleAddToCart} size="icon" className="h-10 w-12 flex-shrink-0">
+                <Icons.Add className="h-5 w-5" />
+            </Button>
+        </div>
+    );
+};
+
+
 export default function OrderingPage() {
-  const { addToCart, cartItems, updateQuantity, getItemQuantity, totalCartPrice } = useCart();
+  const { cartItems, updateQuantity, getItemQuantity, totalCartPrice, clearCartItem } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
 
@@ -93,28 +141,10 @@ export default function OrderingPage() {
 
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
 
-  const handleAddToCart = (item: Item) => {
-    addToCart(item, 1);
-    toast({
-      title: `${item.description} added to cart`,
-      description: `1 ${item.units} added. Total in cart: ${getItemQuantity(item.code) + 1}`,
-      variant: "default",
-    });
-  };
-  
   const handleUpdateQuantity = (itemCode: string, change: number) => {
     const currentQuantity = getItemQuantity(itemCode);
     const newQuantity = currentQuantity + change;
-    const item = getItemByCode(allItems, itemCode);
-    if (!item) return;
-
-    if (newQuantity <= 0) {
-       updateQuantity(itemCode, 0); 
-       toast({ title: "Item removed", description: `${item.description} removed from cart.`});
-    } else {
-       updateQuantity(itemCode, newQuantity);
-       toast({ title: "Quantity updated", description: `${item.description} quantity now ${newQuantity}.`});
-    }
+    updateQuantity(itemCode, newQuantity);
   };
   
   const userSelectableBranches = useMemo(() => {
@@ -226,6 +256,7 @@ export default function OrderingPage() {
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
                 const IconComponent = getCategoryIcon(item.category, item.itemType) || Icons.Inventory;
+                const isKg = item.units.toUpperCase() === 'KG';
 
                 return (
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
@@ -238,24 +269,11 @@ export default function OrderingPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">Code: {item.code}</p>
                     <p className="text-sm text-muted-foreground">Unit: {item.units} (Pack: {item.packing})</p>
-                    <p className="text-lg font-bold text-primary mt-2">AED {item.price.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-primary mt-2">AED {item.price.toFixed(2)} / {item.units}</p>
+                    {quantityInCart > 0 && <Badge variant="secondary" className="mt-2">In Cart: {quantityInCart.toFixed(3)} {item.units}</Badge>}
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
-                    {quantityInCart > 0 ? (
-                      <div className="flex items-center justify-between w-full">
-                        <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(item.code, -1)} aria-label={`Decrease quantity of ${item.description}`}>
-                          <Icons.Remove className="h-4 w-4" />
-                        </Button>
-                        <span className="text-lg font-mediumtabular-nums w-10 text-center" aria-live="polite">{quantityInCart}</span>
-                        <Button variant="outline" size="icon" onClick={() => handleUpdateQuantity(item.code, 1)} aria-label={`Increase quantity of ${item.description}`}>
-                          <Icons.Add className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => handleAddToCart(item)} aria-label={`Add ${item.description} to cart`}>
-                        <Icons.Add className="mr-2 h-4 w-4" /> Add to Cart
-                      </Button>
-                    )}
+                    <QuantityInput item={item} isKg={isKg} />
                   </CardFooter>
                 </Card>
               )})}
@@ -290,16 +308,19 @@ export default function OrderingPage() {
               <div className="p-4 space-y-3">
                 {cartItems.map(item => {
                   const cartItemDetails = getItemByCode(allItems, item.code);
+                  if (!cartItemDetails) return null;
+                  
+                  const displayQuantity = cartItemDetails.units === 'KG' ? `${(item.quantity * 1000).toFixed(0)}g` : `${item.quantity.toFixed(2)} ${item.units}`;
+                  
                   return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} x {item.quantity}</p>
+                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} x {item.quantity.toFixed(3)} {cartItemDetails.units}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.code, -1)} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
-                      <span className="text-sm font-medium tabular-nums w-5 text-center">{item.quantity}</span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.code, 1)} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
+                       <span className="text-sm font-medium tabular-nums w-16 text-center">{displayQuantity}</span>
+                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => clearCartItem(item.code)} aria-label={`Remove ${item.description}`}> <Icons.Delete className="h-4 w-4 text-destructive" /> </Button>
                     </div>
                   </div>
                 )})}
@@ -313,7 +334,7 @@ export default function OrderingPage() {
             <CardFooter className="p-4 flex flex-col gap-3">
                <div className="w-full flex justify-between text-md font-medium text-muted-foreground">
                 <span>Total Items:</span>
-                <span>{cartItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                <span>{cartItems.length}</span>
               </div>
                <div className="w-full flex justify-between text-lg font-bold">
                 <span>Total Price:</span>
