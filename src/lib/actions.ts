@@ -619,43 +619,56 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData>
 
 export async function getDashboardDataAction(): Promise<DashboardData> {
     try {
-        // 1. Summary Cards
-        const [[totalTodayResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()");
-        const [[activeOrdersResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')");
-        const [[closedTodayResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()");
-        const [[pendingOrdersResult]] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'");
+        const summaryQueries = [
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'")
+        ];
+
+        const graphQueries = [
+            pool.query<RowDataPacket[]>(`
+                SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
+                FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                GROUP BY month ORDER BY month ASC
+            `),
+            pool.query<RowDataPacket[]>(`
+                SELECT DATE(receivedAt) as day, SUM(totalPrice) as total
+                FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY day ORDER BY day ASC
+            `),
+            pool.query<RowDataPacket[]>(`
+                 SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
+                 FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                 GROUP BY month ORDER BY month ASC
+            `),
+            pool.query<RowDataPacket[]>(`
+                SELECT branchId, SUM(totalPrice) as total
+                FROM orders WHERE status = 'Closed'
+                GROUP BY branchId
+            `)
+        ];
+        
+        const [
+            [[totalTodayResult]], 
+            [[activeOrdersResult]], 
+            [[closedTodayResult]], 
+            [[pendingOrdersResult]]
+        ] = await Promise.all(summaryQueries);
+
+        const [
+            [totalPurchasesData],
+            [dailyPurchasesData],
+            [monthlyPurchasesData],
+            [storePurchasesData]
+        ] = await Promise.all(graphQueries);
 
         const summary = {
-            totalOrdersToday: Number(totalTodayResult.count),
-            activeOrders: Number(activeOrdersResult.count),
-            closedOrdersToday: Number(closedTodayResult.count),
-            pendingOrders: Number(pendingOrdersResult.count),
+            totalOrdersToday: Number(totalTodayResult[0].count),
+            activeOrders: Number(activeOrdersResult[0].count),
+            closedOrdersToday: Number(closedTodayResult[0].count),
+            pendingOrders: Number(pendingOrdersResult[0].count),
         };
-
-        // 2. Graph Data
-        const [totalPurchasesData] = await pool.query<RowDataPacket[]>(`
-            SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
-            FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month ORDER BY month ASC
-        `);
-
-        const [dailyPurchasesData] = await pool.query<RowDataPacket[]>(`
-            SELECT DATE(receivedAt) as day, SUM(totalPrice) as total
-            FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY day ORDER BY day ASC
-        `);
-        
-        const [monthlyPurchasesData] = await pool.query<RowDataPacket[]>(`
-             SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
-             FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-             GROUP BY month ORDER BY month ASC
-        `);
-
-        const [storePurchasesData] = await pool.query<RowDataPacket[]>(`
-            SELECT branchId, SUM(totalPrice) as total
-            FROM orders WHERE status = 'Closed'
-            GROUP BY branchId
-        `);
 
         const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
