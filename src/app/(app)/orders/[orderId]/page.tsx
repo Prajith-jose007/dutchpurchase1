@@ -37,10 +37,13 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 // Helper to format quantity for display
 const formatQuantity = (item: OrderItem) => {
-    if (item.units === 'KG' && item.quantity < 1) {
-        return `${(item.quantity * 1000).toFixed(0)} g`;
+    if (item.units.toUpperCase() === 'KG') {
+        if (item.quantity < 1) {
+            return `${Math.round(item.quantity * 1000)}g`;
+        }
+        return `${item.quantity.toFixed(2)} KG`;
     }
-    return `${item.quantity.toFixed(3)} ${item.units}`;
+    return `${item.quantity.toFixed(2)} ${item.units}`;
 };
 
 
@@ -259,7 +262,6 @@ export default function OrderDetailsPage() {
                     <TableHead>Item Code</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-center">Quantity</TableHead>
-                    <TableHead className="text-right">Price Per Unit</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -269,7 +271,6 @@ export default function OrderDetailsPage() {
                       <TableCell className="font-medium">{item.itemId}</TableCell>
                       <TableCell>{item.description}</TableCell>
                       <TableCell className="text-center">{formatQuantity(item)}</TableCell>
-                      <TableCell className="text-right">AED {item.price.toFixed(2)} / {item.units}</TableCell>
                       <TableCell className="text-right font-semibold">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
@@ -384,3 +385,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    
