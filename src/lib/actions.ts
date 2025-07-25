@@ -619,14 +619,13 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData>
 
 export async function getDashboardDataAction(): Promise<DashboardData> {
     try {
-        const summaryQueries = [
+        const allQueries = [
+            // Summary Queries
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
-            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'")
-        ];
-
-        const graphQueries = [
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'"),
+            // Graph Queries
             pool.query<RowDataPacket[]>(`
                 SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
@@ -648,36 +647,24 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
                 GROUP BY branchId
             `)
         ];
-        
-        const [
-            [[totalTodayResult]], 
-            [[activeOrdersResult]], 
-            [[closedTodayResult]], 
-            [[pendingOrdersResult]]
-        ] = await Promise.all(summaryQueries);
 
-        const [
-            [totalPurchasesData],
-            [dailyPurchasesData],
-            [monthlyPurchasesData],
-            [storePurchasesData]
-        ] = await Promise.all(graphQueries);
+        const results = await Promise.all(allQueries);
 
         const summary = {
-            totalOrdersToday: Number(totalTodayResult[0].count),
-            activeOrders: Number(activeOrdersResult[0].count),
-            closedOrdersToday: Number(closedTodayResult[0].count),
-            pendingOrders: Number(pendingOrdersResult[0].count),
+            totalOrdersToday: Number(results[0][0][0].count),
+            activeOrders: Number(results[1][0][0].count),
+            closedOrdersToday: Number(results[2][0][0].count),
+            pendingOrders: Number(results[3][0][0].count),
         };
 
         const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
         const dashboardData: DashboardData = {
             summary,
-            totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
-            dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total) })),
-            monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
-            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total) })),
+            totalPurchases: results[4][0].map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
+            dailyPurchases: results[5][0].map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total) })),
+            monthlyPurchases: results[6][0].map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total) })),
+            storePurchases: results[7][0].map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total) })),
         };
         
         return dashboardData;

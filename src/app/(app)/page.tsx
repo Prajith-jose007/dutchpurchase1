@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Icons } from '@/components/icons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { branches } from '@/data/appRepository';
 
 const formatCurrency = (value: number | string | null | undefined) => {
@@ -21,7 +21,8 @@ const formatCurrency = (value: number | string | null | undefined) => {
   return `AED ${numValue.toFixed(2)}`;
 };
 
-const getBranchName = (branchId: string) => branches.find(b => b.id === branchId)?.name || 'Unknown';
+const PIE_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -32,6 +33,7 @@ export default function DashboardPage() {
     const fetchData = async () => {
       if (currentUser) {
         try {
+          setIsLoading(true);
           const result = await getDashboardDataAction();
           setData(result);
         } catch (error) {
@@ -47,12 +49,12 @@ export default function DashboardPage() {
   if (isLoading || !data) {
     return <DashboardSkeleton />;
   }
-
-  const chartConfigTotal = { total: { label: "Total Purchases" } };
-  const chartConfigDaily = { total: { label: "Daily Purchases" } };
-  const chartConfigMonthly = { total: { label: "Monthly Purchases" } };
+  
+  const chartConfigTotal = { total: { label: "Total Purchases", color: 'hsl(var(--primary))' } };
+  const chartConfigDaily = { total: { label: "Daily Purchases", color: 'hsl(var(--primary))' } };
+  const chartConfigMonthly = { total: { label: "Monthly Purchases", color: 'hsl(var(--primary))' } };
   const chartConfigStore = Object.fromEntries(
-    data.storePurchases.map(item => [item.name, { label: item.name }])
+    data.storePurchases.map((item, i) => [item.name, { label: item.name, color: PIE_COLORS[i % PIE_COLORS.length] }])
   );
 
   return (
@@ -114,10 +116,10 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <ChartContainer config={chartConfigTotal} className="h-[250px] w-full">
-                    <LineChart data={data.totalPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart accessibilityLayer data={data.totalPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid vertical={false} />
                         <XAxis dataKey="month" tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => formatCurrency(value).split(' ')[1].replace('.00', '')} />
+                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `AED ${Number(value) / 1000}k`} />
                         <Tooltip cursor={false} content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
                         <Line dataKey="total" type="monotone" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
                     </LineChart>
@@ -127,14 +129,17 @@ export default function DashboardPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Purchases by Store</CardTitle>
-                <CardDescription>Breakdown of total spending per store.</CardDescription>
+                <CardDescription>Breakdown of total spending per store (YTD).</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-center">
                 <ChartContainer config={chartConfigStore} className="h-[250px] w-full">
-                    <PieChart>
-                        <Tooltip content={<ChartTooltipContent formatter={(value, name) => <div><p className="font-medium">{name}</p><p>{formatCurrency(Number(value))}</p></div>} />} />
-                        <Pie data={data.storePurchases} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="hsl(var(--primary))" labelLine={false} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} />
-                        <ChartLegend content={<ChartLegendContent />} />
+                    <PieChart accessibilityLayer>
+                        <Tooltip content={<ChartTooltipContent nameKey="name" formatter={(value) => formatCurrency(Number(value))} />} />
+                        <Pie data={data.storePurchases} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} >
+                          {data.storePurchases.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
                     </PieChart>
                 </ChartContainer>
             </CardContent>
@@ -149,10 +154,10 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <ChartContainer config={chartConfigDaily} className="h-[250px] w-full">
-                    <BarChart data={data.dailyPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart accessibilityLayer data={data.dailyPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid vertical={false} />
                         <XAxis dataKey="day" tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => formatCurrency(value).split(' ')[1].replace('.00', '')} />
+                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `AED ${Number(value) / 1000}k`} />
                         <Tooltip cursor={false} content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={4} />
                     </BarChart>
@@ -166,10 +171,10 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <ChartContainer config={chartConfigMonthly} className="h-[250px] w-full">
-                     <BarChart data={data.monthlyPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                     <BarChart accessibilityLayer data={data.monthlyPurchases} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid vertical={false} />
                         <XAxis dataKey="month" tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => formatCurrency(value).split(' ')[1].replace('.00', '')} />
+                        <YAxis tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(value) => `AED ${Number(value) / 1000}k`} />
                         <Tooltip cursor={false} content={<ChartTooltipContent formatter={(value) => formatCurrency(Number(value))} />} />
                         <Bar dataKey="total" fill="hsl(var(--primary))" radius={4} />
                     </BarChart>
@@ -184,22 +189,22 @@ export default function DashboardPage() {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-pulse">
       <header>
-        <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-4 w-1/2 mt-2" />
+        <Skeleton className="h-10 w-1/3 rounded-lg" />
+        <Skeleton className="h-4 w-1/2 mt-2 rounded-lg" />
       </header>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader><Skeleton className="h-8 w-full" /></CardHeader><CardContent><Skeleton className="h-10 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-full" /></CardHeader><CardContent><Skeleton className="h-10 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-full" /></CardHeader><CardContent><Skeleton className="h-10 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-full" /></CardHeader><CardContent><Skeleton className="h-10 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-20 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-20 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-20 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-20 w-full rounded-lg" /></CardContent></Card>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
-        <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
+        <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
       </div>
     </div>
   );

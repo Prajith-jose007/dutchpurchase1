@@ -141,7 +141,7 @@ export default function ReportsPage() {
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `AED ${Number(value) / 1000}k`} />
                 <Tooltip
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
-                  content={<ChartTooltipContent formatter={formatCurrency} />}
+                  content={<ChartTooltipContent formatter={(v) => formatCurrency(Number(v))} />}
                 />
                 <Legend content={<ChartLegendContent />} />
                 {Object.keys(branchColors).map(branchName => (
