@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { InnerAppProviders } from './providers';
 
 const navItems = [
+  { href: "/", label: "Dashboard", icon: Icons.Dashboard, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
@@ -80,7 +81,7 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
                       asChild 
                       className="w-full justify-start relative"
                       tooltip={item.label}
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={pathname === item.href}
                     >
                       <Link href={item.href}>
                         <item.icon className="h-5 w-5" />
