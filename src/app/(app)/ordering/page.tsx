@@ -25,7 +25,7 @@ const ITEMS_PER_PAGE = 12;
 
 // A new component for the quantity input logic on each product card
 const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
-    const { addToCart, getItemQuantity } = useCart();
+    const { addToCart, updateQuantity, getItemQuantity } = useCart();
     const [quantityStr, setQuantityStr] = useState('');
     const [selectedUnit, setSelectedUnit] = useState(isKg ? 'G' : item.units);
     const quantityInCart = getItemQuantity(item.code);
@@ -39,9 +39,9 @@ const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
 
         // For KG items, convert from grams to KG if needed. For others, use the value directly.
         const quantityToAdd = isKg ? (selectedUnit === 'G' ? newQuantity / 1000 : newQuantity) : newQuantity;
-        const totalNewQuantity = quantityInCart + quantityToAdd;
         
-        addToCart(item, totalNewQuantity);
+        // This is an ADDITIVE operation.
+        addToCart(item, quantityToAdd);
 
         toast({
             title: `${item.description} added`,

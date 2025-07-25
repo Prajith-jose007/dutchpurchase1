@@ -37,11 +37,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((cartItem) => cartItem.code === item.code);
       if (existingItem) {
-        // If item exists, we replace its quantity with the new total quantity passed.
-        // This is a change from += quantity to just quantity.
+        // If item exists, update its quantity by adding the new amount.
         return prevItems.map((cartItem) =>
           cartItem.code === item.code
-            ? { ...cartItem, quantity: quantity }
+            ? { ...cartItem, quantity: cartItem.quantity + quantity }
             : cartItem
         );
       }
