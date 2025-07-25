@@ -565,7 +565,7 @@ export async function getPendingOrdersCountAction(): Promise<number> {
     }
 }
 
-export async function getPurchaseReportDataAction(): Promise<PurchaseReportData> {
+export async function getPurchaseReportDataAction(): Promise<PurchaseReportData | null> {
     try {
         const baseQuery = "SELECT SUM(totalPrice) as total FROM orders WHERE status = 'Closed'";
 
@@ -607,17 +607,11 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData>
 
     } catch (error) {
         console.error("Failed to fetch purchase report data:", error);
-        // Return a default object on error to prevent crashing the page
-        return {
-            totalToday: 0,
-            totalThisMonth: 0,
-            totalThisYear: 0,
-            chartData: [],
-        };
+        return null;
     }
 }
 
-export async function getDashboardDataAction(): Promise<DashboardData> {
+export async function getDashboardDataAction(): Promise<DashboardData | null> {
     try {
         const allQueries = [
             // Summary Queries
@@ -636,6 +630,11 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
                 FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                 GROUP BY day ORDER BY day ASC
             `),
+             pool.query<RowDataPacket[]>(`
+                SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
+                FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                GROUP BY month ORDER BY month ASC
+            `),
             pool.query<RowDataPacket[]>(`
                 SELECT branchId, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
@@ -643,26 +642,36 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
             `)
         ];
 
-        const results = await Promise.all(allQueries);
+        const [
+          totalOrdersTodayResult,
+          activeOrdersResult,
+          closedOrdersTodayResult,
+          pendingOrdersResult,
+          totalPurchasesResult,
+          dailyPurchasesResult,
+          monthlyPurchasesResult,
+          storePurchasesResult,
+        ] = await Promise.all(allQueries);
 
         const summary = {
-            totalOrdersToday: Number(results[0][0]?.[0]?.count ?? 0),
-            activeOrders: Number(results[1][0]?.[0]?.count ?? 0),
-            closedOrdersToday: Number(results[2][0]?.[0]?.count ?? 0),
-            pendingOrders: Number(results[3][0]?.[0]?.count ?? 0),
+            totalOrdersToday: Number(totalOrdersTodayResult[0]?.[0]?.count ?? 0),
+            activeOrders: Number(activeOrdersResult[0]?.[0]?.count ?? 0),
+            closedOrdersToday: Number(closedOrdersTodayResult[0]?.[0]?.count ?? 0),
+            pendingOrders: Number(pendingOrdersResult[0]?.[0]?.count ?? 0),
         };
 
         const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
-        const totalPurchasesData = results[4][0] || [];
-        const dailyPurchasesData = results[5][0] || [];
-        const storePurchasesData = results[6][0] || [];
+        const totalPurchasesData = totalPurchasesResult[0] || [];
+        const dailyPurchasesData = dailyPurchasesResult[0] || [];
+        const monthlyPurchasesData = monthlyPurchasesResult[0] || [];
+        const storePurchasesData = storePurchasesResult[0] || [];
 
         const dashboardData: DashboardData = {
             summary,
             totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
             dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total || 0) })),
-            monthlyPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
+            monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
             storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total || 0) })),
         };
         
@@ -670,8 +679,6 @@ export async function getDashboardDataAction(): Promise<DashboardData> {
 
     } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
-        throw new Error("Could not load dashboard data.");
+        return null;
     }
 }
-
-    

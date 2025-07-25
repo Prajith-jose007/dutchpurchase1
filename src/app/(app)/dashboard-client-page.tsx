@@ -9,6 +9,7 @@ import { Icons } from '@/components/icons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import AppLoading from './loading';
 
 const formatCurrency = (value: number | string | null | undefined) => {
   const numValue = Number(value);
@@ -24,13 +25,19 @@ const PIE_COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--cha
 export default function DashboardClientPage({ initialData }: { initialData: DashboardData | null }) {
   const { currentUser } = useAuth();
   const [data, setData] = useState<DashboardData | null>(initialData);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Although data is passed from server, we can keep this structure
-  // if we want to add real-time updates later. For now, it just uses server-passed data.
   useEffect(() => {
-    setData(initialData);
+    if (initialData) {
+      setData(initialData);
+      setIsLoading(false);
+    }
   }, [initialData]);
 
+  if (isLoading) {
+    return <AppLoading />;
+  }
+  
   if (!data) {
     // This will be rendered if the server component fails to fetch data
     return <DashboardSkeleton />;
