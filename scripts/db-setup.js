@@ -34,11 +34,18 @@ async function setupDatabase() {
         multipleStatements: true // Allow multiple SQL queries in one execution
     });
     
-    // Drop the items table if it exists to ensure schema updates are applied
-    console.log('Dropping `items` table if it exists to apply new schema...');
+    // Drop tables in the correct order to respect foreign key constraints
+    console.log('Dropping existing tables to apply new schema...');
+    await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
+    await connection.query('DROP TABLE IF EXISTS `invoices`;');
+    await connection.query('DROP TABLE IF EXISTS `order_items`;');
+    await connection.query('DROP TABLE IF EXISTS `orders`;');
     await connection.query('DROP TABLE IF EXISTS `items`;');
-    console.log('`items` table dropped.');
-
+    await connection.query('DROP TABLE IF EXISTS `user_branches`;');
+    await connection.query('DROP TABLE IF EXISTS `branches`;');
+    await connection.query('DROP TABLE IF EXISTS `users`;');
+    await connection.query('SET FOREIGN_KEY_CHECKS = 1;');
+    console.log('Existing tables dropped.');
 
     console.log('Reading schema.sql file...');
     const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');

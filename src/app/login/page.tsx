@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Icons } from '@/components/icons';
 import { toast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -22,7 +23,7 @@ export default function LoginPage() {
     // If auth is not loading and a user is found, it means a session exists.
     // Redirect them to the main page. This prevents a logged-in user from seeing the login page.
     if (!authLoading && currentUser) {
-      router.push('/'); 
+      router.push('/ordering'); 
     }
   }, [currentUser, authLoading, router]);
 
@@ -54,8 +55,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl">
-        <CardHeader className="space-y-1 text-center p-6">
-           <h1 className="font-headline text-2xl font-bold">Dutch Oriental</h1>
+        <CardHeader className="space-y-1 text-center p-6 items-center">
+          <Image src="/logo.png" alt="Dutch Oriental Logo" width={200} height={50} />
           <CardTitle className="text-2xl !mt-4">Welcome Back</CardTitle>
           <CardDescription>Enter your credentials to log in</CardDescription>
         </CardHeader>

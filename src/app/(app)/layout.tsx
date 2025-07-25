@@ -15,6 +15,7 @@ import { ChangePasswordDialog } from '@/components/ui/change-password-dialog';
 import { getPendingOrdersCountAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { InnerAppProviders } from './providers';
+import Image from 'next/image';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
@@ -70,7 +71,9 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
         <SidebarProvider defaultOpen>
           <Sidebar>
             <SidebarHeader className="p-4 text-center">
-              <h1 className="font-headline text-2xl font-bold text-primary-foreground group-data-[collapsible=icon]:hidden">Dutch Oriental</h1>
+              <div className="group-data-[collapsible=icon]:hidden">
+                <Image src="/logo.png" alt="Dutch Oriental Logo" width={180} height={45} />
+              </div>
             </SidebarHeader>
             <SidebarContent>
               <SidebarMenu>
