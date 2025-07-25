@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ChangePasswordDialog } from '@/components/ui/change-password-dialog';
 import { getPendingOrdersCountAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
-import { AppProviders } from './providers';
+import { InnerAppProviders } from './providers';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
@@ -179,8 +179,8 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <AppProviders>
+    <InnerAppProviders>
       <InnerAppLayout>{children}</InnerAppLayout>
-    </AppProviders>
+    </InnerAppProviders>
   )
 }
