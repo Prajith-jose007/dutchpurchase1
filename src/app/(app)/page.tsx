@@ -1,4 +1,3 @@
-
 // src/app/(app)/page.tsx
 "use client";
 
@@ -9,9 +8,8 @@ import type { DashboardData } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { branches } from '@/data/appRepository';
 
 const formatCurrency = (value: number | string | null | undefined) => {
   const numValue = Number(value);
@@ -203,6 +201,8 @@ function DashboardSkeleton() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
         <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
+      </div>
+       <div className="grid gap-6 lg:grid-cols-2">
         <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
         <Card><CardContent className="p-4"><Skeleton className="h-64 w-full rounded-lg" /></CardContent></Card>
       </div>
