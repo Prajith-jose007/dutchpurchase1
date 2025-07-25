@@ -20,7 +20,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import OrderingLoading from './loading';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -130,7 +129,32 @@ export default function OrderingPage() {
 
   if (isLoading || (currentUser && currentUser.role === 'purchase')) {
     // Render a loading/redirecting state if not client-side yet or if user is being redirected
-    return <OrderingLoading />;
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 h-full animate-pulse">
+            <div className="flex-grow space-y-6">
+                <div className="space-y-2">
+                    <div className="h-8 w-1/3 bg-muted rounded"></div>
+                    <div className="h-4 w-2/3 bg-muted rounded"></div>
+                </div>
+                <div className="space-y-4 p-4 border rounded-lg bg-card shadow">
+                    <div className="h-10 w-full bg-muted rounded"></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="h-10 w-full bg-muted rounded"></div>
+                        <div className="h-10 w-full bg-muted rounded"></div>
+                        <div className="h-10 w-full bg-muted rounded"></div>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="h-64 bg-card rounded-lg shadow-lg"></div>
+                    ))}
+                </div>
+            </div>
+            <div className="lg:w-96 xl:w-[400px] flex-shrink-0">
+                 <div className="h-96 bg-card rounded-lg shadow-xl"></div>
+            </div>
+        </div>
+    );
   }
 
 
