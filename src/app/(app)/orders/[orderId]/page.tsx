@@ -224,7 +224,7 @@ export default function OrderDetailsPage() {
             </div>
              <div>
               <CardTitle className="text-base font-semibold text-muted-foreground">Total Items</CardTitle>
-              <CardDescription className="text-lg font-bold text-foreground">{order.items.length}</CardDescription>
+              <CardDescription className="text-lg font-bold text-foreground">{order.totalItems}</CardDescription>
             </div>
              {lastUpdatedByUserName && order.receivedAt && (
               <>
@@ -256,7 +256,7 @@ export default function OrderDetailsPage() {
                 </TableHeader>
                 <TableBody>
                   {order.items.map((item) => (
-                    <TableRow key={item.itemId}>
+                    <TableRow key={item.itemId + '-' + item.units}>
                       <TableCell className="font-medium">{item.itemId}</TableCell>
                       <TableCell>{item.description}</TableCell>
                       <TableCell className="text-center">{formatQuantity(item.quantity, item.units)}</TableCell>
