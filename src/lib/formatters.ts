@@ -1,24 +1,26 @@
 
 export const formatQuantity = (quantity: number, units: string): string => {
-  const normalizedUnits = units?.trim().toLowerCase();
   const num = Number(quantity);
+  const normalizedUnits = units?.trim().toLowerCase();
 
   if (isNaN(num) || num <= 0) return `0 ${units || ''}`;
 
   if (normalizedUnits === 'kg') {
-    const inGrams = num * 1000;
+    const grams = num * 1000;
 
-    if (inGrams < 1000) {
-      return `${Math.round(inGrams)}g`;
+    if (grams < 1000) {
+      return `${Math.round(grams)}g`;
     }
 
-    // Show kg without decimals if whole number, else show up to 2 decimals
-    return Number.isInteger(num)
-      ? `${num.toFixed(0)}kg`
-      : `${num.toFixed(2)}kg`;
+    // For exact 1kg, 2kg etc.
+    if (Number.isInteger(num)) {
+      return `${num.toFixed(0)}kg`;
+    }
+
+    return `${num.toFixed(3).replace(/\.?0+$/, '')}kg`; // Remove trailing zeros
   }
 
-  // For other units (e.g., pcs, packs, etc.)
+  // Default for other units
   return Number.isInteger(num)
     ? `${num.toFixed(0)} ${units}`
     : `${num.toFixed(2)} ${units}`;
