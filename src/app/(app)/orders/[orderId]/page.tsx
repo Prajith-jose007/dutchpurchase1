@@ -36,17 +36,13 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 }
 
 // Helper to format quantity for display
-const formatQuantity = (item: OrderItem) => {
-    const { quantity, units } = item;
-    if (units.toUpperCase() === 'KG') {
-        if (quantity < 1 && quantity > 0) {
-            // Convert to grams if less than 1 KG
-            return `${Math.round(quantity * 1000)}g`;
-        }
-        // Show up to 3 decimal places for KG if needed
-        return `${parseFloat(quantity.toFixed(3))} KG`;
+const formatQuantity = (quantity: number, units: string): string => {
+    if (units.toLowerCase() === 'kg' && quantity < 1) {
+        return `${Math.round(quantity * 1000)}g`;
     }
-    // For other units (like PCS), show as a whole number
+    if (units.toLowerCase() === 'kg') {
+        return `${quantity.toFixed(3)} KG`;
+    }
     return `${Math.round(quantity)} ${units}`;
 };
 
@@ -274,7 +270,7 @@ export default function OrderDetailsPage() {
                     <TableRow key={item.itemId}>
                       <TableCell className="font-medium">{item.itemId}</TableCell>
                       <TableCell>{item.description}</TableCell>
-                      <TableCell className="text-center">{formatQuantity(item)}</TableCell>
+                      <TableCell className="text-center">{formatQuantity(item.quantity, item.units)}</TableCell>
                       <TableCell className="text-right font-semibold">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
@@ -389,5 +385,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    
