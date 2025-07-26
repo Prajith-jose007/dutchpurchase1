@@ -324,8 +324,6 @@ export default function OrderingPage() {
                   const cartItemDetails = getItemByCode(allItems, item.code);
                   if (!cartItemDetails) return null;
                   
-                  const displayQuantity = formatQuantity(item.quantity, cartItemDetails.units);
-                  
                   return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">
@@ -333,7 +331,7 @@ export default function OrderingPage() {
                       <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} &times; {item.quantity.toFixed(3)} {cartItemDetails.units}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                       <span className="text-sm font-medium tabular-nums w-16 text-center">{displayQuantity}</span>
+                       <span className="text-sm font-medium tabular-nums w-16 text-center">{formatQuantity(item.quantity, cartItemDetails.units)}</span>
                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => clearCartItem(item.code)} aria-label={`Remove ${item.description}`}> <Icons.Delete className="h-4 w-4 text-destructive" /> </Button>
                     </div>
                   </div>
@@ -366,4 +364,3 @@ export default function OrderingPage() {
     </div>
   );
 }
-
