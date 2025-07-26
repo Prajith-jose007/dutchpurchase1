@@ -224,7 +224,7 @@ export default function OrderDetailsPage() {
             </div>
              <div>
               <CardTitle className="text-base font-semibold text-muted-foreground">Total Items</CardTitle>
-              <CardDescription className="text-lg font-bold text-foreground">{order.totalItems}</CardDescription>
+              <CardDescription className="text-lg font-bold text-foreground">{order.items.length}</CardDescription>
             </div>
              {lastUpdatedByUserName && order.receivedAt && (
               <>
