@@ -37,26 +37,25 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 // Helper to format quantity for display, as per user instruction.
 const formatQuantity = (quantity: number, units: string): string => {
-    const numQuantity = Number(quantity);
-    const normalizedUnits = units?.trim().toLowerCase();
+  const normalizedUnits = units?.trim().toLowerCase();
+  const num = Number(quantity);
 
-    if (isNaN(numQuantity)) {
-        return `0 ${units || ''}`;
+  if (isNaN(num)) return `0 ${units || ''}`;
+
+  if (normalizedUnits === 'kg') {
+    if (num < 1 && num > 0) {
+        return `${Math.round(num * 1000)}g`;
     }
+    const wholeKg = num;
+      return Number.isInteger(wholeKg)
+        ? `${wholeKg.toFixed(0)} KG`
+        : `${wholeKg.toFixed(3)} KG`;
+  }
 
-    if (normalizedUnits === 'kg') {
-        if (numQuantity < 1 && numQuantity > 0) {
-            return `${Math.round(numQuantity * 1000)} g`;
-        }
-        return `${numQuantity.toFixed(3)} KG`;
-    }
-
-    // For non-kg units, assume they are countable items
-    if (numQuantity % 1 !== 0) {
-       return `${numQuantity.toFixed(2)} ${units}`;
-    }
-
-    return `${numQuantity.toFixed(0)} ${units}`;
+  // For non-kg units
+  return Number.isInteger(num)
+    ? `${num.toFixed(0)} ${units}`
+    : `${num.toFixed(2)} ${units}`;
 };
 
 
