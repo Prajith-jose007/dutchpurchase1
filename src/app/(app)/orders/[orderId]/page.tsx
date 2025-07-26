@@ -40,10 +40,8 @@ const formatQuantity = (quantity: number, units: string): string => {
     if (units.toLowerCase() === 'kg' && quantity < 1 && quantity > 0) {
         return `${Math.round(quantity * 1000)}g`;
     }
-    if (units.toLowerCase() === 'kg') {
-        return `${quantity.toFixed(3)} KG`;
-    }
-    return `${Math.round(quantity)} ${units}`;
+    // For quantities of 1kg or more, or other units
+    return `${Number(quantity.toFixed(3))} ${units}`;
 };
 
 
