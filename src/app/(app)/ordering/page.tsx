@@ -1,3 +1,4 @@
+
 // src/app/(app)/ordering/page.tsx
 "use client";
 
@@ -20,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { formatQuantity } from '@/lib/formatters';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -322,7 +324,7 @@ export default function OrderingPage() {
                   const cartItemDetails = getItemByCode(allItems, item.code);
                   if (!cartItemDetails) return null;
                   
-                  const displayQuantity = cartItemDetails.units === 'KG' ? `${(item.quantity * 1000).toFixed(0)}g` : `${item.quantity.toFixed(2)} ${item.units}`;
+                  const displayQuantity = formatQuantity(item.quantity, cartItemDetails.units);
                   
                   return (
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">

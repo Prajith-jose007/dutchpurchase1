@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useDropzone } from 'react-dropzone';
+import { formatQuantity } from '@/lib/formatters';
 
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
@@ -34,30 +35,6 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
     default: return 'outline';
   }
 }
-
-// Helper to format quantity for display, as per user instruction.
-const formatQuantity = (quantity: number, units: string): string => {
-  const normalizedUnits = units?.trim().toLowerCase();
-  const num = Number(quantity);
-
-  if (isNaN(num)) return `0 ${units || ''}`;
-
-  if (normalizedUnits === 'kg') {
-    if (num < 1 && num > 0) {
-        return `${Math.round(num * 1000)}g`;
-    }
-    const wholeKg = num;
-      return Number.isInteger(wholeKg)
-        ? `${wholeKg.toFixed(0)} KG`
-        : `${wholeKg.toFixed(3)} KG`;
-  }
-
-  // For non-kg units
-  return Number.isInteger(num)
-    ? `${num.toFixed(0)} ${units}`
-    : `${num.toFixed(2)} ${units}`;
-};
-
 
 export default function OrderDetailsPage() {
   const params = useParams();
