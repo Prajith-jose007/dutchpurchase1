@@ -37,12 +37,13 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 // Helper to format quantity for display
 const formatQuantity = (quantity: number, units: string): string => {
-    if (units.toLowerCase() === 'kg' && quantity < 1) {
+    if (units.toLowerCase() === 'kg' && quantity > 0 && quantity < 1) {
         return `${Math.round(quantity * 1000)}g`;
     }
     if (units.toLowerCase() === 'kg') {
         return `${quantity.toFixed(3)} KG`;
     }
+    // For non-KG units like PCS, just show the number
     return `${Math.round(quantity)} ${units}`;
 };
 
