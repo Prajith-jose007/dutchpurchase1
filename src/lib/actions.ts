@@ -56,7 +56,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     );
 
     // Prepare the values for each line item, ensuring the correct quantity and price are used
-    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units, item.price]);
+    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units.trim(), item.price]);
     
     // Insert all order items with their correct, precise data
     await connection.query("INSERT INTO order_items (orderId, itemId, description, quantity, units, price) VALUES ?", [orderItemsValues]);
