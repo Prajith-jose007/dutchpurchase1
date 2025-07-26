@@ -130,7 +130,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             };
         }
         if (row.itemId) {
-            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId);
+            // FIX: Differentiate items by both itemId and units to treat them as unique line items.
+            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId && i.units === row.units);
             if (!existingItem) {
                 ordersMap[row.id].items.push({
                     itemId: row.itemId,
@@ -695,6 +696,8 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
 
     
 
