@@ -330,7 +330,7 @@ export default function OrderingPage() {
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} x {item.quantity.toFixed(3)} {cartItemDetails.units}</p>
+                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} &times; {item.quantity.toFixed(3)} {cartItemDetails.units}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                        <span className="text-sm font-medium tabular-nums w-16 text-center">{displayQuantity}</span>
@@ -366,3 +366,4 @@ export default function OrderingPage() {
     </div>
   );
 }
+

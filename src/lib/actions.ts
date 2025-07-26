@@ -35,9 +35,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     await connection.beginTransaction();
 
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    // The total number of unique line items
     const totalItems = cartItems.length;
-    // The total price calculated from the precise quantities and prices in the cart
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const newOrder: Omit<Order, 'items' | 'invoiceFileNames'> = {
@@ -50,15 +48,19 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       totalPrice,
     };
 
-    // Insert the main order record
     await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
-    // Prepare the values for each line item, ensuring the correct quantity and price are used
-    const orderItemsValues = cartItems.map(item => [orderId, item.code, item.description, item.quantity, item.units.trim(), item.price]);
+    const orderItemsValues = cartItems.map(item => [
+        orderId, 
+        item.code, 
+        item.description, 
+        item.quantity, // Use the precise quantity from the cart
+        item.units.trim(), 
+        item.price // Use the price per unit from the cart
+    ]);
     
-    // Insert all order items with their correct, precise data
     await connection.query("INSERT INTO order_items (orderId, itemId, description, quantity, units, price) VALUES ?", [orderItemsValues]);
 
     await connection.commit();
