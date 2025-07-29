@@ -1,3 +1,4 @@
+
 // scripts/migrate-inventory.js
 require('dotenv').config();
 const mysql = require('mysql2/promise');
@@ -64,7 +65,7 @@ async function migrateInventory() {
     }
 
     await connection.commit();
-    console.log(`Successfully migrated ${processedCount} inventory items to the database.`);
+    console.log(`Successfully migrated/updated ${processedCount} inventory items to the database.`);
 
   } catch (error) {
     if (connection) {
@@ -76,7 +77,6 @@ async function migrateInventory() {
     if (connection) {
       await connection.end();
     }
-    process.exit(0);
   }
 }
 
