@@ -69,6 +69,63 @@ const QuantityInput = ({ item }: { item: Item; }) => {
     );
 };
 
+// A new component that allows choosing between KG and G
+const KilogramOrGramInput = ({ item }: { item: Item }) => {
+  const { addToCart } = useCart();
+  const [quantityStr, setQuantityStr] = useState('');
+  const [selectedUnit, setSelectedUnit] = useState<'KG' | 'G'>('KG');
+
+  const handleAddToCart = () => {
+    let quantity = parseFloat(quantityStr);
+    if (isNaN(quantity) || quantity <= 0) {
+      toast({ title: "Invalid Quantity", description: "Please enter a positive number.", variant: "destructive" });
+      return;
+    }
+
+    // Convert grams to kilograms before adding to cart
+    if (selectedUnit === 'G') {
+      quantity = quantity / 1000;
+    }
+
+    addToCart(item, quantity);
+    toast({
+      title: `${item.description} added`,
+      description: `${formatQuantity(quantity, item.units)} added to your order.`,
+    });
+    setQuantityStr(''); // Reset input
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number"
+        placeholder="Qty"
+        value={quantityStr}
+        onChange={(e) => setQuantityStr(e.target.value)}
+        className="h-10 flex-grow"
+        step="any"
+         onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+                handleAddToCart();
+            }
+        }}
+      />
+      <Select value={selectedUnit} onValueChange={(val: 'KG' | 'G') => setSelectedUnit(val)}>
+        <SelectTrigger className="h-10 w-[80px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="KG">KG</SelectItem>
+          <SelectItem value="G">G</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button onClick={handleAddToCart} size="icon" className="h-10 w-12 flex-shrink-0">
+        <Icons.Add className="h-5 w-5" />
+      </Button>
+    </div>
+  );
+};
+
 
 export default function OrderingPage() {
   const { cartItems, updateQuantity, getItemQuantity, totalCartPrice, clearCartItem } = useCart();
@@ -272,7 +329,11 @@ export default function OrderingPage() {
                     {quantityInCart > 0 && <Badge variant="secondary" className="mt-2">In Cart: {formatQuantity(quantityInCart, item.units)}</Badge>}
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
-                    <QuantityInput item={item} />
+                    {item.units.toUpperCase() === 'KG' ? (
+                        <KilogramOrGramInput item={item} />
+                    ) : (
+                        <QuantityInput item={item} />
+                    )}
                   </CardFooter>
                 </Card>
               )})}
