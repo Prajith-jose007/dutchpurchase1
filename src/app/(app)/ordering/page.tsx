@@ -22,6 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatQuantity } from '@/lib/formatters';
+import { getDisplayUnit } from '@/lib/displayUtils';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -271,6 +272,7 @@ export default function OrderingPage() {
                 const quantityInCart = getItemQuantity(item.code);
                 const IconComponent = getCategoryIcon(item.category, item.itemType) || Icons.Inventory;
                 const isKg = item.units.toUpperCase() === 'KG';
+                const displayUnit = getDisplayUnit(item);
 
                 return (
                 <Card key={item.code} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg">
@@ -282,9 +284,9 @@ export default function OrderingPage() {
                        <span>{item.itemType} - {item.category}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">Code: {item.code}</p>
-                    <p className="text-sm text-muted-foreground">Unit: {item.units} (Pack: {item.packing})</p>
+                    <p className="text-sm text-muted-foreground">Unit: {displayUnit} (Packing: {item.packing})</p>
                     <p className="text-lg font-bold text-primary mt-2">AED {item.price.toFixed(2)} / {item.units}</p>
-                    {quantityInCart > 0 && <Badge variant="secondary" className="mt-2">In Cart: {quantityInCart.toFixed(3)} {item.units}</Badge>}
+                    {quantityInCart > 0 && <Badge variant="secondary" className="mt-2">In Cart: {formatQuantity(quantityInCart, item.units)}</Badge>}
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
                     <QuantityInput item={item} isKg={isKg} />
