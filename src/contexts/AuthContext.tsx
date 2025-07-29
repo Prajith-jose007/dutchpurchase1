@@ -45,7 +45,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { password, ...userToStore } = verificationResult.user;
       setCurrentUser(userToStore as User);
       localStorage.setItem('currentUserId', userToStore.id);
-      router.push('/ordering'); // Force redirect on successful login to the ordering page
+      
+      // Redirect based on role
+      if (userToStore.role === 'employee') {
+          router.push('/orders');
+      } else {
+          router.push('/ordering');
+      }
       return true;
     }
     return false;
