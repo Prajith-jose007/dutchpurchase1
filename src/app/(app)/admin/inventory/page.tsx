@@ -1,3 +1,4 @@
+
 // src/app/(app)/admin/inventory/page.tsx
 "use client";
 
@@ -128,13 +129,13 @@ export default function InventoryManagementPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/csv': ['.csv'] },
+    accept: { 'text/csv': ['.csv'], 'text/plain': ['.txt'] },
     multiple: false,
   });
 
   const handleImport = async () => {
     if (!importFile) {
-        toast({ title: "No File", description: "Please select a CSV file to import.", variant: "destructive" });
+        toast({ title: "No File", description: "Please select a CSV or TXT file to import.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
@@ -155,13 +156,12 @@ export default function InventoryManagementPage() {
   };
 
   const handleDownloadSample = () => {
-    const header = "CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,DETAILED,UNITS,PACKING,PRICE";
-    const exampleRow = "999,NEW,DRY,SPICE,Sample Spice,Detailed Description Here,KG,1,25.50";
-    const csvContent = `data:text/csv;charset=utf-8,${header}\n${exampleRow}`;
-    const encodedUri = encodeURI(csvContent);
+    const header = "CODE REMARK TYPE CATEGORY DESCRIPTION UNITS PACKING SHELF PRICE";
+    const exampleRow = "999 NEW DRY SPICE Sample Spice KG 1 180 25.50";
+    const plainTextContent = `data:text/plain;charset=utf-8,${encodeURIComponent(header + '\n' + exampleRow)}`;
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "inventory_sample.csv");
+    link.setAttribute("href", plainTextContent);
+    link.setAttribute("download", "inventory_sample.txt");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -279,9 +279,10 @@ export default function InventoryManagementPage() {
        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
         <DialogContent>
             <DialogHeader>
-              <DialogTitle>Import Inventory from CSV</DialogTitle>
+              <DialogTitle>Import Inventory from File</DialogTitle>
               <DialogDescription>
-                Upload a CSV file with inventory data. The file should have a header row: CODE,REMARK,TYPE,CATEGORY,DESCRIPTION,DETAILED,UNITS,PACKING,PRICE
+                Upload a space-delimited text file with inventory data. The file should have a header row like:
+                CODE REMARK TYPE CATEGORY DESCRIPTION UNITS PACKING SHELF PRICE
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -291,9 +292,9 @@ export default function InventoryManagementPage() {
                     {importFile ? (
                         <p className="font-semibold text-primary">{importFile.name}</p>
                     ) : isDragActive ? (
-                        <p className="font-semibold text-primary">Drop the CSV file here...</p>
+                        <p className="font-semibold text-primary">Drop the file here...</p>
                     ) : (
-                        <p className="text-muted-foreground">Drag & drop a CSV file here, or click to select</p>
+                        <p className="text-muted-foreground">Drag & drop a file here, or click to select</p>
                     )}
                 </div>
                 <div className="flex items-center gap-2">
