@@ -6,7 +6,12 @@ export const formatQuantity = (quantity: number, units: string): string => {
     return `0 ${units || ''}`;
   }
 
-  // Always display the number with its unit.
+  // Handle KG to G conversion for display
+  if (units.toUpperCase() === 'KG' && num > 0 && num < 1) {
+      return `${parseFloat((num * 1000).toFixed(3))} g`;
+  }
+
+  // For all other cases, or KG >= 1, display as is.
   // Use up to 3 decimal places for non-integers, and remove trailing zeros.
   return `${parseFloat(num.toFixed(3))} ${units}`;
 };

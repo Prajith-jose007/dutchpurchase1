@@ -53,9 +53,6 @@ const CheckoutQuantityInput = ({ item, isSubmitting }: { item: { code: string; q
                 disabled={isSubmitting}
                 step="any"
             />
-            <span className="text-sm text-muted-foreground">
-                {item.units}
-            </span>
         </div>
     );
 };
@@ -178,8 +175,11 @@ export default function CreateOrderPage() {
                       <div className="font-medium">{item.description}</div>
                       <div className="text-xs text-muted-foreground">{item.code}</div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <CheckoutQuantityInput item={item} isSubmitting={isSubmitting} />
+                      <span className="text-sm text-muted-foreground ml-2">
+                        {item.units}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-medium">AED {(item.price * item.quantity).toFixed(2)}</TableCell>
