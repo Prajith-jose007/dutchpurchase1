@@ -61,12 +61,11 @@ async function addPricingColumns() {
   } finally {
     if (connection) {
       await connection.release();
+      const pool = connection.pool;
+      if (pool) {
+        pool.end();
+      }
     }
-    // We must end the pool for the script to exit gracefully
-    if (mysql.pool) {
-       await mysql.pool.end();
-    }
-    process.exit(0);
   }
 }
 

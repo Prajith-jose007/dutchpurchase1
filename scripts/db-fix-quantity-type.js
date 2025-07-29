@@ -43,11 +43,11 @@ async function fixQuantityType() {
   } finally {
     if (connection) {
       await connection.release();
+      const pool = connection.pool;
+      if (pool) {
+          pool.end();
+      }
     }
-    // We need to end the pool for the script to exit gracefully
-    const mainPool = mysql.createPool({ user: process.env.DB_USER });
-    await mainPool.end();
-    process.exit(0);
   }
 }
 
