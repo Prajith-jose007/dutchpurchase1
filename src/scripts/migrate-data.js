@@ -13,7 +13,7 @@ const initialUsers = [
 ];
 
 async function migrateUsers() {
-  console.log('Starting user migration with plain text passwords...');
+  console.log('Starting intelligent user migration...');
   
   let connection;
   try {
@@ -29,36 +29,32 @@ async function migrateUsers() {
     await connection.beginTransaction();
     
     for (const user of initialUsers) {
-      // For this script, we'll use a simple default password 'password123'
-      const password = 'password123'; 
+      const password = 'password123'; // Default password for new users
       const { branchId, ...userData } = user;
       
-      const [existing] = await connection.query('SELECT id FROM users WHERE id = ? OR username = ?', [userData.id, userData.username]);
+      // Check if user with this username already exists
+      const [existing] = await connection.query('SELECT id FROM users WHERE username = ?', [userData.username]);
       
       if (existing.length > 0) {
-        // User exists, so update their password to the plain text version.
-        await connection.query('UPDATE users SET password = ? WHERE id = ?', [password, existing[0].id]);
-        console.log(`Updated password for existing user ${userData.username}.`);
+        // User exists, so we skip them to preserve their current data.
+        console.log(`User '${userData.username}' already exists. Skipping.`);
       } else {
-        // User does not exist, insert them with the plain text password.
+        // User does not exist, so we insert them.
+        console.log(`User '${userData.username}' not found. Inserting...`);
         await connection.query(
           'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
           [userData.id, userData.username, password, userData.name, userData.role]
         );
-        console.log(`User ${userData.username} inserted successfully.`);
-      }
-
-      // Handle the branch assignment. Use INSERT IGNORE to prevent errors if the link already exists.
-      try {
+        console.log(`... Inserted user ${userData.username}.`);
+        
+        // Link the new user to their branch.
         await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [user.id, branchId]);
-        console.log(`Linked user ${userData.username} to branch ${branchId}.`);
-      } catch (e) {
-        console.warn(`Could not link user ${userData.username} to branch ${branchId}. This might be expected if run multiple times.`);
+        console.log(`... Linked user ${userData.username} to branch ${branchId}.`);
       }
     }
 
     await connection.commit();
-    console.log('User migration completed successfully!');
+    console.log('User migration check completed successfully!');
   } catch (error) {
     if (connection) {
       await connection.rollback();
@@ -72,5 +68,3 @@ async function migrateUsers() {
 }
 
 migrateUsers();
-
-    
