@@ -136,11 +136,11 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
           </Sidebar>
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-              <div className="flex items-center gap-2 md:hidden">
+              <div className="flex items-center gap-4 md:hidden">
                 <SidebarTrigger>
                    <Image src="/menu.png" alt="Menu" width={24} height={24} />
                 </SidebarTrigger>
-                <span className="font-semibold">Menu</span>
+                <Image src="/logo.png" alt="Dutch Oriental Logo" width={140} height={35} />
               </div>
               <div className="hidden md:block font-headline text-2xl">
                 {currentUser ? `Welcome, ${currentUser.name.split(' ')[0]}!` : 'Welcome!'}
