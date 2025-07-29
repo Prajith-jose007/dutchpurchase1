@@ -16,24 +16,28 @@ const capitalize = (str: string): string => {
 
 /**
  * Parses raw inventory data text into an array of Item objects.
- * This parser is designed to be flexible and handle space-delimited columns.
+ * This parser is designed to be flexible and handle both space-delimited and comma-delimited (CSV) formats.
  * @param rawData The raw string data from an inventory file.
  * @returns An array of parsed Item objects.
  */
 export function parseInventoryData(rawData: string): Item[] {
-  // Normalize line endings to handle both Windows and Unix style files
-  const lines = rawData.replace(/\r\n/g, '\n').trim().split('\n');
+  // Normalize line endings and filter out empty lines
+  const lines = rawData.replace(/\r\n/g, '\n').split('\n').filter(line => line.trim() !== '');
   const items: Item[] = [];
 
   // Skip the header line if it exists.
-  const dataLines = lines[0].toUpperCase().startsWith('CODE') ? lines.slice(1) : lines;
+  const headerLine = lines[0]?.toUpperCase() || '';
+  const dataLines = (headerLine.startsWith('CODE') || headerLine.startsWith('"CODE"')) ? lines.slice(1) : lines;
 
   for (const line of dataLines) {
-    // Ignore empty or whitespace-only lines
     if (!line.trim()) continue;
 
-    const parts = line.trim().split(/\s+/);
-    // A valid line must have at least a code, one word of description, packing, shelf life, and price.
+    // Detect delimiter: check if comma is more frequent than spaces in a sample of the line.
+    const isCsv = (line.match(/,/g) || []).length > 3;
+    const parts = isCsv 
+        ? line.split(',').map(p => p.trim()) 
+        : line.trim().split(/\s+/);
+        
     if (parts.length < 5) {
         console.warn(`Skipping short/invalid line: ${line}`);
         continue;
@@ -43,15 +47,14 @@ export function parseInventoryData(rawData: string): Item[] {
     const price = parseFloat(parts[parts.length - 1]);
     const shelfLifeDays = parseInt(parts[parts.length - 2], 10);
     const packing = parseFloat(parts[parts.length - 3]);
-    // The units are now assumed to be the 4th part from the end
     const units = parts[parts.length - 4];
-
+    
     if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing) || !units) {
       console.warn(`Skipping invalid line due to numeric/unit parsing error: ${line}`);
       continue;
     }
-    
-    // The description is everything between the first part (code) and the last four parts (units, packing, shelfLife, price)
+
+    // The rest of the parts form the description block
     const descriptionParts = parts.slice(1, -4);
     
     let remark: string | null = null;
@@ -64,11 +67,11 @@ export function parseInventoryData(rawData: string): Item[] {
     let typeIndex = -1;
 
     // Check for multi-word types first
+    const joinedDesc = descriptionParts.join(' ');
     for (const type of KNOWN_ITEM_TYPES_MULTI_WORD) {
-        const typeParts = type.split(' ');
-        if (descriptionParts.slice(0, typeParts.length).join(' ').toUpperCase() === type) {
+        if (joinedDesc.toUpperCase().startsWith(type)) {
             itemType = type;
-            typeIndex = typeParts.length;
+            typeIndex = type.split(' ').length;
             break;
         }
     }
@@ -84,17 +87,25 @@ export function parseInventoryData(rawData: string): Item[] {
         }
     }
     
-    // The category is the word right after the item type, if a type was found
+    // The category is the word right after the item type
     if (typeIndex !== -1 && descriptionParts.length > typeIndex) {
         category = descriptionParts[typeIndex];
     }
 
-    // Everything else is part of the main description.
-    const descriptionStartIndex = (typeIndex !== -1) ? (typeIndex + 1) : 0;
+    // Everything after the type and category is the main description.
+    const descriptionStartIndex = (typeIndex !== -1) ? (typeIndex + (category !== 'MISC' ? 1 : 0)) : 0;
     const descriptionSlice = descriptionParts.slice(descriptionStartIndex);
     
-    // Join the remaining parts to form the description, defaulting to 'N/A' if empty
     const description = descriptionSlice.length > 0 ? descriptionSlice.join(' ') : 'N/A';
+
+    // The detailed description is often the second major part in CSVs
+    let detailedDescription : string | null = null;
+    if (isCsv && parts.length > 6) { // Heuristic for CSVs
+        if (parts[1] && parts[1].toUpperCase() !== remark?.toUpperCase()) {
+            detailedDescription = parts[1];
+        }
+    }
+
 
     items.push({
       code,
@@ -102,7 +113,7 @@ export function parseInventoryData(rawData: string): Item[] {
       itemType: capitalize(itemType),
       category: capitalize(category),
       description: capitalize(description),
-      detailedDescription: null,
+      detailedDescription: detailedDescription ? capitalize(detailedDescription) : null,
       units: units.toUpperCase(),
       packing,
       shelfLifeDays,
