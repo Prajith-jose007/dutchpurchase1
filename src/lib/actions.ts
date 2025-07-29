@@ -48,7 +48,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branch_id, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    await connection.query("INSERT INTO orders (id, branch_id, user_id, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
@@ -82,14 +82,14 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branch_id as branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branch_id as branchId, o.user_id as userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
             oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
             inv.fileName as invoiceFileName
         FROM orders o
-        LEFT JOIN users placingUser ON o.userId = placingUser.id
+        LEFT JOIN users placingUser ON o.user_id = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
         LEFT JOIN order_items oi ON o.id = oi.orderId
         LEFT JOIN invoices inv ON o.id = inv.orderId
@@ -99,7 +99,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     let limitClause = "";
     // Admins and Purchase roles see all orders. Employees see only their own, limited to 10.
     if (user.role === 'employee') {
-        query += " WHERE o.userId = ?";
+        query += " WHERE o.user_id = ?";
         params.push(user.id);
         limitClause = " LIMIT 10";
     }
@@ -152,7 +152,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, user_id as userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
