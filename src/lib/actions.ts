@@ -35,7 +35,6 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     await connection.beginTransaction();
 
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    // Correctly calculate totalItems as the sum of quantities, not just the number of cart entries.
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -53,7 +52,6 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
-    // Use a loop for explicit insertion to guarantee data integrity for each item.
     for (const item of cartItems) {
       await connection.query(
         "INSERT INTO order_items (orderId, itemId, description, quantity, units, price) VALUES (?, ?, ?, ?, ?, ?)",
@@ -61,7 +59,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
           orderId,
           item.code,
           item.description,
-          item.quantity, // Ensure the precise quantity (e.g., 0.5) is saved
+          item.quantity,
           item.units.trim(),
           item.price
         ]
@@ -98,13 +96,15 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     `;
     const params: (string | number)[] = [];
 
-    // Admins and Purchase roles see all orders. Employees see only their own.
+    let limitClause = "";
+    // Admins and Purchase roles see all orders. Employees see only their own, limited to 10.
     if (user.role === 'employee') {
         query += " WHERE o.userId = ?";
         params.push(user.id);
+        limitClause = " LIMIT 10";
     }
 
-    query += " ORDER BY o.createdAt DESC";
+    query += " ORDER BY o.createdAt DESC" + limitClause;
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -702,4 +702,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     
 
     
+
 
