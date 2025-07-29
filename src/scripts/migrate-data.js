@@ -12,8 +12,19 @@ const initialUsers = [
   { id: 'user-plaza-emp', name: 'Plaza Employee', username: 'plaza_employee', branchId: 'branch-6', role: 'employee' },
 ];
 
-async function migrateUsers() {
-  console.log('Starting intelligent user migration...');
+const branches = [
+  { id: 'branch-6', name: 'PLAZA' },
+  { id: 'branch-7', name: 'JBR' },
+  { id: 'branch-8', name: 'WORLD TRADE CENTER' },
+  { id: 'branch-9', name: 'PRODUCTION CITY' },
+  { id: 'branch-10', name: 'ABU DHABI' },
+  { id: 'branch-11', name: 'LOTUS ROYALE' },
+  { id: 'branch-12', name: 'CENTRAL KITCHEN' },
+  { id: 'branch-all', name: 'All Branches' },
+];
+
+async function migrateInitialData() {
+  console.log('Starting data migration for users and branches...');
   
   let connection;
   try {
@@ -26,31 +37,41 @@ async function migrateUsers() {
       database: process.env.DB_DATABASE,
     });
 
+    // Migrate Branches
+    console.log('Migrating branches...');
+    await connection.beginTransaction();
+    for (const branch of branches) {
+      await connection.query('INSERT IGNORE INTO branches (id, name) VALUES (?, ?)', [branch.id, branch.name]);
+    }
+    await connection.commit();
+    console.log('Branches migrated successfully!');
+
+    // Migrate Users
+    console.log('Migrating users intelligently...');
     await connection.beginTransaction();
     
     for (const user of initialUsers) {
-      const password = 'password123'; // Default password for new users
+      const password = 'password123'; // Default password for any new users
       const { branchId, ...userData } = user;
       
-      // Check if user with this username already exists
       const [existing] = await connection.query('SELECT id FROM users WHERE username = ?', [userData.username]);
       
       if (existing.length > 0) {
         // User exists, so we skip them to preserve their current data.
         console.log(`User '${userData.username}' already exists. Skipping.`);
       } else {
-        // User does not exist, so we insert them.
+        // User does not exist, insert them with the default password.
         console.log(`User '${userData.username}' not found. Inserting...`);
         await connection.query(
           'INSERT INTO users (id, username, password, name, role) VALUES (?, ?, ?, ?, ?)',
           [userData.id, userData.username, password, userData.name, userData.role]
         );
         console.log(`... Inserted user ${userData.username}.`);
-        
-        // Link the new user to their branch.
-        await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [user.id, branchId]);
-        console.log(`... Linked user ${userData.username} to branch ${branchId}.`);
       }
+
+      // Handle the branch assignment. Use INSERT IGNORE to prevent errors if the link already exists.
+      // This is safe to run even if the user already existed.
+      await connection.query('INSERT IGNORE INTO user_branches (userId, branchId) VALUES (?, ?)', [user.id, branchId]);
     }
 
     await connection.commit();
@@ -59,7 +80,7 @@ async function migrateUsers() {
     if (connection) {
       await connection.rollback();
     }
-    console.error('Error during user migration:', error);
+    console.error('Error during data migration:', error);
   } finally {
     if (connection) {
       await connection.end(); // End the connection to allow the script to exit
@@ -67,4 +88,6 @@ async function migrateUsers() {
   }
 }
 
-migrateUsers();
+migrateInitialData();
+
+    

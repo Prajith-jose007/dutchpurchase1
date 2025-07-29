@@ -16,32 +16,21 @@ const capitalize = (str: string): string => {
 
 /**
  * Parses raw inventory data text into an array of Item objects.
- * This parser is designed to be flexible and handle both space-delimited and comma-delimited (CSV) formats.
+ * This parser is designed to handle space-delimited text files.
  * @param rawData The raw string data from an inventory file.
  * @returns An array of parsed Item objects.
  */
 export function parseInventoryData(rawData: string): Item[] {
-  // Normalize line endings and filter out empty lines
-  const lines = rawData.replace(/\r\n/g, '\n').split('\n').filter(line => line.trim() !== '');
+  const lines = rawData.split('\n');
   const items: Item[] = [];
 
-  // Skip the header line if it exists.
-  const headerLine = lines[0]?.toUpperCase() || '';
-  const dataLines = (headerLine.startsWith('CODE') || headerLine.startsWith('"CODE"')) ? lines.slice(1) : lines;
+  // Skip the header line.
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
 
-  for (const line of dataLines) {
-    if (!line.trim()) continue;
-
-    // Detect delimiter: check if comma is more frequent than spaces in a sample of the line.
-    const isCsv = (line.match(/,/g) || []).length > 3;
-    const parts = isCsv 
-        ? line.split(',').map(p => p.trim()) 
-        : line.trim().split(/\s+/);
-        
-    if (parts.length < 5) {
-        console.warn(`Skipping short/invalid line: ${line}`);
-        continue;
-    }
+    const parts = line.split(/\s+/);
+    if (parts.length < 5) continue; // Basic validation
 
     const code = parts[0];
     const price = parseFloat(parts[parts.length - 1]);
@@ -49,8 +38,8 @@ export function parseInventoryData(rawData: string): Item[] {
     const packing = parseFloat(parts[parts.length - 3]);
     const units = parts[parts.length - 4];
     
-    if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing) || !units) {
-      console.warn(`Skipping invalid line due to numeric/unit parsing error: ${line}`);
+    if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing)) {
+      console.warn(`Skipping invalid line: ${line}`);
       continue;
     }
 
@@ -58,7 +47,7 @@ export function parseInventoryData(rawData: string): Item[] {
     const descriptionParts = parts.slice(1, -4);
     
     let remark: string | null = null;
-    if (KNOWN_REMARKS.includes(descriptionParts[0]?.toUpperCase())) {
+    if (KNOWN_REMARKS.includes(descriptionParts[0].toUpperCase())) {
         remark = descriptionParts.shift()!;
     }
 
@@ -78,12 +67,9 @@ export function parseInventoryData(rawData: string): Item[] {
     
     // If no multi-word type found, check for single-word types
     if (typeIndex === -1) {
-        for (const type of KNOWN_ITEM_TYPES_SINGLE_WORD) {
-            if (descriptionParts[0]?.toUpperCase() === type) {
-                itemType = type;
-                typeIndex = 1;
-                break;
-            }
+        if (KNOWN_ITEM_TYPES_SINGLE_WORD.includes(descriptionParts[0].toUpperCase())) {
+            itemType = descriptionParts[0];
+            typeIndex = 1;
         }
     }
     
@@ -94,17 +80,7 @@ export function parseInventoryData(rawData: string): Item[] {
 
     // Everything after the type and category is the main description.
     const descriptionStartIndex = (typeIndex !== -1) ? (typeIndex + (category !== 'MISC' ? 1 : 0)) : 0;
-    const descriptionSlice = descriptionParts.slice(descriptionStartIndex);
-    
-    const description = descriptionSlice.length > 0 ? descriptionSlice.join(' ') : 'N/A';
-
-    // The detailed description is often the second major part in CSVs
-    let detailedDescription : string | null = null;
-    if (isCsv && parts.length > 6) { // Heuristic for CSVs
-        if (parts[1] && parts[1].toUpperCase() !== remark?.toUpperCase()) {
-            detailedDescription = parts[1];
-        }
-    }
+    const description = descriptionParts.slice(descriptionStartIndex).join(' ');
 
 
     items.push({
@@ -113,7 +89,7 @@ export function parseInventoryData(rawData: string): Item[] {
       itemType: capitalize(itemType),
       category: capitalize(category),
       description: capitalize(description),
-      detailedDescription: detailedDescription ? capitalize(detailedDescription) : null,
+      detailedDescription: null, // This parser version doesn't handle detailed description
       units: units.toUpperCase(),
       packing,
       shelfLifeDays,
@@ -123,3 +99,5 @@ export function parseInventoryData(rawData: string): Item[] {
 
   return items;
 }
+
+    
