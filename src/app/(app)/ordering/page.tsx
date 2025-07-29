@@ -27,11 +27,9 @@ import { getDisplayUnit } from '@/lib/displayUtils';
 const ITEMS_PER_PAGE = 12;
 
 // A new component for the quantity input logic on each product card
-const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
-    const { addToCart, updateQuantity, getItemQuantity } = useCart();
+const QuantityInput = ({ item }: { item: Item; }) => {
+    const { addToCart, getItemQuantity } = useCart();
     const [quantityStr, setQuantityStr] = useState('');
-    const [selectedUnit, setSelectedUnit] = useState(isKg ? 'G' : item.units);
-    const quantityInCart = getItemQuantity(item.code);
 
     const handleAddToCart = () => {
         const newQuantity = parseFloat(quantityStr);
@@ -39,16 +37,12 @@ const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
             toast({ title: "Invalid Quantity", description: "Please enter a positive number.", variant: "destructive" });
             return;
         }
-
-        // For KG items, convert from grams to KG if needed. For others, use the value directly.
-        const quantityToAdd = isKg ? (selectedUnit === 'G' ? newQuantity / 1000 : newQuantity) : newQuantity;
         
-        // This is an ADDITIVE operation.
-        addToCart(item, quantityToAdd);
+        addToCart(item, newQuantity);
 
         toast({
             title: `${item.description} added`,
-            description: `${newQuantity} ${selectedUnit} added to cart.`,
+            description: `${formatQuantity(newQuantity, item.units)} added to cart.`,
         });
         setQuantityStr(''); // Reset input after adding
     };
@@ -60,24 +54,14 @@ const QuantityInput = ({ item, isKg }: { item: Item; isKg: boolean; }) => {
                 placeholder="quantity"
                 value={quantityStr}
                 onChange={(e) => setQuantityStr(e.target.value)}
-                className="h-10 w-24"
+                className="h-10 w-full"
+                step="any"
                 onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                         handleAddToCart();
                     }
                 }}
             />
-             {isKg && (
-                <Select value={selectedUnit} onValueChange={setSelectedUnit}>
-                    <SelectTrigger className="w-[80px] h-10">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="G">G</SelectItem>
-                        <SelectItem value="KG">KG</SelectItem>
-                    </SelectContent>
-                </Select>
-            )}
             <Button onClick={handleAddToCart} size="icon" className="h-10 w-12 flex-shrink-0">
                 <Icons.Add className="h-5 w-5" />
             </Button>
@@ -271,7 +255,6 @@ export default function OrderingPage() {
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
                 const IconComponent = getCategoryIcon(item.category, item.itemType) || Icons.Inventory;
-                const isKg = item.units.toUpperCase() === 'KG';
                 const displayUnit = getDisplayUnit(item);
 
                 return (
@@ -289,7 +272,7 @@ export default function OrderingPage() {
                     {quantityInCart > 0 && <Badge variant="secondary" className="mt-2">In Cart: {formatQuantity(quantityInCart, item.units)}</Badge>}
                   </CardContent>
                   <CardFooter className="p-4 border-t mt-auto">
-                    <QuantityInput item={item} isKg={isKg} />
+                    <QuantityInput item={item} />
                   </CardFooter>
                 </Card>
               )})}
@@ -330,10 +313,10 @@ export default function OrderingPage() {
                   <div key={item.code} className="flex items-center gap-3 p-3 border rounded-md bg-background hover:bg-muted/50">
                     <div className="flex-grow">
                       <p className="font-medium text-sm line-clamp-1">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} &times; {item.quantity.toFixed(3)} {cartItemDetails.units}</p>
+                      <p className="text-xs text-muted-foreground">AED {item.price.toFixed(2)} &times; {item.quantity}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                       <span className="text-sm font-medium tabular-nums w-16 text-center">{formatQuantity(item.quantity, cartItemDetails.units)}</span>
+                       <span className="text-sm font-medium tabular-nums w-20 text-center">{formatQuantity(item.quantity, cartItemDetails.units)}</span>
                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => clearCartItem(item.code)} aria-label={`Remove ${item.description}`}> <Icons.Delete className="h-4 w-4 text-destructive" /> </Button>
                     </div>
                   </div>
