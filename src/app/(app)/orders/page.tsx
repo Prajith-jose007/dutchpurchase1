@@ -23,6 +23,9 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
     case 'Shipped': return 'secondary';
     case 'Delivered': return 'default'; 
     case 'Cancelled': return 'destructive';
+    case 'Order Received': return 'secondary';
+    case 'Arrived': return 'secondary';
+    case 'Closed': return 'default';
     default: return 'outline';
   }
 }

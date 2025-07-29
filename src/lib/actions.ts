@@ -48,7 +48,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branch_id, user_id, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    await connection.query("INSERT INTO orders (id, branch_id, user_id, created_at, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
@@ -82,7 +82,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branch_id as branchId, o.user_id as userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branch_id as branchId, o.user_id as userId, o.created_at as createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
@@ -104,7 +104,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         limitClause = " LIMIT 10";
     }
 
-    query += " ORDER BY o.createdAt DESC" + limitClause;
+    query += " ORDER BY o.created_at DESC" + limitClause;
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -152,7 +152,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, user_id as userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, user_id as userId, created_at as createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
@@ -629,7 +629,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     try {
         const allQueries = [
             // Summary Queries
-            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'"),
