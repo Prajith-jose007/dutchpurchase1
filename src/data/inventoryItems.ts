@@ -1,22 +1,21 @@
 import type { Item } from '@/lib/types';
-import { parseInventoryData } from '@/lib/inventoryParser';
-import { rawInventoryData } from './rawInventoryData';
 
-export const allItems: Item[] = parseInventoryData(rawInventoryData);
-
-export const getItemByCode = (code: string): Item | undefined => {
-  return allItems.find(item => item.code === code);
+export const getItemByCode = (items: Item[], code: string): Item | undefined => {
+  if (!items || items.length === 0) return undefined;
+  return items.find(item => item.code === code);
 };
 
-export const getItemTypes = (): string[] => {
-  const itemTypes = new Set(allItems.map(item => item.itemType));
+export const getItemTypes = (items: Item[]): string[] => {
+  if (!items) return [];
+  const itemTypes = new Set(items.map(item => item.itemType).filter(Boolean));
   return Array.from(itemTypes).sort();
 };
 
-export const getCategories = (itemType?: string): string[] => {
+export const getCategories = (items: Item[], itemType?: string): string[] => {
+  if (!items) return [];
   const categories = new Set(
-    allItems
-      .filter(item => !itemType || item.itemType === itemType)
+    items
+      .filter(item => (!itemType || item.itemType === itemType) && item.category)
       .map(item => item.category)
   );
   return Array.from(categories).sort();

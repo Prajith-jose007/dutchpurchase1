@@ -59,16 +59,12 @@ async function addReceivingInfoColumns() {
     process.exit(1);
   } finally {
     if (connection) {
-      await connection.release();
+       await connection.release();
+       const pool = connection.pool;
+       if(pool){
+           pool.end();
+       }
     }
-    // Ending the pool is necessary for the script to exit gracefully
-    if (mysql.pool) {
-      // A bit of a hack to access the pool if it's been created.
-      // In a more robust setup, you'd manage the pool instance better.
-      const singletonPool = mysql.createPool({ user: process.env.DB_USER });
-      await singletonPool.end();
-    }
-     process.exit(0);
   }
 }
 

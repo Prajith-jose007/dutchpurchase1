@@ -1,10 +1,12 @@
 
+
 export interface Item {
   code: string;
   remark: string | null;
   itemType: string; // This was 'type' in previous thoughts, changed to avoid conflict with TS keyword
   category: string;
   description: string;
+  detailedDescription: string | null;
   units: string;
   packing: number;
   shelfLifeDays: number;
@@ -39,6 +41,8 @@ export interface Order {
   receivedAt?: string | null;
   placingUserName?: string; // New field for display
   receivingUserName?: string; // New field for display
+  lastUpdatedByUserName?: string;
+  lastUpdatedAt?: string | null;
 }
 
 export interface Branch {
@@ -61,3 +65,25 @@ export interface Invoice {
   fileName: string;
   orderId: string | null;
 }
+
+export interface PurchaseReportData {
+  totalToday: number;
+  totalThisMonth: number;
+  totalThisYear: number;
+  chartData: { month: string; [key: string]: any }[];
+}
+
+export interface DashboardData {
+    summary: {
+        totalOrdersToday: number;
+        activeOrders: number;
+        closedOrdersToday: number;
+        pendingOrders: number;
+    };
+    totalPurchases: { month: string; total: number }[];
+    dailyPurchases: { day: string; total: number }[];
+    monthlyPurchases: { month: string; total: number }[];
+    storePurchases: { name: string; value: number }[];
+}
+
+    

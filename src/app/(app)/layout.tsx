@@ -12,13 +12,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/contexts/AuthContext';
 import { ChangePasswordDialog } from '@/components/ui/change-password-dialog';
+import { getPendingOrdersCountAction } from '@/lib/actions';
+import { Badge } from '@/components/ui/badge';
+import { InnerAppProviders } from './providers';
+import Image from 'next/image';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
+  { href: "/orders", label: "Order History", icon: Icons.ClipboardList, roles: ['employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
-  { href: "/invoices/upload", label: "Upload Invoices", icon: Icons.UploadCloud, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
+  { href: "/admin/inventory", label: "Inventory Mgt.", icon: Icons.Archive, roles: ['superadmin', 'admin'] },
   { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin'] },
 ];
 
@@ -29,12 +34,12 @@ const getInitials = (name: string | undefined) => {
   return parts[0].charAt(0).toUpperCase() + parts[parts.length - 1].charAt(0).toUpperCase();
 };
 
-
-export default function AppLayout({ children }: { children: ReactNode }) {
+function InnerAppLayout({ children }: { children: ReactNode }) {
   const { currentUser, isLoading, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   useEffect(() => {
     // If authentication is done loading and there is still no user, redirect to login.
@@ -42,6 +47,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       router.push('/login');
     }
   }, [isLoading, currentUser, router]);
+
+  useEffect(() => {
+    if (currentUser && ['purchase', 'admin', 'superadmin'].includes(currentUser.role)) {
+      getPendingOrdersCountAction().then(setPendingOrdersCount);
+    }
+  }, [currentUser, pathname]); // Re-fetch on path change to keep it fresh
 
   // Show a loading screen while the authentication state is being determined.
   if (isLoading || !currentUser) {
@@ -61,35 +72,28 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <SidebarProvider defaultOpen>
           <Sidebar>
             <SidebarHeader className="p-4 text-center">
-              <h1 className="font-headline text-2xl font-bold text-primary-foreground group-data-[collapsible=icon]:hidden">Dutch Oriental</h1>
+              <div className="group-data-[collapsible=icon]:hidden">
+                <Image src="/logo.png" alt="Dutch Oriental Logo" width={180} height={45} />
+              </div>
             </SidebarHeader>
             <SidebarContent>
               <SidebarMenu>
-                 {/* Dashboard Link */}
-                <SidebarMenuItem>
-                    <SidebarMenuButton 
-                        asChild 
-                        className="w-full justify-start"
-                        tooltip="Dashboard"
-                        isActive={pathname === '/'}
-                    >
-                        <Link href="/">
-                            <Icons.Dashboard className="h-5 w-5" />
-                            <span>Dashboard</span>
-                        </Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
                 {accessibleNavItems.map((item) => (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
                       asChild 
-                      className="w-full justify-start"
+                      className="w-full justify-start relative"
                       tooltip={item.label}
-                      isActive={pathname.startsWith(item.href)}
+                      isActive={pathname === item.href}
                     >
                       <Link href={item.href}>
                         <item.icon className="h-5 w-5" />
                         <span>{item.label}</span>
+                         {item.label === "PO Notifications" && pendingOrdersCount > 0 && (
+                          <Badge className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 p-0 flex items-center justify-center group-data-[collapsible=icon]:hidden">
+                            {pendingOrdersCount}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -132,16 +136,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Sidebar>
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-              <div className="flex items-center gap-2 md:hidden">
-                <SidebarTrigger>
-                   <Icons.Menu className="h-6 w-6" />
-                </SidebarTrigger>
-                <span className="font-semibold">Menu</span>
+              {/* Mobile Header */}
+              <div className="flex items-center justify-between w-full md:hidden">
+                <div className="flex-1">
+                  <SidebarTrigger>
+                     <Image src="/menu.png" alt="Menu" width={24} height={24} />
+                  </SidebarTrigger>
+                </div>
+                <div className="flex-1 flex justify-center">
+                   <Image src="/logo.png" alt="Dutch Oriental Logo" width={140} height={35} />
+                </div>
+                <div className="flex-1" />
               </div>
+              {/* Desktop Header */}
               <div className="hidden md:block font-headline text-2xl">
                 {currentUser ? `Welcome, ${currentUser.name.split(' ')[0]}!` : 'Welcome!'}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-4">
                 {/* Theme Toggle or other actions */}
               </div>
             </header>
@@ -160,4 +171,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       </>
   );
+}
+
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <InnerAppProviders>
+      <InnerAppLayout>{children}</InnerAppLayout>
+    </InnerAppProviders>
+  )
 }

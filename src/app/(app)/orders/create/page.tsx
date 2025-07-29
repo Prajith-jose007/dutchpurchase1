@@ -16,9 +16,50 @@ import { branches } from '@/data/appRepository';
 import { toast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { formatQuantity } from '@/lib/formatters';
+
+// A custom component for the quantity input logic on the checkout page
+const CheckoutQuantityInput = ({ item, isSubmitting }: { item: { code: string; quantity: number; units: string; }, isSubmitting: boolean }) => {
+    const { updateQuantity, removeFromCart } = useCart();
+    
+    // Local state to manage the input value (as a string)
+    const [displayQuantity, setDisplayQuantity] = useState(item.quantity.toString());
+
+    // Update local state if the cart item changes from elsewhere
+    useEffect(() => {
+        setDisplayQuantity(item.quantity.toString());
+    }, [item.quantity]);
+
+    const handleQuantityChange = (newValueStr: string) => {
+        setDisplayQuantity(newValueStr); // Update the input visually immediately
+
+        const newQuantityNum = parseFloat(newValueStr);
+        if (isNaN(newQuantityNum) || newQuantityNum < 0) return;
+        
+        if (newQuantityNum === 0) {
+            removeFromCart(item.code);
+        } else {
+            updateQuantity(item.code, newQuantityNum);
+        }
+    };
+    
+    return (
+        <div className="flex items-center justify-center gap-1.5">
+            <Input
+                type="number"
+                value={displayQuantity}
+                onChange={(e) => handleQuantityChange(e.target.value)}
+                className="w-24 text-center"
+                disabled={isSubmitting}
+                step="any"
+            />
+        </div>
+    );
+};
+
 
 export default function CreateOrderPage() {
-  const { cartItems, totalCartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, totalCartPrice, clearCart, updateQuantity, removeFromCart } = useCart();
   const { currentUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,14 +83,6 @@ export default function CreateOrderPage() {
     }
   }, [cartItems, router, isClient, searchParams, currentUser]);
 
-
-  const handleQuantityChange = (itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCart(itemId);
-    } else {
-      updateQuantity(itemId, newQuantity);
-    }
-  };
 
   const handleSubmitOrder = async () => {
     if (!currentUser) {
@@ -110,7 +143,7 @@ export default function CreateOrderPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle>Order Summary</CardTitle>
-          <CardDescription>You have {totalCartItems} item(s) in your cart.</CardDescription>
+          <CardDescription>You have {cartItems.length} item(s) in your cart.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -129,7 +162,7 @@ export default function CreateOrderPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Item</TableHead>
-                  <TableHead className="text-center">Quantity</TableHead>
+                  <TableHead className="text-center w-40">Quantity</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Subtotal</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -142,12 +175,11 @@ export default function CreateOrderPage() {
                       <div className="font-medium">{item.description}</div>
                       <div className="text-xs text-muted-foreground">{item.code}</div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-1.5">
-                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity - 1)} disabled={isSubmitting} aria-label={`Decrease ${item.description}`}> <Icons.Remove className="h-3.5 w-3.5" /> </Button>
-                         <span className="text-sm font-medium tabular-nums w-5 text-center">{item.quantity}</span>
-                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.code, item.quantity + 1)} disabled={isSubmitting} aria-label={`Increase ${item.description}`}> <Icons.Add className="h-3.5 w-3.5" /> </Button>
-                      </div>
+                    <TableCell className="text-center">
+                      <CheckoutQuantityInput item={item} isSubmitting={isSubmitting} />
+                      <span className="text-sm text-muted-foreground ml-2">
+                        {item.units}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">AED {item.price.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-medium">AED {(item.price * item.quantity).toFixed(2)}</TableCell>

@@ -1,4 +1,3 @@
-
 // src/contexts/CartContext.tsx
 "use client";
 
@@ -7,9 +6,10 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (item: Item, quantity?: number) => void;
+  addToCart: (item: Item, quantity: number) => void;
   removeFromCart: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
+  clearCartItem: (itemId: string) => void;
   clearCart: () => void;
   totalCartItems: number;
   totalCartPrice: number;
@@ -33,16 +33,18 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [cartItems]);
 
-  const addToCart = (item: Item, quantity: number = 1) => {
+  const addToCart = (item: Item, quantity: number) => {
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((cartItem) => cartItem.code === item.code);
       if (existingItem) {
+        // If item exists, update its quantity by adding the new amount.
         return prevItems.map((cartItem) =>
           cartItem.code === item.code
             ? { ...cartItem, quantity: cartItem.quantity + quantity }
             : cartItem
         );
       }
+      // If it's a new item, add it to the cart with the specified quantity.
       return [...prevItems, { ...item, quantity }];
     });
   };
@@ -50,12 +52,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const removeFromCart = (itemId: string) => {
     setCartItems((prevItems) => prevItems.filter((item) => item.code !== itemId));
   };
+  
+  const clearCartItem = (itemId: string) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item.code !== itemId));
+  };
 
   const updateQuantity = (itemId: string, quantity: number) => {
     setCartItems((prevItems) =>
       prevItems.map((item) =>
         item.code === itemId ? { ...item, quantity: Math.max(0, quantity) } : item
-      ).filter(item => item.quantity > 0) // Optionally remove if quantity is 0
+      ).filter(item => item.quantity > 0) // Remove if quantity is 0
     );
   };
 
@@ -79,6 +85,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         addToCart,
         removeFromCart,
         updateQuantity,
+        clearCartItem,
         clearCart,
         totalCartItems,
         totalCartPrice,
