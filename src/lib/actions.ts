@@ -48,7 +48,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    await connection.query("INSERT INTO orders (id, branch_id, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
@@ -82,7 +82,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branch_id as branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
@@ -152,7 +152,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
@@ -590,12 +590,12 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branchId,
+                branch_id as branchId,
                 SUM(totalPrice) as total
             FROM orders
             WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month, branchId
-            ORDER BY month, branchId
+            GROUP BY month, branch_id
+            ORDER BY month, branch_id
         `);
 
         // Format data for the chart
@@ -650,9 +650,9 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
                 GROUP BY month ORDER BY month ASC
             `),
             pool.query<RowDataPacket[]>(`
-                SELECT branchId, SUM(totalPrice) as total
+                SELECT branch_id as branchId, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
-                GROUP BY branchId
+                GROUP BY branch_id
             `)
         ];
 
@@ -696,3 +696,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
