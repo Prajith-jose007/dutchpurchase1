@@ -19,7 +19,7 @@ import Image from 'next/image';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
-  { href: "/orders", label: "Order History", icon: Icons.ClipboardList, roles: ['employee'] },
+  { href: "/orders", label: "Order History", icon: Icons.ClipboardList, roles: ['superadmin', 'admin', 'employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
