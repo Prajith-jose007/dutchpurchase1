@@ -138,7 +138,7 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
             <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
               <div className="flex items-center gap-2 md:hidden">
                 <SidebarTrigger>
-                   <Icons.Menu className="h-6 w-6" />
+                   <Image src="/menu.png" alt="Menu" width={24} height={24} />
                 </SidebarTrigger>
                 <span className="font-semibold">Menu</span>
               </div>
