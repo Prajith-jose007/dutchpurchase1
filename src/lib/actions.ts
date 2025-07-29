@@ -82,7 +82,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branch_id as branchId, o.user_id as userId, o.created_at as createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branch_id, o.user_id, o.created_at, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
@@ -113,9 +113,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         if (!ordersMap[row.id]) {
             ordersMap[row.id] = {
                 id: row.id,
-                branchId: row.branchId,
-                userId: row.userId,
-                createdAt: new Date(row.createdAt).toISOString(),
+                branchId: row.branch_id,
+                userId: row.user_id,
+                createdAt: new Date(row.created_at).toISOString(),
                 status: row.status,
                 totalItems: Number(row.totalItems),
                 totalPrice: Number(row.totalPrice),
@@ -152,7 +152,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id as branchId, user_id as userId, created_at as createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id, user_id, created_at, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
@@ -161,9 +161,9 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
 
     const order: Order = {
         id: orderData.id,
-        branchId: orderData.branchId,
-        userId: orderData.userId,
-        createdAt: new Date(orderData.createdAt).toISOString(),
+        branchId: orderData.branch_id,
+        userId: orderData.user_id,
+        createdAt: new Date(orderData.created_at).toISOString(),
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
@@ -590,7 +590,7 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branch_id as branchId,
+                branch_id,
                 SUM(totalPrice) as total
             FROM orders
             WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
@@ -604,7 +604,7 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
 
         branchMonthlyData.forEach(row => {
             const month = row.month;
-            const branchName = branchNameMap.get(row.branchId) || row.branchId;
+            const branchName = branchNameMap.get(row.branch_id) || row.branch_id;
 
             if (!monthlyTotals[month]) {
                 monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
@@ -650,7 +650,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
                 GROUP BY month ORDER BY month ASC
             `),
             pool.query<RowDataPacket[]>(`
-                SELECT branch_id as branchId, SUM(totalPrice) as total
+                SELECT branch_id, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
                 GROUP BY branch_id
             `)
@@ -686,7 +686,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
             totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
             dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total || 0) })),
             monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
-            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total || 0) })),
+            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branch_id) || r.branch_id, value: parseFloat(r.total || 0) })),
         };
         
         return dashboardData;
