@@ -2,13 +2,6 @@
 
 import type { Item } from '@/lib/types';
 
-// These are keywords that help identify different parts of a description line.
-const KNOWN_REMARKS = ["NEW", "ROBO", "CATER"];
-const KNOWN_ITEM_TYPES_MULTI_WORD = ["FRUITS & VEG"];
-const KNOWN_ITEM_TYPES_SINGLE_WORD = [
-  "MEAT", "SEAFOOD", "FROZEN", "DIARY", "DRY", "DRINKS"
-];
-
 // A helper function to capitalize the first letter of each word in a string.
 const capitalize = (str: string): string => {
   if (!str) return '';
@@ -16,82 +9,69 @@ const capitalize = (str: string): string => {
 }
 
 /**
- * Parses raw inventory data text into an array of Item objects.
- * This parser is designed to handle space-delimited text files.
- * It can handle descriptions that are quoted to contain spaces.
- * @param rawData The raw string data from an inventory file.
+ * Parses raw inventory data from a CSV file into an array of Item objects.
+ * This parser is designed to handle comma-separated values.
+ * It trims whitespace from each field and handles quoted fields.
+ * @param rawData The raw string data from an inventory CSV file.
  * @returns An array of parsed Item objects.
  */
 export function parseInventoryData(rawData: string): Item[] {
   const lines = rawData.trim().split('\n');
-  const items: Item[] = [];
+  if (lines.length < 2) {
+    // Needs at least a header and one data line
+    return [];
+  }
   
-  // Skip the header line.
+  const items: Item[] = [];
+  const header = lines[0].split(',').map(h => h.trim().toUpperCase());
+  
+  const colMap: { [key: string]: number } = {
+    CODE: header.indexOf('CODE'),
+    REMARK: header.indexOf('REMARK'),
+    TYPE: header.indexOf('TYPE'),
+    CATEGORY: header.indexOf('CATEGORY'),
+    DESCRIPTION: header.indexOf('DESCRIPTION'),
+    UNITS: header.indexOf('UNITS'),
+    PACKING: header.indexOf('PACKING'),
+    SHELF: header.indexOf('SHELF'),
+    PRICE: header.indexOf('PRICE'),
+  };
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const parts = line.split(/\s+/);
-    if (parts.length < 6) continue; // CODE, TYPE, CATEGORY, UNITS, PACKING, SHELF, PRICE
+    // This regex handles comma-separated values, including those in quotes
+    const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/"/g, '').trim());
 
     try {
-        const code = parts[0];
-        const price = parseFloat(parts[parts.length - 1]);
-        const shelfLifeDays = parseInt(parts[parts.length - 2], 10);
-        const packing = parseFloat(parts[parts.length - 3]);
-        const units = parts[parts.length - 4].toUpperCase();
+      const price = parseFloat(parts[colMap.PRICE]);
+      const shelfLifeDays = parseInt(parts[colMap.SHELF], 10);
+      const packing = parseFloat(parts[colMap.PACKING]);
 
-        if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing)) {
-            console.warn(`Skipping line due to invalid numeric values: ${line}`);
-            continue;
-        }
+      if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing)) {
+        console.warn(`Skipping line due to invalid numeric values: ${line}`);
+        continue;
+      }
+      
+      const item: Item = {
+        code: parts[colMap.CODE],
+        remark: parts[colMap.REMARK] || null,
+        itemType: capitalize(parts[colMap.TYPE]),
+        category: capitalize(parts[colMap.CATEGORY]),
+        description: capitalize(parts[colMap.DESCRIPTION]),
+        units: parts[colMap.UNITS].toUpperCase(),
+        packing,
+        shelfLifeDays,
+        price,
+      };
 
-        const descParts = parts.slice(1, -4);
-        
-        let remark: string | null = null;
-        if (KNOWN_REMARKS.includes(descParts[0].toUpperCase())) {
-            remark = capitalize(descParts.shift()!);
-        }
-
-        let itemType: string;
-        let category: string;
-        let description: string;
-
-        // Check for multi-word item types first
-        const twoWordType = `${descParts[0]} ${descParts[1]}`;
-        if (KNOWN_ITEM_TYPES_MULTI_WORD.includes(twoWordType.toUpperCase())) {
-            itemType = twoWordType;
-            category = descParts[2];
-            description = descParts.slice(3).join(' ');
-        } else if (KNOWN_ITEM_TYPES_SINGLE_WORD.includes(descParts[0].toUpperCase())) {
-            itemType = descParts[0];
-            category = descParts[1];
-            description = descParts.slice(2).join(' ');
-        } else {
-            // Default case if type/category parsing is ambiguous
-            itemType = descParts[0];
-            category = descParts[1] || 'Misc';
-            description = descParts.slice(2).join(' ');
-        }
-        
-        items.push({
-          code,
-          remark,
-          itemType: capitalize(itemType),
-          category: capitalize(category),
-          description: capitalize(description),
-          units,
-          packing,
-          shelfLifeDays,
-          price,
-        });
+      items.push(item);
 
     } catch (e) {
-        console.error(`Failed to parse line: "${line}"`, e);
+      console.error(`Failed to parse line: "${line}"`, e);
     }
   }
 
   return items;
 }
-
-    
