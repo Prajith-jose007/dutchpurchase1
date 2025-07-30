@@ -308,7 +308,7 @@ export default function OrderingPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {paginatedItems.map(item => {
                 const quantityInCart = getItemQuantity(item.code);
                 const IconComponent = getCategoryIcon(item.category, item.itemType) || Icons.Inventory;
@@ -348,7 +348,7 @@ export default function OrderingPage() {
         )}
       </div>
 
-      <Card className="lg:w-96 xl:w-[400px] flex-shrink-0 shadow-xl rounded-lg self-start sticky top-20">
+      <Card className="lg:w-80 xl:w-96 flex-shrink-0 shadow-xl rounded-lg self-start sticky top-20">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center">
             <Icons.ShoppingBag className="mr-2 h-6 w-6 text-primary" />
@@ -410,3 +410,5 @@ export default function OrderingPage() {
     </div>
   );
 }
+
+    
