@@ -48,7 +48,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
       totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branch_id, user_id, created_at, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
       [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
@@ -82,28 +82,27 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branch_id, o.user_id, o.created_at, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
             oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
             inv.fileName as invoiceFileName
         FROM orders o
-        LEFT JOIN users placingUser ON o.user_id = placingUser.id
+        LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
         LEFT JOIN order_items oi ON o.id = oi.orderId
         LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
     const params: (string | number)[] = [];
 
-    let limitClause = "";
     // Admins and Purchase roles see all orders. Employees see only their own.
     if (user.role === 'employee') {
-        query += " WHERE o.user_id = ?";
+        query += " WHERE o.userId = ?";
         params.push(user.id);
     }
 
-    query += " ORDER BY o.created_at DESC";
+    query += " ORDER BY o.createdAt DESC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -112,9 +111,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         if (!ordersMap[row.id]) {
             ordersMap[row.id] = {
                 id: row.id,
-                branchId: row.branch_id,
-                userId: row.user_id,
-                createdAt: new Date(row.created_at).toISOString(),
+                branchId: row.branchId,
+                userId: row.userId,
+                createdAt: new Date(row.createdAt).toISOString(),
                 status: row.status,
                 totalItems: Number(row.totalItems),
                 totalPrice: Number(row.totalPrice),
@@ -151,7 +150,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id, user_id, created_at, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
@@ -160,9 +159,9 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
 
     const order: Order = {
         id: orderData.id,
-        branchId: orderData.branch_id,
-        userId: orderData.user_id,
-        createdAt: new Date(orderData.created_at).toISOString(),
+        branchId: orderData.branchId,
+        userId: orderData.userId,
+        createdAt: new Date(orderData.createdAt).toISOString(),
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
@@ -589,12 +588,12 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branch_id,
+                branchId,
                 SUM(totalPrice) as total
             FROM orders
             WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month, branch_id
-            ORDER BY month, branch_id
+            GROUP BY month, branchId
+            ORDER BY month, branchId
         `);
 
         // Format data for the chart
@@ -603,7 +602,7 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
 
         branchMonthlyData.forEach(row => {
             const month = row.month;
-            const branchName = branchNameMap.get(row.branch_id) || row.branch_id;
+            const branchName = branchNameMap.get(row.branchId) || row.branchId;
 
             if (!monthlyTotals[month]) {
                 monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
@@ -628,7 +627,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     try {
         const allQueries = [
             // Summary Queries
-            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = CURDATE()"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'"),
@@ -649,9 +648,9 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
                 GROUP BY month ORDER BY month ASC
             `),
             pool.query<RowDataPacket[]>(`
-                SELECT branch_id, SUM(totalPrice) as total
+                SELECT branchId, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
-                GROUP BY branch_id
+                GROUP BY branchId
             `)
         ];
 
@@ -685,7 +684,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
             totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
             dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total || 0) })),
             monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
-            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branch_id) || r.branch_id, value: parseFloat(r.total || 0) })),
+            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total || 0) })),
         };
         
         return dashboardData;
@@ -695,5 +694,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
