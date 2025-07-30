@@ -29,7 +29,6 @@ import { Textarea } from '@/components/ui/textarea';
 const itemSchema = z.object({
   code: z.string().min(1, "Item code cannot be empty."),
   description: z.string().min(3, "Description must be at least 3 characters."),
-  detailedDescription: z.string().optional(),
   itemType: z.string().min(1, "Item type is required."),
   category: z.string().min(1, "Category is required."),
   units: z.string().min(1, "Units are required."),
@@ -85,11 +84,10 @@ export default function InventoryManagementPage() {
       form.reset({
         ...editingItem,
         remark: editingItem.remark || '',
-        detailedDescription: editingItem.detailedDescription || '',
       });
     } else {
       form.reset({
-        code: '', description: '', detailedDescription: '', itemType: '', category: '', units: '', packing: 0, shelfLifeDays: 0, price: 0, remark: ''
+        code: '', description: '', itemType: '', category: '', units: '', packing: 0, shelfLifeDays: 0, price: 0, remark: ''
       });
     }
   }, [editingItem, form]);
@@ -102,7 +100,7 @@ export default function InventoryManagementPage() {
   const handleItemFormSubmit = async (data: ItemFormData) => {
     setIsSubmitting(true);
     const action = editingItem ? updateItemAction : addItemAction;
-    const result = await action(data);
+    const result = await action(data as Item);
 
     if (result.success) {
       toast({ title: "Success", description: `Item has been ${editingItem ? 'updated' : 'added'}.` });
@@ -256,15 +254,14 @@ export default function InventoryManagementPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleItemFormSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
               <FormField control={form.control} name="code" render={({ field }) => (<FormItem><FormLabel>Item Code</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} disabled={!!editingItem} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Baby Corn" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="detailedDescription" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Detailed Description</FormLabel><FormControl><Textarea placeholder="e.g., Fresh baby corn, Grade A, from Thailand." {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="description" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Baby Corn" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="itemType" render={({ field }) => (<FormItem><FormLabel>Item Type</FormLabel><FormControl><Input placeholder="e.g., Fruits & Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>Category</FormLabel><FormControl><Input placeholder="e.g., Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="units" render={({ field }) => (<FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="e.g., KG" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="packing" render={({ field }) => (<FormItem><FormLabel>Packing</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="shelfLifeDays" render={({ field }) => (<FormItem><FormLabel>Shelf Life (Days)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="remark" render={({ field }) => (<FormItem><FormLabel>Remark (Optional)</FormLabel><FormControl><Input placeholder="e.g., NEW, ROBO" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="remark" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Remark (Optional)</FormLabel><FormControl><Input placeholder="e.g., NEW, ROBO" {...field} /></FormControl><FormMessage /></FormItem>)} />
               
               <DialogFooter className="md:col-span-2 pt-4">
                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>

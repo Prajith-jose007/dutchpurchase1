@@ -6,7 +6,7 @@ export interface Item {
   itemType: string; // This was 'type' in previous thoughts, changed to avoid conflict with TS keyword
   category: string;
   description: string;
-  detailedDescription: string | null;
+  detailedDescription?: string | null; // Make optional as it's not in the DB
   units: string;
   packing: number;
   shelfLifeDays: number;

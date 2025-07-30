@@ -1,4 +1,5 @@
 
+
 import type { Item } from '@/lib/types';
 
 // These are keywords that help identify different parts of a description line.
@@ -79,7 +80,6 @@ export function parseInventoryData(rawData: string): Item[] {
           itemType: capitalize(itemType),
           category: capitalize(category),
           description: capitalize(description),
-          detailedDescription: null, // This parser does not extract detailed descriptions yet.
           units,
           packing,
           shelfLifeDays,

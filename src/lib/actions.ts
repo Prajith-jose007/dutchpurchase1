@@ -462,11 +462,11 @@ export async function getItemsAction(): Promise<Item[]> {
     })) as Item[];
 }
 
-export async function addItemAction(item: Omit<Item, 'remark' | 'detailedDescription'> & { remark?: string, detailedDescription?: string | null }): Promise<{ success: boolean; error?: string }> {
+export async function addItemAction(item: Omit<Item, 'remark' | 'detailedDescription'> & { remark?: string }): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
-            "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [item.code, item.remark || null, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price]
+            "INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.remark || null, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, item.price]
         );
         return { success: true };
     } catch (error: any) {
@@ -481,8 +481,8 @@ export async function addItemAction(item: Omit<Item, 'remark' | 'detailedDescrip
 export async function updateItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         const [result] = await pool.query<OkPacket>(
-            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, detailedDescription = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
-            [item.remark, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
+            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
+            [item.remark, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
         );
         if (result.affectedRows === 0) {
             return { success: false, error: "Item not found." };
@@ -528,14 +528,14 @@ export async function importInventoryAction(formData: FormData): Promise<{ succe
         for (const item of items) {
             const values = [
                 item.code, item.remark || null, item.itemType, item.category, 
-                item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price
+                item.description, item.units, item.packing, item.shelfLifeDays, item.price
             ];
             await connection.query(
-                `INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE 
                  remark=VALUES(remark), itemType=VALUES(itemType), category=VALUES(category), description=VALUES(description), 
-                 detailedDescription=VALUES(detailedDescription), units=VALUES(units), packing=VALUES(packing), shelfLifeDays=VALUES(shelfLifeDays), price=VALUES(price)`,
+                 units=VALUES(units), packing=VALUES(packing), shelfLifeDays=VALUES(shelfLifeDays), price=VALUES(price)`,
                 values
             );
         }
