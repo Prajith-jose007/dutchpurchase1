@@ -3,13 +3,13 @@
 export interface Item {
   code: string;
   remark: string | null;
-  itemType: string; // This was 'type' in previous thoughts, changed to avoid conflict with TS keyword
+  itemType: string; 
   category: string;
   description: string;
-  detailedDescription?: string | null; // Make optional as it's not in the DB
+  detailedDescription: string | null;
   units: string;
   packing: number;
-  shelfLifeDays: number;
+  shelfLifeDays?: number; // Made optional
   price: number;
 }
 
@@ -30,17 +30,17 @@ export type OrderStatus = 'Pending' | 'Order Received' | 'Arrived' | 'Closed' | 
 export interface Order {
   id: string;
   branchId: string;
-  userId: string; // For simplicity, could be a name or ID
+  userId: string; 
   createdAt: string; // ISO date string
   status: OrderStatus;
   items: OrderItem[];
   totalItems: number;
   totalPrice: number;
-  invoiceFileNames?: string[]; // Optional: List of attached invoice filenames
+  invoiceFileNames?: string[]; 
   receivedByUserId?: string | null;
   receivedAt?: string | null;
-  placingUserName?: string; // New field for display
-  receivingUserName?: string; // New field for display
+  placingUserName?: string; 
+  receivingUserName?: string;
   lastUpdatedByUserName?: string;
   lastUpdatedAt?: string | null;
 }
@@ -50,14 +50,14 @@ export interface Branch {
   name: string;
 }
 
-export type UserRole = 'superadmin' | 'admin' | 'purchase' | 'employee'; // Added 'employee' as a general role
+export type UserRole = 'superadmin' | 'admin' | 'purchase' | 'employee';
 
 export interface User {
   id:string;
-  username: string; // Changed from name to username for login
-  password?: string; // Added password (plain text for prototype - NOT SECURE)
-  name: string; // Display name
-  branchIds: string[]; // Changed from branchId to branchIds
+  username: string;
+  password?: string;
+  name: string; 
+  branchIds: string[]; 
   role: UserRole;
 }
 
@@ -85,5 +85,3 @@ export interface DashboardData {
     monthlyPurchases: { month: string; total: number }[];
     storePurchases: { name: string; value: number }[];
 }
-
-    

@@ -1,5 +1,4 @@
 
-
 import type { Item } from '@/lib/types';
 
 // A helper function to capitalize the first letter of each word in a string.
@@ -23,6 +22,7 @@ export function parseInventoryData(rawData: string): Item[] {
   }
   
   const items: Item[] = [];
+  // Use a regex that can handle spaces in the header names.
   const header = lines[0].split(',').map(h => h.trim().toUpperCase());
   
   const colMap: { [key: string]: number } = {
@@ -31,11 +31,21 @@ export function parseInventoryData(rawData: string): Item[] {
     TYPE: header.indexOf('TYPE'),
     CATEGORY: header.indexOf('CATEGORY'),
     DESCRIPTION: header.indexOf('DESCRIPTION'),
+    DETAILED: header.indexOf('DETAILED'),
     UNITS: header.indexOf('UNITS'),
     PACKING: header.indexOf('PACKING'),
-    SHELF: header.indexOf('SHELF'),
-    PRICE: header.indexOf('PRICE'),
+    LOWEST: header.indexOf('LOWEST'), // This is the price
   };
+
+  // Basic validation to ensure all required headers are present
+  const requiredHeaders = ['CODE', 'DESCRIPTION', 'UNITS', 'PACKING', 'LOWEST'];
+  for (const h of requiredHeaders) {
+    if (colMap[h] === -1) {
+      console.error(`Missing required header in CSV: ${h}`);
+      return [];
+    }
+  }
+
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -45,11 +55,10 @@ export function parseInventoryData(rawData: string): Item[] {
     const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/"/g, '').trim());
 
     try {
-      const price = parseFloat(parts[colMap.PRICE]);
-      const shelfLifeDays = parseInt(parts[colMap.SHELF], 10);
+      const price = parseFloat(parts[colMap.LOWEST]);
       const packing = parseFloat(parts[colMap.PACKING]);
 
-      if (isNaN(price) || isNaN(shelfLifeDays) || isNaN(packing)) {
+      if (isNaN(price) || isNaN(packing)) {
         console.warn(`Skipping line due to invalid numeric values: ${line}`);
         continue;
       }
@@ -57,12 +66,12 @@ export function parseInventoryData(rawData: string): Item[] {
       const item: Item = {
         code: parts[colMap.CODE],
         remark: parts[colMap.REMARK] || null,
-        itemType: capitalize(parts[colMap.TYPE]),
-        category: capitalize(parts[colMap.CATEGORY]),
-        description: capitalize(parts[colMap.DESCRIPTION]),
+        itemType: capitalize(parts[colMap.TYPE] || ''),
+        category: capitalize(parts[colMap.CATEGORY] || ''),
+        description: capitalize(parts[colMap.DESCRIPTION] || ''),
+        detailedDescription: capitalize(parts[colMap.DETAILED] || '') || null,
         units: parts[colMap.UNITS].toUpperCase(),
         packing,
-        shelfLifeDays,
         price,
       };
 
