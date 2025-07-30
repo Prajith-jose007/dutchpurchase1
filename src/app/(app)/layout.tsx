@@ -16,6 +16,7 @@ import { getPendingOrdersCountAction } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { InnerAppProviders } from './providers';
 import Image from 'next/image';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
@@ -40,6 +41,12 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const isMobile = useIsMobile();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     // If authentication is done loading and there is still no user, redirect to login.
@@ -137,9 +144,11 @@ function InnerAppLayout({ children }: { children: ReactNode }) {
           <SidebarInset>
             <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
               <div className="flex items-center gap-4 md:hidden">
-                <SidebarTrigger>
-                   <Image src="/menu.png" alt="Menu" width={24} height={24} />
-                </SidebarTrigger>
+                {isClient && isMobile && (
+                  <SidebarTrigger>
+                    <Image src="/menu.png" alt="Menu" width={24} height={24} />
+                  </SidebarTrigger>
+                )}
                 <Image src="/logo.png" alt="Dutch Oriental Logo" width={140} height={35} />
               </div>
               <div className="hidden md:block font-headline text-2xl">
