@@ -11,8 +11,6 @@ const capitalize = (str: string): string => {
  * Parses raw inventory data from a CSV file into an array of Item objects.
  * This parser is designed to handle comma-separated values.
  * It trims whitespace from each field and handles quoted fields.
- * @param rawData The raw string data from an inventory CSV file.
- * @returns An array of parsed Item objects.
  */
 export function parseInventoryData(rawData: string): Item[] {
   const lines = rawData.trim().split('\n');
@@ -55,12 +53,20 @@ export function parseInventoryData(rawData: string): Item[] {
     const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.replace(/"/g, '').trim());
 
     try {
-      const price = parseFloat(parts[colMap.LOWEST]);
-      const packing = parseFloat(parts[colMap.PACKING]);
+      const priceStr = parts[colMap.LOWEST];
+      const packingStr = parts[colMap.PACKING];
 
-      if (isNaN(price) || isNaN(packing)) {
-        console.warn(`Skipping line due to invalid numeric values: ${line}`);
-        continue;
+      const price = parseFloat(priceStr);
+      const packing = parseFloat(packingStr);
+
+      // If price or packing is not a valid number, log it and skip the line.
+      if (isNaN(price)) {
+          console.warn(`Skipping line due to invalid price value: ${line}`);
+          continue;
+      }
+      if (isNaN(packing)) {
+          console.warn(`Skipping line due to invalid packing value: ${line}`);
+          continue;
       }
       
       const item: Item = {
@@ -69,10 +75,10 @@ export function parseInventoryData(rawData: string): Item[] {
         itemType: capitalize(parts[colMap.TYPE] || ''),
         category: capitalize(parts[colMap.CATEGORY] || ''),
         description: capitalize(parts[colMap.DESCRIPTION] || ''),
-        detailedDescription: capitalize(parts[colMap.DETAILED] || '') || null,
         units: parts[colMap.UNITS].toUpperCase(),
         packing,
         price,
+        // No detailedDescription as it's not in the schema
       };
 
       items.push(item);
