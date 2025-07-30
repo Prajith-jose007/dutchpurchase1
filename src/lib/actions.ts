@@ -38,23 +38,23 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    const newOrder: Omit<Order, 'items' | 'invoiceFileNames' | 'createdAt'> & { createdAt: Date } = {
+    const newOrder = {
       id: orderId,
-      branchId,
-      userId,
-      createdAt: new Date(),
+      branch_id: branchId,
+      user_id: userId,
+      created_at: new Date(),
       status: "Pending",
       totalItems,
       totalPrice,
     };
 
-    await connection.query("INSERT INTO orders (id, branchId, userId, createdAt, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-      [newOrder.id, newOrder.branchId, newOrder.userId, newOrder.createdAt, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
+    await connection.query("INSERT INTO orders (id, branch_id, user_id, created_at, status, totalItems, totalPrice) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+      [newOrder.id, newOrder.branch_id, newOrder.user_id, newOrder.created_at, newOrder.status, newOrder.totalItems, newOrder.totalPrice]
     );
 
     for (const item of cartItems) {
       await connection.query(
-        "INSERT INTO order_items (orderId, itemId, description, quantity, units, price) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO order_items (order_id, item_id, description, quantity, units, price) VALUES (?, ?, ?, ?, ?, ?)",
         [
           orderId,
           item.code,
@@ -82,27 +82,27 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     let query = `
         SELECT 
-            o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
+            o.id, o.branch_id, o.user_id, o.created_at, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
-            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
+            oi.item_id, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
             inv.fileName as invoiceFileName
         FROM orders o
-        LEFT JOIN users placingUser ON o.userId = placingUser.id
+        LEFT JOIN users placingUser ON o.user_id = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
-        LEFT JOIN order_items oi ON o.id = oi.orderId
-        LEFT JOIN invoices inv ON o.id = inv.orderId
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        LEFT JOIN invoices inv ON o.id = inv.order_id
     `;
     const params: (string | number)[] = [];
 
     // Admins and Purchase roles see all orders. Employees see only their own.
     if (user.role === 'employee') {
-        query += " WHERE o.userId = ?";
+        query += " WHERE o.user_id = ?";
         params.push(user.id);
     }
 
-    query += " ORDER BY o.createdAt DESC";
+    query += " ORDER BY o.created_at DESC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -111,9 +111,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         if (!ordersMap[row.id]) {
             ordersMap[row.id] = {
                 id: row.id,
-                branchId: row.branchId,
-                userId: row.userId,
-                createdAt: new Date(row.createdAt).toISOString(),
+                branchId: row.branch_id,
+                userId: row.user_id,
+                createdAt: new Date(row.created_at).toISOString(),
                 status: row.status,
                 totalItems: Number(row.totalItems),
                 totalPrice: Number(row.totalPrice),
@@ -127,12 +127,12 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 invoiceFileNames: [],
             };
         }
-        if (row.itemId) {
+        if (row.item_id) {
             // FIX: Differentiate items by both itemId and units to treat them as unique line items.
-            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId && i.units === row.units);
+            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.item_id && i.units === row.units);
             if (!existingItem) {
                 ordersMap[row.id].items.push({
-                    itemId: row.itemId,
+                    itemId: row.item_id,
                     description: row.description,
                     quantity: Number(row.quantity),
                     units: row.units,
@@ -150,25 +150,25 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branch_id, user_id, created_at, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
-    const [itemRows] = await pool.query<RowDataPacket[]>("SELECT * FROM order_items WHERE orderId = ?", [orderId]);
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId = ?", [orderId]);
+    const [itemRows] = await pool.query<RowDataPacket[]>("SELECT item_id, description, quantity, units, price FROM order_items WHERE order_id = ?", [orderId]);
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE order_id = ?", [orderId]);
 
     const order: Order = {
         id: orderData.id,
-        branchId: orderData.branchId,
-        userId: orderData.userId,
-        createdAt: new Date(orderData.createdAt).toISOString(),
+        branchId: orderData.branch_id,
+        userId: orderData.user_id,
+        createdAt: new Date(orderData.created_at).toISOString(),
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
         receivedByUserId: orderData.receivedByUserId,
         receivedAt: orderData.receivedAt ? new Date(orderData.receivedAt).toISOString() : null,
         items: itemRows.map(item => ({
-          itemId: item.itemId,
+          itemId: item.item_id,
           description: item.description,
           quantity: Number(item.quantity),
           units: item.units,
@@ -218,10 +218,10 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
         await connection.beginTransaction();
 
         // Delete associated order items first to respect foreign key constraints
-        await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
+        await connection.query("DELETE FROM order_items WHERE order_id = ?", [orderId]);
         
         // Unlink any attached invoices (set orderId to NULL)
-        await connection.query("UPDATE invoices SET orderId = NULL WHERE orderId = ?", [orderId]);
+        await connection.query("UPDATE invoices SET order_id = NULL WHERE order_id = ?", [orderId]);
 
         // Delete the order itself
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
@@ -385,7 +385,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             await fs.writeFile(filePath, buffer);
             
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, orderId) VALUES (?, ?, ?)", 
+                "INSERT INTO invoices (fileName, uploader_id, order_id) VALUES (?, ?, ?)", 
                 [file.name, userId, orderId]
             );
         }
@@ -411,10 +411,10 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
 
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, order_id FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: r.orderId || null,
+      orderId: r.order_id || null,
   }));
 }
 
@@ -588,12 +588,12 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branchId,
+                branch_id,
                 SUM(totalPrice) as total
             FROM orders
             WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month, branchId
-            ORDER BY month, branchId
+            GROUP BY month, branch_id
+            ORDER BY month, branch_id
         `);
 
         // Format data for the chart
@@ -602,7 +602,7 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
 
         branchMonthlyData.forEach(row => {
             const month = row.month;
-            const branchName = branchNameMap.get(row.branchId) || row.branchId;
+            const branchName = branchNameMap.get(row.branch_id) || row.branch_id;
 
             if (!monthlyTotals[month]) {
                 monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
@@ -627,7 +627,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     try {
         const allQueries = [
             // Summary Queries
-            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
+            pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'"),
@@ -648,9 +648,9 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
                 GROUP BY month ORDER BY month ASC
             `),
             pool.query<RowDataPacket[]>(`
-                SELECT branchId, SUM(totalPrice) as total
+                SELECT branch_id, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed'
-                GROUP BY branchId
+                GROUP BY branch_id
             `)
         ];
 
@@ -684,7 +684,7 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
             totalPurchases: totalPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
             dailyPurchases: dailyPurchasesData.map(r => ({ day: new Date(r.day).toLocaleString('default', { weekday: 'short' }), total: parseFloat(r.total || 0) })),
             monthlyPurchases: monthlyPurchasesData.map(r => ({ month: new Date(r.month + '-02').toLocaleString('default', { month: 'short' }), total: parseFloat(r.total || 0) })),
-            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branchId) || r.branchId, value: parseFloat(r.total || 0) })),
+            storePurchases: storePurchasesData.map(r => ({ name: branchNameMap.get(r.branch_id) || r.branch_id, value: parseFloat(r.total || 0) })),
         };
         
         return dashboardData;
