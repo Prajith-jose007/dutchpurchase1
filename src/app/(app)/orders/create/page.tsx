@@ -34,9 +34,9 @@ const CheckoutQuantityInput = ({ item, isSubmitting }: { item: { code: string; q
         setDisplayQuantity(newValueStr); // Update the input visually immediately
 
         const newQuantityNum = parseFloat(newValueStr);
-        if (isNaN(newQuantityNum) || newQuantityNum < 0) return;
+        if (isNaN(newQuantityNum)) return;
         
-        if (newQuantityNum === 0) {
+        if (newQuantityNum <= 0) {
             removeFromCart(item.code);
         } else {
             updateQuantity(item.code, newQuantityNum);
