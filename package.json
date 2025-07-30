@@ -9,7 +9,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
     "start": "next start",
-    "start:pm2": "npm run build && pm2 start npm --name 'restaurant-supply-hub' -- run start",
+    "start:pm2": "npm run build && pm2 start npm --name 'restaurant-supply-hub' -- run start -- -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:setup": "node scripts/db-setup.js",
