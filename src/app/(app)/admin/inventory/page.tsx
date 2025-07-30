@@ -23,6 +23,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+
 
 const itemSchema = z.object({
   code: z.string().min(1, "Item code cannot be empty."),
@@ -83,6 +85,7 @@ export default function InventoryManagementPage() {
       form.reset({
         ...editingItem,
         remark: editingItem.remark || '',
+        detailedDescription: editingItem.detailedDescription || '',
       });
     } else {
       form.reset({
@@ -157,7 +160,7 @@ export default function InventoryManagementPage() {
 
   const handleDownloadSample = () => {
     const header = "CODE REMARK TYPE CATEGORY DESCRIPTION UNITS PACKING SHELF PRICE";
-    const exampleRow = "999 NEW DRY SPICE Sample Spice KG 1 180 25.50";
+    const exampleRow = "999 NEW DRY SPICE \"Sample Spice with details\" KG 1 180 25.50";
     const plainTextContent = `data:text/plain;charset=utf-8,${encodeURIComponent(header + '\n' + exampleRow)}`;
     const link = document.createElement("a");
     link.setAttribute("href", plainTextContent);
@@ -254,14 +257,14 @@ export default function InventoryManagementPage() {
             <form onSubmit={form.handleSubmit(handleItemFormSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
               <FormField control={form.control} name="code" render={({ field }) => (<FormItem><FormLabel>Item Code</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} disabled={!!editingItem} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Baby Corn" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="detailedDescription" render={({ field }) => (<FormItem><FormLabel>Detailed Description</FormLabel><FormControl><Input placeholder="e.g., Fresh baby corn, Grade A" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="detailedDescription" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Detailed Description</FormLabel><FormControl><Textarea placeholder="e.g., Fresh baby corn, Grade A, from Thailand." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="itemType" render={({ field }) => (<FormItem><FormLabel>Item Type</FormLabel><FormControl><Input placeholder="e.g., Fruits & Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>Category</FormLabel><FormControl><Input placeholder="e.g., Veg" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="units" render={({ field }) => (<FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="e.g., KG" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Price</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="packing" render={({ field }) => (<FormItem><FormLabel>Packing</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="shelfLifeDays" render={({ field }) => (<FormItem><FormLabel>Shelf Life (Days)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="remark" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Remark (Optional)</FormLabel><FormControl><Input placeholder="e.g., NEW, ROBO" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="remark" render={({ field }) => (<FormItem><FormLabel>Remark (Optional)</FormLabel><FormControl><Input placeholder="e.g., NEW, ROBO" {...field} /></FormControl><FormMessage /></FormItem>)} />
               
               <DialogFooter className="md:col-span-2 pt-4">
                 <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
@@ -318,3 +321,5 @@ export default function InventoryManagementPage() {
     </>
   );
 }
+
+    

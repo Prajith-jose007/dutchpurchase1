@@ -51,6 +51,8 @@ export default function OrderDetailsPage() {
   // State for invoice attachment dialog
   const [isAttachInvoiceOpen, setIsAttachInvoiceOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+
 
   const fetchOrderData = useCallback(async () => {
     try {
@@ -83,34 +85,40 @@ export default function OrderDetailsPage() {
     }
   }, [orderId, fetchOrderData]);
   
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0 || !currentUser || !order) return;
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+     setFilesToUpload(prevFiles => [...prevFiles, ...acceptedFiles]);
+  }, []);
+  
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: {'application/pdf': ['.pdf'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png']} });
+  
+  const handleUploadInvoices = async () => {
+    if (filesToUpload.length === 0 || !currentUser || !order) return;
     setIsUploading(true);
 
     const formData = new FormData();
-    acceptedFiles.forEach(file => {
+    filesToUpload.forEach(file => {
       formData.append('invoices', file);
     });
     formData.append('userId', currentUser.id);
-    formData.append('orderId', order.id); // Directly associate with the current order
+    formData.append('orderId', order.id);
 
     try {
       const result = await uploadInvoicesAction(formData);
       if (result.success && result.fileCount && result.fileCount > 0) {
-        toast({ title: "Upload Successful", description: `${result.fileCount} invoice(s) have been attached to this order.` });
-        setIsAttachInvoiceOpen(false); // Close dialog on success
-        fetchOrderData(); // Refresh order data to show new attachments
+        toast({ title: "Upload Successful", description: `${result.fileCount} invoice(s) have been attached.` });
+        setIsAttachInvoiceOpen(false);
+        setFilesToUpload([]);
+        fetchOrderData(); 
       } else {
-        toast({ title: "Upload Failed", description: result.error || "Could not upload and attach files.", variant: "destructive" });
+        toast({ title: "Upload Failed", description: result.error || "Could not upload files.", variant: "destructive" });
       }
     } catch (error) {
        toast({ title: "Upload Error", description: "An error occurred during upload.", variant: "destructive" });
     } finally {
       setIsUploading(false);
     }
-  }, [currentUser, order, toast, fetchOrderData]);
+  };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: {'application/pdf': ['.pdf'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png']} });
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order || !currentUser) return;
@@ -364,13 +372,26 @@ export default function OrderDetailsPage() {
                         </div>
                     )}
                 </div>
+                {filesToUpload.length > 0 && (
+                    <div className="space-y-2">
+                        <p className="font-medium text-sm">Files to upload:</p>
+                        <ul className="list-disc list-inside bg-muted/50 p-2 rounded-md">
+                            {filesToUpload.map((file, i) => <li key={i} className="text-xs">{file.name}</li>)}
+                        </ul>
+                    </div>
+                )}
             </div>
 
             <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="secondary" disabled={isUploading}>Cancel</Button></DialogClose>
+                <Button type="button" variant="secondary" onClick={() => { setIsAttachInvoiceOpen(false); setFilesToUpload([]); }} disabled={isUploading}>Cancel</Button>
+                <Button onClick={handleUploadInvoices} disabled={isUploading || filesToUpload.length === 0}>
+                  {isUploading ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Uploading...</> : <><Icons.Upload className="mr-2 h-4 w-4" /> Upload Files</> }
+                </Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+    
