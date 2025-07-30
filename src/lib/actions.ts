@@ -462,7 +462,7 @@ export async function getItemsAction(): Promise<Item[]> {
     })) as Item[];
 }
 
-export async function addItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
+export async function addItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
             "INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -478,7 +478,7 @@ export async function addItemAction(item: Item): Promise<{ success: boolean; err
     }
 }
 
-export async function updateItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
+export async function updateItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
     try {
         const [result] = await pool.query<OkPacket>(
             "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
@@ -526,22 +526,23 @@ export async function importInventoryAction(formData: FormData): Promise<{ succe
         await connection.beginTransaction();
 
         for (const item of items) {
-            const values = [
+             const values = [
                 item.code, 
                 item.remark || null, 
                 item.itemType, 
                 item.category, 
                 item.description, 
+                item.detailedDescription,
                 item.units, 
                 item.packing, 
-                item.shelfLifeDays || 0, // Default to 0 if not present
+                item.shelfLifeDays || 0,
                 item.price
             ];
             await connection.query(
-                `INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE 
-                 remark=VALUES(remark), itemType=VALUES(itemType), category=VALUES(category), description=VALUES(description),
+                 remark=VALUES(remark), itemType=VALUES(itemType), category=VALUES(category), description=VALUES(description), detailedDescription=VALUES(detailedDescription),
                  units=VALUES(units), packing=VALUES(packing), shelfLifeDays=VALUES(shelfLifeDays), price=VALUES(price)`,
                 values
             );
