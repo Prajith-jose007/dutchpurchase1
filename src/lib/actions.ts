@@ -38,11 +38,11 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    const newOrder: Omit<Order, 'items' | 'invoiceFileNames'> = {
+    const newOrder: Omit<Order, 'items' | 'invoiceFileNames' | 'createdAt'> & { createdAt: Date } = {
       id: orderId,
       branchId,
       userId,
-      createdAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      createdAt: new Date(),
       status: "Pending",
       totalItems,
       totalPrice,
@@ -97,14 +97,13 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     const params: (string | number)[] = [];
 
     let limitClause = "";
-    // Admins and Purchase roles see all orders. Employees see only their own, limited to 10.
+    // Admins and Purchase roles see all orders. Employees see only their own.
     if (user.role === 'employee') {
         query += " WHERE o.user_id = ?";
         params.push(user.id);
-        limitClause = " LIMIT 10";
     }
 
-    query += " ORDER BY o.created_at DESC" + limitClause;
+    query += " ORDER BY o.created_at DESC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -698,6 +697,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
 }
 
     
-
-    
-
