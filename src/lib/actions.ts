@@ -96,7 +96,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     `;
     const params: (string | number)[] = [];
 
-    // Admins and Purchase roles see all orders. Employees see only their own.
     if (user.role === 'employee') {
         query += " WHERE o.userId = ?";
         params.push(user.id);
@@ -121,14 +120,13 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
-                lastUpdatedByUserName: row.receivingUserName, // Re-map for clarity
+                lastUpdatedByUserName: row.receivingUserName,
                 lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
                 invoiceFileNames: [],
             };
         }
         if (row.item_id) {
-            // FIX: Differentiate items by both itemId and units to treat them as unique line items.
             const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.item_id && i.units === row.units);
             if (!existingItem) {
                 ordersMap[row.id].items.push({
@@ -192,7 +190,6 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
             return { success: false, error: "Order not found." };
         }
         
-        // Always update status, actor, and timestamp
         const query = `UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?`;
         const params = [status, actorUserId, new Date(), orderId];
 
@@ -217,13 +214,10 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
     try {
         await connection.beginTransaction();
 
-        // Delete associated order items first to respect foreign key constraints
         await connection.query("DELETE FROM order_items WHERE order_id = ?", [orderId]);
         
-        // Unlink any attached invoices (set orderId to NULL)
         await connection.query("UPDATE invoices SET order_id = NULL WHERE order_id = ?", [orderId]);
 
-        // Delete the order itself
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
         if (result.affectedRows === 0) {
@@ -330,7 +324,6 @@ export async function updateUserAction(userId: string, data: Partial<Pick<User, 
 
         await connection.query(query, params);
         
-        // Update branches by deleting old ones and inserting new ones
         await connection.query("DELETE FROM user_branches WHERE userId = ?", [userId]);
         const branchValues = branchIds.map(branchId => [userId, branchId]);
         await connection.query("INSERT INTO user_branches (userId, branchId) VALUES ?", [branchValues]);
@@ -404,7 +397,6 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     }
 }
 
-// Type guard to check for MySQL errors
 function isMysqlError(error: unknown): error is { code: string; errno: number; sql: string; sqlState: string; sqlMessage: string } {
     return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
 }
@@ -425,7 +417,6 @@ export async function verifyPasswordAction(username: string, plainTextPassword: 
             return { success: false, error: "Invalid username or password." };
         }
 
-        // Direct password comparison (insecure, for prototype only)
         if (plainTextPassword === user.password) {
             const { password, ...userWithoutPassword } = user;
             return { success: true, user: userWithoutPassword as User };
@@ -446,12 +437,10 @@ export async function updateMyPasswordAction(userId: string, currentPassword: st
         }
         const user = userRows[0];
 
-        // Direct password comparison (insecure)
         if (user.password !== currentPassword) {
             return { success: false, error: "Incorrect current password." };
         }
 
-        // Update to new password
         await pool.query("UPDATE users SET password = ? WHERE id = ?", [newPassword, userId]);
         return { success: true };
 
@@ -465,7 +454,6 @@ export async function updateMyPasswordAction(userId: string, currentPassword: st
 
 export async function getItemsAction(): Promise<Item[]> {
     const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM items ORDER BY code ASC");
-    // Ensure numeric fields are numbers
     return rows.map(row => ({
         ...row,
         packing: Number(row.packing),
@@ -542,7 +530,6 @@ export async function importInventoryAction(formData: FormData): Promise<{ succe
                 item.code, item.remark || null, item.itemType, item.category, 
                 item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price
             ];
-            // Use INSERT ... ON DUPLICATE KEY UPDATE to either insert a new item or update an existing one.
             await connection.query(
                 `INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -573,7 +560,7 @@ export async function getPendingOrdersCountAction(): Promise<number> {
         return 0;
     } catch (error) {
         console.error("Failed to fetch pending orders count:", error);
-        return 0; // Return 0 on error to avoid breaking the UI
+        return 0;
     }
 }
 
@@ -596,7 +583,6 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
             ORDER BY month, branchId
         `);
 
-        // Format data for the chart
         const monthlyTotals: { [key: string]: { month: string; [key: string]: number | string } } = {};
         const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
@@ -626,12 +612,10 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
 export async function getDashboardDataAction(): Promise<DashboardData | null> {
     try {
         const allQueries = [
-            // Summary Queries
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE DATE(createdAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status NOT IN ('Closed', 'Cancelled')"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Closed' AND DATE(receivedAt) = CURDATE()"),
             pool.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM orders WHERE status = 'Pending'"),
-            // Graph Queries
             pool.query<RowDataPacket[]>(`
                 SELECT DATE_FORMAT(receivedAt, '%Y-%m') as month, SUM(totalPrice) as total
                 FROM orders WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
@@ -694,4 +678,6 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+    
+
     
