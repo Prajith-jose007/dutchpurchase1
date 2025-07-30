@@ -348,7 +348,7 @@ export default function OrderingPage() {
         )}
       </div>
 
-      <Card className="lg:w-96 flex-shrink-0 shadow-xl rounded-lg self-start sticky top-20">
+      <Card className="lg:w-80 xl:w-96 flex-shrink-0 shadow-xl rounded-lg self-start sticky top-20">
         <CardHeader>
           <CardTitle className="font-headline text-2xl flex items-center">
             <Icons.ShoppingBag className="mr-2 h-6 w-6 text-primary" />
