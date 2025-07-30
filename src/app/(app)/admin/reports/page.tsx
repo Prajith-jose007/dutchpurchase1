@@ -33,7 +33,7 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (currentUser && !['admin', 'superadmin'].includes(currentUser.role)) {
+    if (currentUser && !['admin', 'superadmin', 'purchase'].includes(currentUser.role)) {
       toast({ title: "Access Denied", description: "You do not have permission to view this page.", variant: "destructive" });
       router.push('/');
       return;
@@ -89,7 +89,7 @@ export default function ReportsPage() {
     );
   }
   
-  if (!currentUser || !['admin', 'superadmin'].includes(currentUser.role)) {
+  if (!currentUser || !['admin', 'superadmin', 'purchase'].includes(currentUser.role)) {
     return null; // Render nothing while redirecting
   }
 

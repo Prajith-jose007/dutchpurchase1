@@ -24,7 +24,7 @@ const navItems = [
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
   { href: "/admin/inventory", label: "Inventory Mgt.", icon: Icons.Archive, roles: ['superadmin', 'admin'] },
-  { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin'] },
+  { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin', 'purchase'] },
 ];
 
 const getInitials = (name: string | undefined) => {
