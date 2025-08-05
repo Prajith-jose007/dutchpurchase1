@@ -37,6 +37,7 @@ export interface Order {
   totalItems: number;
   totalPrice: number;
   invoiceFileNames?: string[]; 
+  invoices?: Invoice[];
   receivedByUserId?: string | null;
   receivedAt?: string | null;
   placingUserName?: string; 
@@ -64,6 +65,7 @@ export interface User {
 export interface Invoice {
   fileName: string;
   orderId: string | null;
+  notes?: string | null;
 }
 
 export interface PurchaseReportData {

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getOrderByIdAction, getUser, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction } from '@/lib/actions';
-import type { Order, User, OrderStatus, OrderItem } from '@/lib/types';
+import type { Order, User, OrderStatus, OrderItem, Invoice } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useDropzone } from 'react-dropzone';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { formatQuantity } from '@/lib/formatters';
 
 
@@ -52,6 +54,7 @@ export default function OrderDetailsPage() {
   const [isAttachInvoiceOpen, setIsAttachInvoiceOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [invoiceNotes, setInvoiceNotes] = useState('');
 
 
   const fetchOrderData = useCallback(async () => {
@@ -101,6 +104,9 @@ export default function OrderDetailsPage() {
     });
     formData.append('userId', currentUser.id);
     formData.append('orderId', order.id);
+    if(invoiceNotes) {
+      formData.append('notes', invoiceNotes);
+    }
 
     try {
       const result = await uploadInvoicesAction(formData);
@@ -108,6 +114,7 @@ export default function OrderDetailsPage() {
         toast({ title: "Upload Successful", description: `${result.fileCount} invoice(s) have been attached.` });
         setIsAttachInvoiceOpen(false);
         setFilesToUpload([]);
+        setInvoiceNotes('');
         fetchOrderData(); 
       } else {
         toast({ title: "Upload Failed", description: result.error || "Could not upload files.", variant: "destructive" });
@@ -126,7 +133,7 @@ export default function OrderDetailsPage() {
     if (result.success) {
       toast({ title: "Status Updated", description: `Order status changed to ${newStatus}.` });
       fetchOrderData(); // Refetch to get updated receiver info
-      if (newStatus === 'Closed' && (!order.invoiceFileNames || order.invoiceFileNames.length === 0)) {
+      if (newStatus === 'Closed' && (!order.invoices || order.invoices.length === 0)) {
         setIsAttachInvoiceOpen(true);
       }
     } else {
@@ -282,23 +289,29 @@ export default function OrderDetailsPage() {
             </div>
           </CardContent>
           
-          { (order.invoiceFileNames && order.invoiceFileNames.length > 0) && (
+          { (order.invoices && order.invoices.length > 0) && (
             <>
             <Separator />
             <CardContent className="pt-6">
                 <h3 className="text-xl font-semibold mb-4 font-headline">Attached Invoices</h3>
-                 <div className="space-y-2">
-                    {order.invoiceFileNames.map(fileName => (
-                      <a 
-                        key={fileName}
-                        href={`/api/invoices/${encodeURIComponent(fileName)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-2 border rounded-md bg-muted/50 hover:bg-muted transition-colors"
-                      >
-                        <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
-                        <span className="text-sm font-medium text-primary hover:underline">{fileName}</span>
-                      </a>
+                 <div className="space-y-4">
+                    {order.invoices.map((invoice: Invoice) => (
+                      <div key={invoice.fileName} className="p-3 border rounded-md bg-muted/50">
+                        <a 
+                          href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2"
+                        >
+                          <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
+                          <span className="text-sm font-medium text-primary hover:underline">{invoice.fileName}</span>
+                        </a>
+                        {invoice.notes && (
+                            <p className="text-xs text-muted-foreground mt-2 pl-7 border-l-2 border-primary ml-2.5 pt-1">
+                                <span className="font-semibold">Note:</span> {invoice.notes}
+                            </p>
+                        )}
+                      </div>
                     ))}
                  </div>
             </CardContent>
@@ -348,14 +361,20 @@ export default function OrderDetailsPage() {
         </Card>
       </div>
 
-      <Dialog open={isAttachInvoiceOpen} onOpenChange={setIsAttachInvoiceOpen}>
+      <Dialog open={isAttachInvoiceOpen} onOpenChange={(isOpen) => {
+        setIsAttachInvoiceOpen(isOpen);
+        if(!isOpen) {
+            setFilesToUpload([]);
+            setInvoiceNotes('');
+        }
+      }}>
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
-              <DialogDescription>Upload one or more invoice files (PDF, JPG, PNG). They will be directly attached to this order.</DialogDescription>
+              <DialogDescription>Upload files and add an optional note if the invoice is for multiple outlets.</DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-4 pt-4">
                 <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
                     <input {...getInputProps()} disabled={isUploading} />
                     {isUploading ? (
@@ -375,17 +394,28 @@ export default function OrderDetailsPage() {
                 {filesToUpload.length > 0 && (
                     <div className="space-y-2">
                         <p className="font-medium text-sm">Files to upload:</p>
-                        <ul className="list-disc list-inside bg-muted/50 p-2 rounded-md">
-                            {filesToUpload.map((file, i) => <li key={i} className="text-xs">{file.name}</li>)}
+                        <ul className="list-disc list-inside bg-muted/50 p-3 rounded-md max-h-24 overflow-y-auto">
+                            {filesToUpload.map((file, i) => <li key={i} className="text-xs truncate">{file.name}</li>)}
                         </ul>
                     </div>
                 )}
+                <div>
+                  <Label htmlFor="invoice-notes">Notes (Optional)</Label>
+                  <Textarea 
+                    id="invoice-notes" 
+                    placeholder="e.g., This invoice also covers order #... for JBR outlet."
+                    value={invoiceNotes}
+                    onChange={(e) => setInvoiceNotes(e.target.value)}
+                    disabled={isUploading}
+                    className="mt-1"
+                  />
+                </div>
             </div>
 
-            <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => { setIsAttachInvoiceOpen(false); setFilesToUpload([]); }} disabled={isUploading}>Cancel</Button>
+            <DialogFooter className="pt-4">
+                <Button type="button" variant="secondary" onClick={() => setIsAttachInvoiceOpen(false)} disabled={isUploading}>Cancel</Button>
                 <Button onClick={handleUploadInvoices} disabled={isUploading || filesToUpload.length === 0}>
-                  {isUploading ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Uploading...</> : <><Icons.Upload className="mr-2 h-4 w-4" /> Upload Files</> }
+                  {isUploading ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Uploading...</> : <><Icons.Upload className="mr-2 h-4 w-4" /> Upload & Save</> }
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -393,5 +423,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    

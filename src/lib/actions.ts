@@ -87,7 +87,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
             oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
-            inv.fileName as invoiceFileName
+            inv.fileName as invoiceFileName,
+            inv.notes as invoiceNotes
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -101,7 +102,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         params.push(user.id);
     }
 
-    query += " ORDER BY o.createdAt DESC";
+    query += " ORDER BY o.createdAt DESC, inv.fileName ASC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
@@ -123,7 +124,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 lastUpdatedByUserName: row.receivingUserName,
                 lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
-                invoiceFileNames: [],
+                invoices: [],
             };
         }
         if (row.itemId) {
@@ -138,8 +139,12 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 });
             }
         }
-         if (row.invoiceFileName && !ordersMap[row.id].invoiceFileNames?.includes(row.invoiceFileName)) {
-            ordersMap[row.id].invoiceFileNames?.push(row.invoiceFileName);
+        if (row.invoiceFileName && !ordersMap[row.id].invoices?.find(inv => inv.fileName === row.invoiceFileName)) {
+            ordersMap[row.id].invoices?.push({
+                fileName: row.invoiceFileName,
+                orderId: row.id,
+                notes: row.invoiceNotes,
+            });
         }
     });
 
@@ -153,7 +158,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
 
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE orderId = ?", [orderId]);
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
 
     const order: Order = {
         id: orderData.id,
@@ -172,7 +177,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           units: item.units,
           price: Number(item.price),
         })),
-        invoiceFileNames: invoiceRows.map(r => r.fileName)
+        invoices: invoiceRows.map(r => ({ fileName: r.fileName, orderId, notes: r.notes }))
     };
     return order;
 }
@@ -359,6 +364,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
     const orderId = formData.get('orderId') as string;
+    const notes = formData.get('notes') as string | null;
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
@@ -378,8 +384,8 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             await fs.writeFile(filePath, buffer);
             
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, orderId) VALUES (?, ?, ?)", 
-                [file.name, userId, orderId]
+                "INSERT INTO invoices (fileName, uploaderId, orderId, notes) VALUES (?, ?, ?, ?)", 
+                [file.name, userId, orderId, notes]
             );
         }
 
@@ -403,10 +409,11 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
 
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
       orderId: r.orderId || null,
+      notes: r.notes || null
   }));
 }
 
