@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOrderByIdAction, getUser, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction } from '@/lib/actions';
+import { getOrderByIdAction, getUser, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction, deleteInvoiceAction } from '@/lib/actions';
 import type { Order, User, OrderStatus, OrderItem, Invoice } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -123,6 +123,16 @@ export default function OrderDetailsPage() {
        toast({ title: "Upload Error", description: "An error occurred during upload.", variant: "destructive" });
     } finally {
       setIsUploading(false);
+    }
+  };
+  
+  const handleDeleteInvoice = async (fileName: string) => {
+    const result = await deleteInvoiceAction(fileName);
+    if (result.success) {
+      toast({ title: "Invoice Deleted", description: "The invoice has been removed." });
+      fetchOrderData(); // Refresh the order data
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to delete invoice.", variant: "destructive" });
     }
   };
 
@@ -296,20 +306,45 @@ export default function OrderDetailsPage() {
                 <h3 className="text-xl font-semibold mb-4 font-headline">Attached Invoices</h3>
                  <div className="space-y-4">
                     {order.invoices.map((invoice: Invoice) => (
-                      <div key={invoice.fileName} className="p-3 border rounded-md bg-muted/50">
-                        <a 
-                          href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2"
-                        >
-                          <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
-                          <span className="text-sm font-medium text-primary hover:underline">{invoice.fileName}</span>
-                        </a>
-                        {invoice.notes && (
-                            <p className="text-xs text-muted-foreground mt-2 pl-7 border-l-2 border-primary ml-2.5 pt-1">
-                                <span className="font-semibold">Note:</span> {invoice.notes}
-                            </p>
+                      <div key={invoice.fileName} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                        <div className="flex-grow">
+                            <a 
+                              href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2"
+                            >
+                              <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
+                              <span className="text-sm font-medium text-primary hover:underline">{invoice.fileName}</span>
+                            </a>
+                            {invoice.notes && (
+                                <p className="text-xs text-muted-foreground mt-2 pl-7 border-l-2 border-primary ml-2.5 pt-1">
+                                    <span className="font-semibold">Note:</span> {invoice.notes}
+                                </p>
+                            )}
+                        </div>
+                        {canManageOrder && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                <Icons.Delete className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete the invoice <span className="font-semibold">{invoice.fileName}</span>. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.fileName)} className="bg-destructive hover:bg-destructive/90">
+                                  Delete Invoice
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         )}
                       </div>
                     ))}
@@ -423,3 +458,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    

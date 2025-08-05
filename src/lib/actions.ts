@@ -417,6 +417,43 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
   }));
 }
 
+export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
+    const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
+    const filePath = path.join(invoicesDir, fileName);
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ?", [fileName]);
+        
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return { success: false, error: "Invoice not found in the database." };
+        }
+
+        try {
+            await fs.unlink(filePath);
+        } catch (fileError: any) {
+            if (fileError.code !== 'ENOENT') {
+                await connection.rollback();
+                console.error("Failed to delete invoice file:", fileError);
+                return { success: false, error: "Failed to delete the invoice file from storage." };
+            }
+            // If file does not exist, we can ignore it and proceed with DB deletion.
+        }
+
+        await connection.commit();
+        return { success: true };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Failed to delete invoice:", error);
+        return { success: false, error: "A database error occurred." };
+    } finally {
+        connection.release();
+    }
+}
+
 export async function verifyPasswordAction(username: string, plainTextPassword: string): Promise<{ success: boolean; user?: User; error?: string }> {
     try {
         const user = await getUserByUsername(username);
@@ -693,3 +730,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
