@@ -86,14 +86,11 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
-            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
-            inv.fileName as invoiceFileName,
-            inv.notes as invoiceNotes
+            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
         LEFT JOIN order_items oi ON o.id = oi.orderId
-        LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
     const params: (string | number)[] = [];
 
@@ -102,9 +99,11 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         params.push(user.id);
     }
 
-    query += " ORDER BY o.createdAt DESC, inv.fileName ASC";
+    query += " ORDER BY o.createdAt DESC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
+    
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
     rows.forEach(row => {
@@ -124,7 +123,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 lastUpdatedByUserName: row.receivingUserName,
                 lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
-                invoices: [],
+                invoices: [], 
             };
         }
         if (row.itemId) {
@@ -139,11 +138,17 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 });
             }
         }
-        if (row.invoiceFileName && !ordersMap[row.id].invoices?.find(inv => inv.fileName === row.invoiceFileName)) {
-            ordersMap[row.id].invoices?.push({
-                fileName: row.invoiceFileName,
-                orderId: row.id,
-                notes: row.invoiceNotes,
+    });
+
+    invoiceRows.forEach(inv => {
+        if (inv.orderId && ordersMap[inv.orderId]) {
+            if (!ordersMap[inv.orderId].invoices) {
+                ordersMap[inv.orderId].invoices = [];
+            }
+            ordersMap[inv.orderId].invoices?.push({
+                fileName: inv.fileName,
+                orderId: inv.orderId,
+                notes: inv.notes
             });
         }
     });
@@ -221,7 +226,7 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
         await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
         
-        await connection.query("UPDATE invoices SET orderId = NULL WHERE orderId = ?", [orderId]);
+        await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
 
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
@@ -730,5 +735,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
