@@ -393,7 +393,6 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
             
-            // This query is now simplified to match the original schema
             await connection.query(
                 "INSERT INTO invoices (fileName, orderId, uploaderId, notes) VALUES (?, ?, ?, ?)", 
                 [uniqueFilename, orderId, userId, notes]
@@ -415,11 +414,11 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: r.orderId || null,
-      notes: r.notes || null
+      orderId: null, // orderId is not directly in the invoices table anymore
+      notes: null // notes are not in this simplified query
   }));
 }
 
