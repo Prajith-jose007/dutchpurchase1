@@ -85,12 +85,10 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName,
-            GROUP_CONCAT(inv.fileName) as invoiceFileNames
+            receivingUser.name as receivingUserName
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
-        LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
     const params: (string | number)[] = [];
 
@@ -99,10 +97,11 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         params.push(user.id);
     }
 
-    query += " GROUP BY o.id ORDER BY o.createdAt DESC";
+    query += " ORDER BY o.createdAt DESC";
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
 
@@ -121,7 +120,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
                 items: [],
-                invoiceFileNames: row.invoiceFileNames ? row.invoiceFileNames.split(',') : [],
+                // This part needs to be populated separately
+                invoiceFileNames: [],
             };
         }
     });
@@ -135,6 +135,16 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 units: item.units,
                 price: Number(item.itemPrice),
             });
+        }
+    });
+    
+    // Associate invoices with orders
+    invoiceRows.forEach(invoice => {
+        if (ordersMap[invoice.orderId]) {
+            if (!ordersMap[invoice.orderId].invoiceFileNames) {
+                ordersMap[invoice.orderId].invoiceFileNames = [];
+            }
+            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
         }
     });
     
@@ -377,8 +387,8 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             await fs.writeFile(filePath, buffer);
             
             await connection.query(
-                "INSERT INTO invoices (fileName, orderId, uploaderId, notes) VALUES (?, ?, ?, ?)", 
-                [uniqueFilename, orderId, userId, notes]
+                "INSERT INTO invoices (fileName, uploaderId, notes, orderId) VALUES (?, ?, ?, ?)", 
+                [uniqueFilename, userId, notes, orderId]
             );
         }
 
@@ -397,11 +407,11 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: null, // orderId is not directly in the invoices table anymore
-      notes: null // notes are not in this simplified query
+      orderId: r.orderId,
+      notes: r.notes
   }));
 }
 
@@ -717,3 +727,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
