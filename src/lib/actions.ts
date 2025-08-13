@@ -86,11 +86,11 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
-            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice
+            GROUP_CONCAT(inv.fileName) as invoiceFileNames
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
-        LEFT JOIN order_items oi ON o.id = oi.orderId
+        LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
     const params: (string | number)[] = [];
 
@@ -99,14 +99,14 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         params.push(user.id);
     }
 
-    query += " ORDER BY o.createdAt DESC";
+    query += " GROUP BY o.id ORDER BY o.createdAt DESC";
 
-    const [rows] = await pool.query<RowDataPacket[]>(query, params);
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices");
+    const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
+    const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
 
     const ordersMap: { [key: string]: Order } = {};
 
-    rows.forEach(row => {
+    orderRows.forEach(row => {
         if (!ordersMap[row.id]) {
             ordersMap[row.id] = {
                 id: row.id,
@@ -120,41 +120,24 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
-                lastUpdatedByUserName: row.receivingUserName,
-                lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
-                invoices: [], 
-                invoiceFileNames: [],
+                invoiceFileNames: row.invoiceFileNames ? row.invoiceFileNames.split(',') : [],
             };
         }
-        if (row.itemId) {
-            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId && i.units === row.units);
-            if (!existingItem) {
-                ordersMap[row.id].items.push({
-                    itemId: row.itemId,
-                    description: row.description,
-                    quantity: Number(row.quantity),
-                    units: row.units,
-                    price: Number(row.itemPrice),
-                });
-            }
-        }
     });
 
-    // Attach invoices to their orders
-    invoiceRows.forEach(inv => {
-        if (inv.orderId && ordersMap[inv.orderId]) {
-            if (!ordersMap[inv.orderId].invoices) {
-                ordersMap[inv.orderId].invoices = [];
-            }
-            if (!ordersMap[inv.orderId].invoiceFileNames) {
-                ordersMap[inv.orderId].invoiceFileNames = [];
-            }
-            ordersMap[inv.orderId].invoices?.push({ fileName: inv.fileName, orderId: inv.orderId });
-            ordersMap[inv.orderId].invoiceFileNames?.push(inv.fileName);
+    itemRows.forEach(item => {
+        if (ordersMap[item.orderId]) {
+            ordersMap[item.orderId].items.push({
+                itemId: item.itemId,
+                description: item.description,
+                quantity: Number(item.quantity),
+                units: item.units,
+                price: Number(item.itemPrice),
+            });
         }
     });
-
+    
     return Object.values(ordersMap);
 }
 
