@@ -101,7 +101,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices");
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
 
@@ -120,7 +120,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
                 items: [],
-                // This part needs to be populated separately
+                invoices: [],
                 invoiceFileNames: [],
             };
         }
@@ -140,11 +140,20 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     
     // Associate invoices with orders
     invoiceRows.forEach(invoice => {
-        if (ordersMap[invoice.orderId]) {
-            if (!ordersMap[invoice.orderId].invoiceFileNames) {
-                ordersMap[invoice.orderId].invoiceFileNames = [];
+        if (invoice.orderId && ordersMap[invoice.orderId]) {
+            const order = ordersMap[invoice.orderId];
+            if (!order.invoices) {
+                order.invoices = [];
             }
-            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
+             if (!order.invoiceFileNames) {
+                order.invoiceFileNames = [];
+            }
+            order.invoices.push({
+                fileName: invoice.fileName,
+                orderId: invoice.orderId,
+                notes: invoice.notes,
+            });
+            order.invoiceFileNames.push(invoice.fileName);
         }
     });
     
