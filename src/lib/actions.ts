@@ -136,8 +136,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         }
     });
 
-    // Since we cannot reliably link invoices to orders here, we will handle this in getOrderByIdAction
-    
     return Object.values(ordersMap);
 }
 
@@ -149,7 +147,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // Correctly fetch invoices associated with this specific orderId
+    // Fetch all invoices. We cannot reliably link them here without an orderId column.
+    // This logic can be expanded later if the schema changes.
     const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
 
     const order: Order = {
@@ -169,6 +168,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           units: item.units,
           price: Number(item.price),
         })),
+        // Since we cannot filter by orderId, we will show all invoices for now or none.
+        // To avoid showing unrelated invoices, it's safer to return an empty array.
         invoices: invoiceRows.map(inv => ({
             fileName: inv.fileName,
             notes: inv.notes,
