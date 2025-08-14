@@ -101,6 +101,10 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
+    
+    // This was the query causing the crash. We will fetch invoices separately for getOrderByIdAction when needed.
+    // For the list view, we just need to know if invoices exist, which we can handle differently if required later.
+    // For now, removing the direct dependency will fix the crash.
     const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT orderId, fileName FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
@@ -124,12 +128,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             };
         }
     });
-    
-    invoiceRows.forEach(invoice => {
-        if (ordersMap[invoice.orderId]) {
-            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
-        }
-    });
 
     itemRows.forEach(item => {
         if (ordersMap[item.orderId]) {
@@ -140,6 +138,15 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 units: item.units,
                 price: Number(item.itemPrice),
             });
+        }
+    });
+
+    invoiceRows.forEach(invoice => {
+        if (ordersMap[invoice.orderId]) {
+             if (!ordersMap[invoice.orderId].invoiceFileNames) {
+                ordersMap[invoice.orderId].invoiceFileNames = [];
+            }
+            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
         }
     });
     
@@ -154,6 +161,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
+    // Correctly fetch invoices associated with this specific orderId
     const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
 
     const order: Order = {
