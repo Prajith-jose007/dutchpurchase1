@@ -127,7 +127,8 @@ export default function OrderDetailsPage() {
   };
   
   const handleDeleteInvoice = async (fileName: string) => {
-    const result = await deleteInvoiceAction(fileName);
+    if (!order) return;
+    const result = await deleteInvoiceAction(fileName, order.id);
     if (result.success) {
       toast({ title: "Invoice Deleted", description: "The invoice has been removed." });
       fetchOrderData(); // Refresh the order data
@@ -458,5 +459,7 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    
 
     
