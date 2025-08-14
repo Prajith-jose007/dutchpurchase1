@@ -101,6 +101,10 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
+    
+    // Fetch all invoices. We will map them in the application logic.
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices");
+    const allInvoiceFileNames = invoiceRows.map(r => r.fileName);
 
     const ordersMap: { [key: string]: Order } = {};
 
@@ -119,7 +123,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
                 items: [],
-                invoiceFileNames: [] // Initialize as empty
+                // Match invoices by checking if the filename contains the order ID.
+                // This is a workaround for the missing orderId column.
+                invoiceFileNames: allInvoiceFileNames.filter(name => name.includes(row.id))
             };
         }
     });
@@ -375,13 +381,15 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
-            const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${file.name}`;
+            // We include the orderId in the filename itself as a workaround for not having a dedicated column.
+            const uniqueFilename = `${orderId}-${Date.now()}-${file.name}`;
             const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
             
+            // The INSERT query now correctly matches the schema (no orderId column)
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, notes, orderId) VALUES (?, ?, ?, ?)", 
-                [uniqueFilename, userId, notes, orderId]
+                "INSERT INTO invoices (fileName, uploaderId, notes) VALUES (?, ?, ?)", 
+                [uniqueFilename, userId, notes]
             );
         }
 
@@ -391,7 +399,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
         await connection.rollback();
         console.error('Invoice upload failed:', error);
         if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
-             return { success: false, error: 'An invoice with this name has already been uploaded for this order. Please rename the file or check existing invoices.' };
+             return { success: false, error: 'An invoice with this name has already been uploaded. Please rename the file or check existing invoices.' };
         }
         return { success: false, error: 'An error occurred during invoice upload.' };
     } finally {
@@ -400,10 +408,11 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes, orderId FROM invoices ORDER BY uploadedAt DESC");
+  // This function is less useful without an orderId but we'll keep it for potential future use.
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: r.orderId,
+      orderId: null, // Cannot determine orderId from the table
       notes: r.notes
   }));
 }
@@ -415,7 +424,7 @@ export async function deleteInvoiceAction(fileName: string, orderId: string): Pr
 
     try {
         await connection.beginTransaction();
-        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ? AND orderId = ?", [fileName, orderId]);
+        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ?", [fileName]);
         
         if (result.affectedRows === 0) {
             await connection.rollback();
@@ -426,8 +435,6 @@ export async function deleteInvoiceAction(fileName: string, orderId: string): Pr
             await fs.unlink(filePath);
         } catch (fileError: any) {
             if (fileError.code !== 'ENOENT') {
-                // If the file doesn't exist, we can still proceed with deleting the DB record.
-                // But if it's another error, we should roll back.
                 await connection.rollback();
                 console.error("Failed to delete invoice file:", fileError);
                 return { success: false, error: "Failed to delete the invoice file from storage." };
@@ -722,5 +729,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
