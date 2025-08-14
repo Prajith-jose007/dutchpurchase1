@@ -85,8 +85,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName,
-            (SELECT GROUP_CONCAT(inv.fileName) FROM invoices inv WHERE inv.orderId = o.id) as invoiceFileNames
+            receivingUser.name as receivingUserName
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -102,7 +101,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
-    
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT orderId, fileName FROM invoices");
+
     const ordersMap: { [key: string]: Order } = {};
 
     orderRows.forEach(row => {
@@ -119,9 +119,15 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
-                invoiceFileNames: row.invoiceFileNames ? row.invoiceFileNames.split(',') : [],
                 items: [],
+                invoiceFileNames: []
             };
+        }
+    });
+    
+    invoiceRows.forEach(invoice => {
+        if (ordersMap[invoice.orderId]) {
+            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
         }
     });
 
@@ -409,24 +415,26 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
   }));
 }
 
-export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
+export async function deleteInvoiceAction(fileName: string, orderId: string): Promise<{ success: boolean, error?: string }> {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const filePath = path.join(invoicesDir, fileName);
     const connection = await pool.getConnection();
 
     try {
         await connection.beginTransaction();
-        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ?", [fileName]);
+        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ? AND orderId = ?", [fileName, orderId]);
         
         if (result.affectedRows === 0) {
             await connection.rollback();
-            return { success: false, error: "Invoice not found in the database." };
+            return { success: false, error: "Invoice not found in the database for this order." };
         }
 
         try {
             await fs.unlink(filePath);
         } catch (fileError: any) {
             if (fileError.code !== 'ENOENT') {
+                // If the file doesn't exist, we can still proceed with deleting the DB record.
+                // But if it's another error, we should roll back.
                 await connection.rollback();
                 console.error("Failed to delete invoice file:", fileError);
                 return { success: false, error: "Failed to delete the invoice file from storage." };
@@ -497,11 +505,11 @@ export async function getItemsAction(): Promise<Item[]> {
     })) as Item[];
 }
 
-export async function addItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
+export async function addItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
-            "INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [item.code, item.remark || null, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, item.price]
+            "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.remark || null, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price]
         );
         return { success: true };
     } catch (error: any) {
@@ -513,11 +521,11 @@ export async function addItemAction(item: Omit<Item, 'detailedDescription'>): Pr
     }
 }
 
-export async function updateItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
+export async function updateItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         const [result] = await pool.query<OkPacket>(
-            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
-            [item.remark, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
+            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, detailedDescription = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
+            [item.remark, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
         );
         if (result.affectedRows === 0) {
             return { success: false, error: "Item not found." };
@@ -721,9 +729,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
-
-    
 
     
