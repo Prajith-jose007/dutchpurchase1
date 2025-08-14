@@ -85,7 +85,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName
+            receivingUser.name as receivingUserName,
+            (SELECT GROUP_CONCAT(inv.fileName) FROM invoices inv WHERE inv.orderId = o.id) as invoiceFileNames
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -102,9 +103,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
     
-    // Fetch all invoices separately
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices");
-
     const ordersMap: { [key: string]: Order } = {};
 
     orderRows.forEach(row => {
@@ -121,9 +119,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
+                invoiceFileNames: row.invoiceFileNames ? row.invoiceFileNames.split(',') : [],
                 items: [],
-                invoices: [], 
-                invoiceFileNames: [],
             };
         }
     });
@@ -140,16 +137,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         }
     });
     
-    // This simple logic assumes any invoice could belong to any order, which is not ideal
-    // but avoids the crash. A proper fix requires schema changes.
-    const allInvoices = invoiceRows.map(inv => ({ fileName: inv.fileName, orderId: null }));
-    
-    Object.values(ordersMap).forEach(order => {
-        // A real implementation would filter invoices based on a link table
-        // For now, we attach all invoices to every order to avoid crashes, though this is not correct for display.
-        // A better temporary solution is to just not link them.
-    });
-    
     return Object.values(ordersMap);
 }
 
@@ -161,9 +148,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // For now, we don't fetch invoices here to prevent crashes.
-    // A proper fix requires a linking table in the database.
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices LIMIT 0", []); // Returns 0 invoices
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
 
     const order: Order = {
         id: orderData.id,
@@ -182,7 +167,11 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           units: item.units,
           price: Number(item.price),
         })),
-        invoices: [] // Return an empty array to prevent errors.
+        invoices: invoiceRows.map(inv => ({
+            fileName: inv.fileName,
+            notes: inv.notes,
+            orderId: orderData.id
+        }))
     };
     return order;
 }
@@ -391,11 +380,9 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
             
-            // This query assumes `invoices` table does NOT have an `orderId` column
-            // and simply stores the invoice file info. This will succeed but not link invoices to orders.
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, notes) VALUES (?, ?, ?)", 
-                [uniqueFilename, userId, notes]
+                "INSERT INTO invoices (fileName, uploaderId, notes, orderId) VALUES (?, ?, ?, ?)", 
+                [uniqueFilename, userId, notes, orderId]
             );
         }
 
@@ -414,11 +401,10 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  // This query assumes no `orderId` column exists, preventing crashes.
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes, orderId FROM invoices ORDER BY uploadedAt DESC");
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: null, // Explicitly set to null as it's not in the DB
+      orderId: r.orderId,
       notes: r.notes
   }));
 }
