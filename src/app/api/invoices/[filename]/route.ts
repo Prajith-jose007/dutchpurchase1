@@ -1,4 +1,3 @@
-
 // src/app/api/invoices/[filename]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
@@ -35,7 +34,7 @@ export async function GET(
     // Use the decoded filename for the Content-Disposition header.
     headers.set('Content-Disposition', `inline; filename="${decodedFilename}"`);
 
-    return new NextResponse(fileBuffer, { status: 200, headers });
+    return new Response(fileBuffer, { status: 200, headers });
   } catch (error: any) {
     if (error.code === 'ENOENT') {
       console.error(`Invoice not found at path: ${path.join(process.cwd(), 'public', 'invoices', decodeURIComponent(filename))}`);
