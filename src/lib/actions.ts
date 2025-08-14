@@ -101,11 +101,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
-    
-    // This was the query causing the crash. We will fetch invoices separately for getOrderByIdAction when needed.
-    // For the list view, we just need to know if invoices exist, which we can handle differently if required later.
-    // For now, removing the direct dependency will fix the crash.
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT orderId, fileName FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
 
@@ -124,7 +119,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 placingUserName: row.placingUserName,
                 receivingUserName: row.receivingUserName,
                 items: [],
-                invoiceFileNames: []
+                invoiceFileNames: [] // Initialize as empty
             };
         }
     });
@@ -141,14 +136,7 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         }
     });
 
-    invoiceRows.forEach(invoice => {
-        if (ordersMap[invoice.orderId]) {
-             if (!ordersMap[invoice.orderId].invoiceFileNames) {
-                ordersMap[invoice.orderId].invoiceFileNames = [];
-            }
-            ordersMap[invoice.orderId].invoiceFileNames!.push(invoice.fileName);
-        }
-    });
+    // Since we cannot reliably link invoices to orders here, we will handle this in getOrderByIdAction
     
     return Object.values(ordersMap);
 }
