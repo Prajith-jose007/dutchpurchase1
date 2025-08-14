@@ -149,7 +149,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     
     // Fetch all invoices. We cannot reliably link them here without an orderId column.
     // This logic can be expanded later if the schema changes.
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices");
 
     const order: Order = {
         id: orderData.id,
@@ -170,11 +170,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         })),
         // Since we cannot filter by orderId, we will show all invoices for now or none.
         // To avoid showing unrelated invoices, it's safer to return an empty array.
-        invoices: invoiceRows.map(inv => ({
-            fileName: inv.fileName,
-            notes: inv.notes,
-            orderId: orderData.id
-        }))
+        invoices: []
     };
     return order;
 }
