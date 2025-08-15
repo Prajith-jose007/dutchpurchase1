@@ -84,7 +84,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         SELECT 
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
-            o.invoiceNumber, o.invoiceNotes,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName
         FROM orders o
@@ -117,8 +116,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
         placingUserName: row.placingUserName,
         receivingUserName: row.receivingUserName,
-        invoiceNumber: row.invoiceNumber,
-        invoiceNotes: row.invoiceNotes,
         items: [], // Kept empty for the list view
     }));
 }
