@@ -134,14 +134,16 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     // Correctly fetch invoices associated with this specific orderId by searching in the notes or matching the invoice number
     let invoiceRows: RowDataPacket[] = [];
     if (orderData.invoiceNumber) {
+        // Search for the invoice number in the filename (primary link) OR in the notes (secondary link)
         [invoiceRows] = await pool.query<RowDataPacket[]>(
-            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ? OR i.fileName LIKE ?",
-            [`%${orderId}%`, `%${orderData.invoiceNumber}%`]
+            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.fileName LIKE ? OR i.notes LIKE ?",
+            [`%${orderData.invoiceNumber}%`, `%orderId:${orderId}%`]
         );
     } else {
+         // If no invoice number, just check notes for a manual link
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
-            [`%${orderId}%`]
+            [`%orderId:${orderId}%`]
         );
     }
 
@@ -401,7 +403,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
         }
 
         await connection.commit();
-        return { success: true, fileCount: files.length };
+        return { success: true, count: files.length };
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
