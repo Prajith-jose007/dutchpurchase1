@@ -128,15 +128,10 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    let invoiceRows: RowDataPacket[] = [];
-    // A robust way to link invoices: check for the invoice number in the file name or the order ID in the notes.
-    if (orderData.invoiceNumber) {
-        [invoiceRows] = await pool.query<RowDataPacket[]>(
-            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.fileName LIKE ? OR i.notes LIKE ?",
-            [`%${orderData.invoiceNumber}%`, `%${orderId}%`]
-        );
-    }
-
+    const [invoiceRows] = await pool.query<RowDataPacket[]>(
+        "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
+        [`%${orderId}%`]
+    );
 
     const order: Order = {
         id: orderData.id,
@@ -161,7 +156,7 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         })),
         invoices: invoiceRows.map(row => ({
           fileName: row.fileName,
-          orderId: null, // orderId is not stored on invoices table
+          orderId: null,
           notes: row.notes,
           uploadedAt: new Date(row.uploadedAt).toISOString(),
           uploaderName: row.uploaderName
@@ -187,19 +182,26 @@ export async function updateOrderStatusAction(
             return { success: false, error: "Order not found." };
         }
         
-        let query = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
-        const params: (string|Date|null|number)[] = [status, actorUserId, new Date()];
+        // Update the order status, received by, and received at fields.
+        await connection.query(
+            "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?",
+            [status, actorUserId, new Date(), orderId]
+        );
 
+        // If the order is being closed and invoice details are provided, create entries in the invoices table.
         if (status === 'Closed' && details?.invoiceNumber) {
-            query += ", invoiceNumber = ?, invoiceNotes = ?";
-            params.push(details.invoiceNumber);
-            params.push(details.invoiceNotes || null);
+            const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
+            const notes = `${details.invoiceNotes || ''} (Covers Order: ${orderId})`.trim();
+
+            for (const invNumber of invoiceNumbers) {
+                const uniqueFilename = `manual_entry_${invNumber}`;
+                await connection.query(
+                    "INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = VALUES(notes), uploaderId = VALUES(uploaderId)",
+                    [uniqueFilename, actorUserId, notes, new Date()]
+                );
+            }
         }
         
-        query += " WHERE id = ?";
-        params.push(orderId);
-
-        await connection.query(query, params);
         await connection.commit();
         return { success: true };
     } catch (error) {
@@ -210,6 +212,7 @@ export async function updateOrderStatusAction(
         connection.release();
     }
 }
+
 
 export async function deleteOrderAction(orderId: string, actor: User): Promise<{ success: boolean, error?: string }> {
     if (!actor || !['admin', 'superadmin'].includes(actor.role)) {
@@ -433,15 +436,16 @@ export async function deleteInvoiceAction(fileName: string): Promise<{ success: 
             return { success: false, error: "Invoice not found in the database." };
         }
 
-        try {
-            await fs.unlink(filePath);
-        } catch (fileError: any) {
-            if (fileError.code !== 'ENOENT') {
-                await connection.rollback();
-                console.error("Failed to delete invoice file:", fileError);
-                return { success: false, error: "Failed to delete the invoice file from storage." };
-            }
-            // If file doesn't exist, we can still proceed to delete the DB record.
+        if (!fileName.startsWith('manual_entry_')) {
+          try {
+              await fs.unlink(filePath);
+          } catch (fileError: any) {
+              if (fileError.code !== 'ENOENT') {
+                  await connection.rollback();
+                  console.error("Failed to delete invoice file:", fileError);
+                  return { success: false, error: "Failed to delete the invoice file from storage." };
+              }
+          }
         }
 
         await connection.commit();
@@ -732,5 +736,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    

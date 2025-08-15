@@ -21,6 +21,7 @@ import { Icons } from '@/components/icons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 const uploadSchema = z.object({
   notes: z.string().optional(),
@@ -181,21 +182,26 @@ export default function InvoiceManagementPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>File Name</TableHead>
-                      <TableHead>Uploaded By</TableHead>
+                      <TableHead>Invoice / File Name</TableHead>
+                      <TableHead>Added By</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map((invoice, index) => (
+                    {invoices.map((invoice, index) => {
+                      const isManualEntry = invoice.fileName.startsWith('manual_entry_');
+                      const displayName = isManualEntry ? `Invoice: ${invoice.fileName.replace('manual_entry_', '')}` : invoice.fileName;
+
+                      return (
                       <TableRow key={index}>
                         <TableCell>
-                           <a href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-2">
+                           <a href={isManualEntry ? undefined : `/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className={`font-medium flex items-center gap-2 ${!isManualEntry && 'text-primary hover:underline'}`}>
                                 <Icons.FileText className="h-4 w-4" />
-                                {invoice.fileName}
+                                {displayName}
                            </a>
                            {invoice.notes && <p className="text-xs text-muted-foreground mt-1 pl-6">{invoice.notes}</p>}
+                           {isManualEntry && <Badge variant="secondary" className="mt-1 ml-6">Manual Entry</Badge>}
                         </TableCell>
                         <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
                         <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
@@ -209,7 +215,7 @@ export default function InvoiceManagementPage() {
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>This will permanently delete the invoice file <span className="font-semibold">{invoice.fileName}</span>. This action cannot be undone.</AlertDialogDescription>
+                                        <AlertDialogDescription>This will permanently delete the invoice record <span className="font-semibold">{displayName}</span>. This action cannot be undone.</AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -219,7 +225,7 @@ export default function InvoiceManagementPage() {
                             </AlertDialog>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                 </Table>
               </ScrollArea>

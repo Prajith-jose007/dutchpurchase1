@@ -25,12 +25,32 @@ async function addInvoiceNotesColumn() {
     try {
       console.log('Altering `invoices` table to add `notes`...');
       await connection.query(
-        "ALTER TABLE `invoices` ADD COLUMN `notes` TEXT NULL DEFAULT NULL AFTER `orderId`"
+        "ALTER TABLE `invoices` ADD COLUMN `notes` TEXT NULL DEFAULT NULL"
       );
       console.log('Successfully added `notes` column to `invoices` table.');
     } catch (error) {
       if (error.code === 'ER_DUP_FIELDNAME') {
         console.log('`notes` column already exists in `invoices` table. Skipping.');
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+        console.log('Altering `invoices` table to make `fileName` a primary key to avoid duplicates...');
+        // First remove existing primary key if one exists on another column
+        try {
+            await connection.query("ALTER TABLE `invoices` DROP PRIMARY KEY");
+        } catch (pkError) {
+            // Ignore if no primary key exists
+        }
+        await connection.query(
+          "ALTER TABLE `invoices` ADD PRIMARY KEY (`fileName`)"
+        );
+        console.log('Successfully set `fileName` as primary key on `invoices` table.');
+    } catch (error) {
+       if (error.code === 'ER_MULTIPLE_PRI_KEY') {
+        console.log('A primary key already exists. Skipping setting a new one on `fileName`.');
       } else {
         throw error;
       }

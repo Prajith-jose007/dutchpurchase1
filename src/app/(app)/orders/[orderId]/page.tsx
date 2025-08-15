@@ -106,7 +106,7 @@ export default function OrderDetailsPage() {
 
   const handleConfirmCloseOrder = async () => {
     if (!order || !currentUser || !invoiceNumber) {
-        toast({ title: "Missing Invoice Number", description: "Please provide an invoice number to close the order.", variant: "destructive" });
+        toast({ title: "Missing Invoice Number", description: "Please provide at least one invoice number to close the order.", variant: "destructive" });
         return;
     }
     setIsSubmitting(true);
@@ -116,7 +116,7 @@ export default function OrderDetailsPage() {
     });
 
     if (result.success) {
-        toast({ title: "Order Closed", description: "The order has been successfully closed." });
+        toast({ title: "Order Closed", description: "The order has been successfully closed and invoice entries created." });
         setIsCloseOrderDialogOpen(false);
         setInvoiceNumber('');
         setInvoiceNotes('');
@@ -291,21 +291,24 @@ export default function OrderDetailsPage() {
             <>
             <Separator />
             <CardContent className="pt-6">
-                <h3 className="text-xl font-semibold mb-4 font-headline">Attached Invoices</h3>
+                <h3 className="text-xl font-semibold mb-4 font-headline">Associated Invoices</h3>
                  <div className="space-y-4">
                     {order.invoices.map((invoice: Invoice, index: number) => (
                       <div key={index} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
                         <a 
-                          href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
+                          href={invoice.fileName.startsWith('manual_entry_') ? '#' : `/api/invoices/${encodeURIComponent(invoice.fileName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-3 flex-grow"
+                          className={`flex items-center gap-3 flex-grow ${invoice.fileName.startsWith('manual_entry_') ? 'cursor-default' : ''}`}
+                          onClick={(e) => { if (invoice.fileName.startsWith('manual_entry_')) e.preventDefault(); }}
                         >
                           <Icons.FileText className="h-6 w-6 text-muted-foreground"/>
                           <div>
-                            <span className="text-sm font-medium text-primary hover:underline">{invoice.fileName}</span>
+                            <span className={`text-sm font-medium ${!invoice.fileName.startsWith('manual_entry_') ? 'text-primary hover:underline' : ''}`}>
+                                {invoice.fileName.startsWith('manual_entry_') ? `Invoice: ${invoice.fileName.replace('manual_entry_', '')}` : invoice.fileName}
+                            </span>
                             <div className="text-xs text-muted-foreground">
-                                Uploaded by {invoice.uploaderName || 'N/A'} on {new Date(invoice.uploadedAt).toLocaleDateString()}
+                                Recorded by {invoice.uploaderName || 'N/A'} on {new Date(invoice.uploadedAt).toLocaleDateString()}
                             </div>
                             {invoice.notes && (
                                 <p className="text-xs text-foreground mt-1">Note: {invoice.notes}</p>
@@ -367,26 +370,27 @@ export default function OrderDetailsPage() {
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Close Order #{order.id.substring(0, 8)}</DialogTitle>
-              <DialogDescription>To close this order, please provide the invoice number.</DialogDescription>
+              <DialogDescription>To close this order, please provide the invoice number(s).</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 pt-4">
                <div>
-                  <Label htmlFor="invoice-number">Invoice Number (Required)</Label>
+                  <Label htmlFor="invoice-number">Invoice Number(s) (Required)</Label>
                   <Input 
                     id="invoice-number" 
-                    placeholder="e.g., INV-12345"
+                    placeholder="e.g., INV-123, INV-456"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     disabled={isSubmitting}
                     className="mt-1"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Enter multiple invoice numbers separated by a comma.</p>
                 </div>
                 <div>
                   <Label htmlFor="invoice-notes">Notes (Optional)</Label>
                   <Textarea 
                     id="invoice-notes" 
-                    placeholder="e.g., This invoice also covers order #... for JBR outlet."
+                    placeholder="e.g., This invoice also covers other orders."
                     value={invoiceNotes}
                     onChange={(e) => setInvoiceNotes(e.target.value)}
                     disabled={isSubmitting}
