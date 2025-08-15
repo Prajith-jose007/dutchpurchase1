@@ -182,13 +182,20 @@ export async function updateOrderStatusAction(
             return { success: false, error: "Order not found." };
         }
         
-        // Update the order status, received by, and received at fields.
-        await connection.query(
-            "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?",
-            [status, actorUserId, new Date(), orderId]
-        );
+        let updateQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
+        const queryParams: (string | Date | null)[] = [status, actorUserId, new Date()];
 
-        // If the order is being closed and invoice details are provided, create entries in the invoices table.
+        if (status === 'Closed' && details?.invoiceNumber) {
+            updateQuery += ", invoiceNumber = ?, invoiceNotes = ?";
+            queryParams.push(details.invoiceNumber);
+            queryParams.push(details.invoiceNotes || null);
+        }
+        
+        updateQuery += " WHERE id = ?";
+        queryParams.push(orderId);
+
+        await connection.query(updateQuery, queryParams);
+
         if (status === 'Closed' && details?.invoiceNumber) {
             const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
             const notes = `${details.invoiceNotes || ''} (Covers Order: ${orderId})`.trim();
@@ -368,6 +375,7 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; count?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
+    const invoiceNumber = formData.get('invoiceNumber') as string | null;
     const notes = formData.get('notes') as string | null;
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
@@ -375,6 +383,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const connection = await pool.getConnection();
+    let processedCount = 0;
 
     try {
         await fs.mkdir(invoicesDir, { recursive: true });
@@ -385,15 +394,21 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
+
+            const recordFilename = invoiceNumber ? `manual_entry_${invoiceNumber}` : uniqueFilename;
             
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?)", 
-                [uniqueFilename, userId, notes, new Date()]
+                `INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) 
+                 VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE 
+                 fileName = ?, uploaderId = ?, notes = ?, uploadedAt = ?`,
+                [recordFilename, userId, notes, new Date(), uniqueFilename, userId, notes, new Date()]
             );
+            processedCount++;
         }
 
         await connection.commit();
-        return { success: true, count: files.length };
+        return { success: true, count: processedCount };
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
@@ -424,7 +439,6 @@ export async function getInvoicesAction(): Promise<Invoice[]> {
 
 export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
-    const filePath = path.join(invoicesDir, fileName);
     const connection = await pool.getConnection();
 
     try {
@@ -437,14 +451,17 @@ export async function deleteInvoiceAction(fileName: string): Promise<{ success: 
         }
 
         if (!fileName.startsWith('manual_entry_')) {
+          const filePath = path.join(invoicesDir, fileName);
           try {
               await fs.unlink(filePath);
           } catch (fileError: any) {
               if (fileError.code !== 'ENOENT') {
+                  // If the file doesn't exist, we can ignore it, but if it's another error, we should rollback.
                   await connection.rollback();
                   console.error("Failed to delete invoice file:", fileError);
                   return { success: false, error: "Failed to delete the invoice file from storage." };
               }
+              // If ENOENT, we proceed to commit the DB deletion.
           }
         }
 

@@ -1,4 +1,3 @@
-
 // src/app/(app)/purchase/invoices/page.tsx
 "use client";
 
@@ -24,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
 const uploadSchema = z.object({
+  invoiceNumber: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -39,7 +39,7 @@ export default function InvoiceManagementPage() {
 
   const form = useForm<UploadFormData>({
     resolver: zodResolver(uploadSchema),
-    defaultValues: { notes: '' },
+    defaultValues: { invoiceNumber: '', notes: '' },
   });
 
   const fetchInvoices = async () => {
@@ -81,6 +81,9 @@ export default function InvoiceManagementPage() {
     const formData = new FormData();
     filesToUpload.forEach(file => formData.append('invoices', file));
     formData.append('userId', currentUser.id);
+    if (data.invoiceNumber) {
+      formData.append('invoiceNumber', data.invoiceNumber);
+    }
     if (data.notes) {
       formData.append('notes', data.notes);
     }
@@ -88,7 +91,7 @@ export default function InvoiceManagementPage() {
     const result = await uploadInvoicesAction(formData);
 
     if (result.success) {
-      toast({ title: "Upload Successful", description: `${result.count} invoice(s) uploaded.` });
+      toast({ title: "Upload Successful", description: `${result.count} invoice(s) processed.` });
       form.reset();
       setFilesToUpload([]);
       await fetchInvoices();
@@ -101,7 +104,7 @@ export default function InvoiceManagementPage() {
   const handleDeleteInvoice = async (fileName: string) => {
     const result = await deleteInvoiceAction(fileName);
     if(result.success) {
-        toast({ title: "Invoice Deleted", description: "The invoice file has been removed." });
+        toast({ title: "Invoice Deleted", description: "The invoice record has been removed." });
         await fetchInvoices();
     } else {
         toast({ title: "Error", description: result.error || "Could not delete the invoice.", variant: "destructive" });
@@ -124,7 +127,7 @@ export default function InvoiceManagementPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Upload New Invoice(s)</CardTitle>
-              <CardDescription>Select files and add notes if they cover multiple orders.</CardDescription>
+              <CardDescription>Select a file and optionally link it to an invoice number.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -151,11 +154,21 @@ export default function InvoiceManagementPage() {
                     </div>
                   )}
 
+                  <FormField control={form.control} name="invoiceNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Invoice Number (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., INV-12345" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
                   <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes</FormLabel>
+                      <FormLabel>Notes (Optional)</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="e.g., Covers orders #xyz, #abc for invoice 12345" {...field} />
+                        <Textarea placeholder="Add any relevant notes here..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -175,14 +188,14 @@ export default function InvoiceManagementPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Uploaded Invoice Log</CardTitle>
-              <CardDescription>The complete history of all uploaded invoices.</CardDescription>
+              <CardDescription>The complete history of all invoices.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[60vh] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Invoice / File Name</TableHead>
+                      <TableHead>Invoice</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -201,7 +214,7 @@ export default function InvoiceManagementPage() {
                                 {displayName}
                            </a>
                            {invoice.notes && <p className="text-xs text-muted-foreground mt-1 pl-6">{invoice.notes}</p>}
-                           {isManualEntry && <Badge variant="secondary" className="mt-1 ml-6">Manual Entry</Badge>}
+                           {isManualEntry && <Badge variant="secondary" className="mt-1 ml-6">Manual Entry - No File</Badge>}
                         </TableCell>
                         <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
                         <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
