@@ -1,3 +1,4 @@
+
 // src/app/(app)/purchase/invoices/page.tsx
 "use client";
 
@@ -23,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
 const uploadSchema = z.object({
-  invoiceNumber: z.string().optional(),
+  invoiceNumber: z.string().min(1, "Invoice number is required when uploading a file."),
   notes: z.string().optional(),
 });
 
@@ -66,24 +67,29 @@ export default function InvoiceManagementPage() {
   }, [currentUser, router]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFilesToUpload(prev => [...prev, ...acceptedFiles]);
+    setFilesToUpload(acceptedFiles); // Replaces the old files with the new one.
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+      onDrop,
+      maxFiles: 1,
+      accept: {
+          'image/jpeg': ['.jpeg', '.jpg'],
+          'image/png': ['.png'],
+          'application/pdf': ['.pdf'],
+      }
+  });
 
   const handleUploadSubmit = async (data: UploadFormData) => {
-    if (!filesToUpload.length || !currentUser) {
-      toast({ title: "No Files", description: "Please select at least one file to upload.", variant: "destructive" });
-      return;
-    }
+    if (!currentUser) return;
+    
     setIsUploading(true);
-
     const formData = new FormData();
-    filesToUpload.forEach(file => formData.append('invoices', file));
-    formData.append('userId', currentUser.id);
-    if (data.invoiceNumber) {
-      formData.append('invoiceNumber', data.invoiceNumber);
+    if(filesToUpload.length > 0) {
+      formData.append('invoices', filesToUpload[0]);
     }
+    formData.append('userId', currentUser.id);
+    formData.append('invoiceNumber', data.invoiceNumber);
     if (data.notes) {
       formData.append('notes', data.notes);
     }
@@ -91,7 +97,7 @@ export default function InvoiceManagementPage() {
     const result = await uploadInvoicesAction(formData);
 
     if (result.success) {
-      toast({ title: "Upload Successful", description: `${result.count} invoice(s) processed.` });
+      toast({ title: "Upload Successful", description: `Invoice ${data.invoiceNumber} has been saved.` });
       form.reset();
       setFilesToUpload([]);
       await fetchInvoices();
@@ -101,8 +107,8 @@ export default function InvoiceManagementPage() {
     setIsUploading(false);
   };
   
-  const handleDeleteInvoice = async (fileName: string) => {
-    const result = await deleteInvoiceAction(fileName);
+  const handleDeleteInvoice = async (invoiceId: number) => {
+    const result = await deleteInvoiceAction(invoiceId);
     if(result.success) {
         toast({ title: "Invoice Deleted", description: "The invoice record has been removed." });
         await fetchInvoices();
@@ -126,43 +132,41 @@ export default function InvoiceManagementPage() {
         <div className="lg:col-span-1">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Upload New Invoice(s)</CardTitle>
-              <CardDescription>Select a file and optionally link it to an invoice number.</CardDescription>
+              <CardTitle>Upload or Update Invoice</CardTitle>
+              <CardDescription>Select a file and link it to an invoice number.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleUploadSubmit)} className="space-y-4">
-                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
-                    <input {...getInputProps()} />
-                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                    {isDragActive ? (
-                      <p className="font-semibold text-primary">Drop files here...</p>
-                    ) : (
-                      <p className="text-muted-foreground">Drag & drop files here, or click to select</p>
-                    )}
-                  </div>
-
-                  {filesToUpload.length > 0 && (
-                    <div className="space-y-2 text-sm">
-                      <h4 className="font-medium">Selected files:</h4>
-                      <ul className="list-disc list-inside bg-muted/50 p-3 rounded-md max-h-24 overflow-y-auto">
-                        {filesToUpload.map((file, i) => (
-                          <li key={i} className="truncate">{file.name}</li>
-                        ))}
-                      </ul>
-                      <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setFilesToUpload([])}>Clear selection</Button>
-                    </div>
-                  )}
-
                   <FormField control={form.control} name="invoiceNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Invoice Number (Optional)</FormLabel>
+                      <FormLabel>Invoice Number</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g., INV-12345" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
+                  
+                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
+                    <input {...getInputProps()} />
+                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+                    {isDragActive ? (
+                      <p className="font-semibold text-primary">Drop file here...</p>
+                    ) : (
+                      <p className="text-muted-foreground">Drag & drop a file here, or click to select</p>
+                    )}
+                  </div>
+
+                  {filesToUpload.length > 0 && (
+                    <div className="space-y-2 text-sm">
+                      <h4 className="font-medium">Selected file:</h4>
+                      <div className="bg-muted/50 p-3 rounded-md truncate">
+                         {filesToUpload[0].name}
+                      </div>
+                      <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setFilesToUpload([])}>Clear selection</Button>
+                    </div>
+                  )}
 
                   <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem>
@@ -176,7 +180,7 @@ export default function InvoiceManagementPage() {
 
                   <Button type="submit" className="w-full" disabled={isUploading || filesToUpload.length === 0}>
                     {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
-                    Upload {filesToUpload.length || ''} File(s)
+                    Upload Invoice
                   </Button>
                 </form>
               </Form>
@@ -195,26 +199,27 @@ export default function InvoiceManagementPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Invoice</TableHead>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>File / Notes</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map((invoice, index) => {
-                      const isManualEntry = invoice.fileName.startsWith('manual_entry_');
-                      const displayName = isManualEntry ? `Invoice: ${invoice.fileName.replace('manual_entry_', '')}` : invoice.fileName;
-
-                      return (
-                      <TableRow key={index}>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-mono">{invoice.invoiceNumber}</TableCell>
                         <TableCell>
-                           <a href={isManualEntry ? undefined : `/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className={`font-medium flex items-center gap-2 ${!isManualEntry && 'text-primary hover:underline'}`}>
-                                <Icons.FileText className="h-4 w-4" />
-                                {displayName}
-                           </a>
-                           {invoice.notes && <p className="text-xs text-muted-foreground mt-1 pl-6">{invoice.notes}</p>}
-                           {isManualEntry && <Badge variant="secondary" className="mt-1 ml-6">Manual Entry - No File</Badge>}
+                           {invoice.fileName ? (
+                                <a href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className="font-medium flex items-center gap-2 text-primary hover:underline">
+                                    <Icons.FileText className="h-4 w-4" />
+                                    {invoice.fileName}
+                               </a>
+                           ) : (
+                               <Badge variant="secondary">Manual Entry - No File</Badge>
+                           )}
+                           {invoice.notes && <p className="text-xs text-muted-foreground mt-1">{invoice.notes}</p>}
                         </TableCell>
                         <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
                         <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
@@ -228,17 +233,17 @@ export default function InvoiceManagementPage() {
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>This will permanently delete the invoice record <span className="font-semibold">{displayName}</span>. This action cannot be undone.</AlertDialogDescription>
+                                        <AlertDialogDescription>This will permanently delete the invoice record for <span className="font-semibold">{invoice.invoiceNumber}</span>. This action cannot be undone.</AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.fileName)} className="bg-destructive hover:bg-destructive/90">Delete Invoice</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive hover:bg-destructive/90">Delete Invoice</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                         </TableCell>
                       </TableRow>
-                    )})}
+                    ))}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -249,3 +254,5 @@ export default function InvoiceManagementPage() {
     </div>
   );
 }
+
+    

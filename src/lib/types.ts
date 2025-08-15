@@ -64,8 +64,9 @@ export interface User {
 }
 
 export interface Invoice {
-  fileName: string;
-  orderId: string | null;
+  id: number;
+  invoiceNumber: string;
+  fileName: string | null;
   notes?: string | null;
   uploadedAt: string;
   uploaderName?: string;
@@ -90,3 +91,5 @@ export interface DashboardData {
     monthlyPurchases: { month: string; total: number }[];
     storePurchases: { name: string; value: number }[];
 }
+
+    

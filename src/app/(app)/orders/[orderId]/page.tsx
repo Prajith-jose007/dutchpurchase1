@@ -229,7 +229,7 @@ export default function OrderDetailsPage() {
             </div>
             {order.invoiceNumber && (
               <div>
-                  <CardTitle className="text-base font-semibold text-muted-foreground">Invoice Number</CardTitle>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Invoice Number(s)</CardTitle>
                   <CardDescription className="text-lg text-foreground">{order.invoiceNumber}</CardDescription>
               </div>
             )}
@@ -247,7 +247,7 @@ export default function OrderDetailsPage() {
             )}
             {order.invoiceNotes && (
                  <div className="md:col-span-2 lg:col-span-3">
-                    <CardTitle className="text-base font-semibold text-muted-foreground">Invoice Notes</CardTitle>
+                    <CardTitle className="text-base font-semibold text-muted-foreground">Order Notes</CardTitle>
                     <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md mt-1">{order.invoiceNotes}</p>
                  </div>
             )}
@@ -294,27 +294,34 @@ export default function OrderDetailsPage() {
                 <h3 className="text-xl font-semibold mb-4 font-headline">Associated Invoices</h3>
                  <div className="space-y-4">
                     {order.invoices.map((invoice: Invoice, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                        <a 
-                          href={invoice.fileName.startsWith('manual_entry_') ? '#' : `/api/invoices/${encodeURIComponent(invoice.fileName)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-3 flex-grow ${invoice.fileName.startsWith('manual_entry_') ? 'cursor-default' : ''}`}
-                          onClick={(e) => { if (invoice.fileName.startsWith('manual_entry_')) e.preventDefault(); }}
-                        >
-                          <Icons.FileText className="h-6 w-6 text-muted-foreground"/>
-                          <div>
-                            <span className={`text-sm font-medium ${!invoice.fileName.startsWith('manual_entry_') ? 'text-primary hover:underline' : ''}`}>
-                                {invoice.fileName.startsWith('manual_entry_') ? `Invoice: ${invoice.fileName.replace('manual_entry_', '')}` : invoice.fileName}
-                            </span>
-                            <div className="text-xs text-muted-foreground">
+                      <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                        <div className="flex-grow">
+                            <div className="flex items-center gap-3">
+                                <Icons.FileText className="h-6 w-6 text-muted-foreground"/>
+                                <div>
+                                    <p className="font-medium">Invoice: {invoice.invoiceNumber}</p>
+                                    {invoice.fileName ? (
+                                     <a 
+                                        href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-primary hover:underline"
+                                        >
+                                            {invoice.fileName}
+                                     </a>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground italic">No file uploaded</p>
+                                    )}
+                                </div>
+                            </div>
+
+                             <div className="text-xs text-muted-foreground mt-2 pl-9">
                                 Recorded by {invoice.uploaderName || 'N/A'} on {new Date(invoice.uploadedAt).toLocaleDateString()}
                             </div>
                             {invoice.notes && (
-                                <p className="text-xs text-foreground mt-1">Note: {invoice.notes}</p>
+                                <p className="text-xs text-foreground mt-1 pl-9">Note: {invoice.notes}</p>
                             )}
-                          </div>
-                        </a>
+                        </div>
                       </div>
                     ))}
                  </div>
@@ -410,3 +417,5 @@ export default function OrderDetailsPage() {
     </>
   );
 }
+
+    

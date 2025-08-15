@@ -129,8 +129,11 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
     const [invoiceRows] = await pool.query<RowDataPacket[]>(
-        "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
-        [`%${orderId}%`]
+      `SELECT i.id, i.invoiceNumber, i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
+       FROM invoices i 
+       LEFT JOIN users u ON i.uploaderId = u.id 
+       WHERE i.notes LIKE ? OR FIND_IN_SET(i.invoiceNumber, ?) > 0`,
+      [`%${orderId}%`, orderData.invoiceNumber]
     );
 
     const order: Order = {
@@ -155,8 +158,9 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           price: Number(item.price),
         })),
         invoices: invoiceRows.map(row => ({
+          id: row.id,
+          invoiceNumber: row.invoiceNumber,
           fileName: row.fileName,
-          orderId: null,
           notes: row.notes,
           uploadedAt: new Date(row.uploadedAt).toISOString(),
           uploaderName: row.uploaderName
@@ -198,13 +202,12 @@ export async function updateOrderStatusAction(
 
         if (status === 'Closed' && details?.invoiceNumber) {
             const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
-            const notes = `${details.invoiceNotes || ''} (Covers Order: ${orderId})`.trim();
+            const notes = `${details.invoiceNotes || ''} (For Order: ${orderId})`.trim();
 
             for (const invNumber of invoiceNumbers) {
-                const uniqueFilename = `manual_entry_${invNumber}`;
                 await connection.query(
-                    "INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = VALUES(notes), uploaderId = VALUES(uploaderId)",
-                    [uniqueFilename, actorUserId, notes, new Date()]
+                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = CONCAT(notes, '; ', VALUES(notes)), uploaderId = VALUES(uploaderId)",
+                    [invNumber, actorUserId, notes, new Date()]
                 );
             }
         }
@@ -378,42 +381,64 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     const invoiceNumber = formData.get('invoiceNumber') as string | null;
     const notes = formData.get('notes') as string | null;
 
-    if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
+    if ((!files || files.length === 0) && !invoiceNumber) {
+        return { success: false, error: 'You must provide an invoice number.' };
+    }
     if (!userId) return { success: false, error: 'User is not authenticated.' };
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
+    await fs.mkdir(invoicesDir, { recursive: true });
+
     const connection = await pool.getConnection();
-    let processedCount = 0;
 
     try {
-        await fs.mkdir(invoicesDir, { recursive: true });
         await connection.beginTransaction();
 
-        for (const file of files) {
-            const buffer = Buffer.from(await file.arrayBuffer());
-            const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const filePath = path.join(invoicesDir, uniqueFilename);
-            await fs.writeFile(filePath, buffer);
+        if (invoiceNumber) { // If an invoice number is provided, we upsert based on it
+            let uniqueFilename: string | null = null;
+            if (files.length > 0) {
+                const file = files[0]; // Only handle one file per upload form
+                const buffer = Buffer.from(await file.arrayBuffer());
+                uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                const filePath = path.join(invoicesDir, uniqueFilename);
+                await fs.writeFile(filePath, buffer);
+            }
 
-            const recordFilename = invoiceNumber ? `manual_entry_${invoiceNumber}` : uniqueFilename;
+            const upsertSql = `
+                INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    fileName = COALESCE(?, fileName), 
+                    notes = COALESCE(?, notes),
+                    uploaderId = ?, 
+                    uploadedAt = ?
+            `;
+            await connection.query(upsertSql, [
+                invoiceNumber, uniqueFilename, userId, notes, new Date(),
+                uniqueFilename, notes, userId, new Date()
+            ]);
             
-            await connection.query(
-                `INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) 
-                 VALUES (?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE 
-                 fileName = ?, uploaderId = ?, notes = ?, uploadedAt = ?`,
-                [recordFilename, userId, notes, new Date(), uniqueFilename, userId, notes, new Date()]
-            );
-            processedCount++;
-        }
+        } else { // Handle bulk file upload without invoice number association (original behavior)
+             for (const file of files) {
+                const buffer = Buffer.from(await file.arrayBuffer());
+                const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                const filePath = path.join(invoicesDir, uniqueFilename);
+                await fs.writeFile(filePath, buffer);
 
+                 await connection.query(
+                    'INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?, ?)',
+                    [uniqueFilename, uniqueFilename, userId, notes, new Date()]
+                );
+            }
+        }
+        
         await connection.commit();
-        return { success: true, count: processedCount };
+        return { success: true, count: files.length };
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
         if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
-             return { success: false, error: 'An invoice with this name has already been uploaded. Please rename the file or check existing invoices.' };
+             return { success: false, error: 'An invoice with this number already exists.' };
         }
         return { success: false, error: 'An error occurred during invoice upload.' };
     } finally {
@@ -421,36 +446,48 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     }
 }
 
+
 export async function getInvoicesAction(): Promise<Invoice[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
+    `SELECT i.id, i.invoiceNumber, i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
      FROM invoices i 
      LEFT JOIN users u ON i.uploaderId = u.id 
      ORDER BY i.uploadedAt DESC`
   );
   return rows.map(r => ({
+      id: r.id,
+      invoiceNumber: r.invoiceNumber,
       fileName: r.fileName,
-      orderId: null, // Not directly linked
       notes: r.notes,
       uploadedAt: new Date(r.uploadedAt).toISOString(),
       uploaderName: r.uploaderName,
   }));
 }
 
-export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
+export async function deleteInvoiceAction(invoiceId: number): Promise<{ success: boolean, error?: string }> {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const connection = await pool.getConnection();
 
     try {
         await connection.beginTransaction();
-        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ?", [fileName]);
+
+        // First, get the filename to delete the file
+        const [invoiceRows] = await connection.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE id = ?", [invoiceId]);
+        if (invoiceRows.length === 0) {
+            await connection.rollback();
+            return { success: false, error: "Invoice not found." };
+        }
+        const fileName = invoiceRows[0].fileName;
+
+        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE id = ?", [invoiceId]);
         
         if (result.affectedRows === 0) {
             await connection.rollback();
             return { success: false, error: "Invoice not found in the database." };
         }
 
-        if (!fileName.startsWith('manual_entry_')) {
+        // Only try to delete a file if there is a fileName and it's not a manual entry placeholder
+        if (fileName) {
           const filePath = path.join(invoicesDir, fileName);
           try {
               await fs.unlink(filePath);
@@ -753,3 +790,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
