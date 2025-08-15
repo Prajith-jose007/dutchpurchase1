@@ -32,10 +32,13 @@ async function addInvoiceNotesColumn() {
         } else if (error.code === 'ER_MULTIPLE_PRI_KEY') {
              console.log("A primary key already exists. Attempting to drop existing and add new one.");
              try {
-                // This is risky, assumes we want to replace the PK
-                await connection.query("ALTER TABLE `invoices` DROP PRIMARY KEY");
-                await connection.query("ALTER TABLE `invoices` ADD COLUMN `id` INT AUTO_INCREMENT PRIMARY KEY FIRST");
-                console.log("Successfully replaced primary key with `id`.");
+                const [pkInfo] = await connection.query("SHOW KEYS FROM `invoices` WHERE Key_name = 'PRIMARY'");
+                if (pkInfo && pkInfo.length > 0 && pkInfo[0].Column_name !== 'id') {
+                    await connection.query(`ALTER TABLE \`invoices\` DROP PRIMARY KEY, ADD COLUMN \`id\` INT AUTO_INCREMENT PRIMARY KEY FIRST`);
+                     console.log("Successfully replaced primary key with `id`.");
+                } else {
+                     console.log("Primary key is already `id` or no primary key exists. No changes made.");
+                }
              } catch (pkError) {
                 console.error("Failed to replace primary key:", pkError);
              }
@@ -109,4 +112,5 @@ async function addInvoiceNotesColumn() {
 
 addInvoiceNotesColumn();
 
+    
     

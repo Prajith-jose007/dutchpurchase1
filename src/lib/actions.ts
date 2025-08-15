@@ -132,8 +132,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
       `SELECT i.id, i.invoiceNumber, i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
        FROM invoices i 
        LEFT JOIN users u ON i.uploaderId = u.id 
-       WHERE i.notes LIKE ? OR FIND_IN_SET(i.invoiceNumber, ?) > 0`,
-      [`%${orderId}%`, orderData.invoiceNumber]
+       WHERE FIND_IN_SET(i.invoiceNumber, ?) > 0`,
+      [orderData.invoiceNumber]
     );
 
     const order: Order = {
@@ -179,13 +179,6 @@ export async function updateOrderStatusAction(
     try {
         await connection.beginTransaction();
 
-        const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT status FROM orders WHERE id = ?", [orderId]);
-
-        if (currentOrderRows.length === 0) {
-            await connection.rollback();
-            return { success: false, error: "Order not found." };
-        }
-        
         let updateQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
         const queryParams: (string | Date | null)[] = [status, actorUserId, new Date()];
 
@@ -202,12 +195,12 @@ export async function updateOrderStatusAction(
 
         if (status === 'Closed' && details?.invoiceNumber) {
             const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
-            const notes = `${details.invoiceNotes || ''} (For Order: ${orderId})`.trim();
+            const notes = details.invoiceNotes || null;
 
             for (const invNumber of invoiceNumbers) {
                 await connection.query(
-                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = CONCAT(notes, '; ', VALUES(notes)), uploaderId = VALUES(uploaderId)",
-                    [invNumber, actorUserId, notes, new Date()]
+                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = COALESCE(?, notes), uploaderId = VALUES(uploaderId), uploadedAt = VALUES(uploadedAt)",
+                    [invNumber, actorUserId, notes, new Date(), notes]
                 );
             }
         }
@@ -381,7 +374,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     const invoiceNumber = formData.get('invoiceNumber') as string | null;
     const notes = formData.get('notes') as string | null;
 
-    if ((!files || files.length === 0) && !invoiceNumber) {
+    if (!invoiceNumber) {
         return { success: false, error: 'You must provide an invoice number.' };
     }
     if (!userId) return { success: false, error: 'User is not authenticated.' };
@@ -394,43 +387,28 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     try {
         await connection.beginTransaction();
 
-        if (invoiceNumber) { // If an invoice number is provided, we upsert based on it
-            let uniqueFilename: string | null = null;
-            if (files.length > 0) {
-                const file = files[0]; // Only handle one file per upload form
-                const buffer = Buffer.from(await file.arrayBuffer());
-                uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-                const filePath = path.join(invoicesDir, uniqueFilename);
-                await fs.writeFile(filePath, buffer);
-            }
-
-            const upsertSql = `
-                INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                    fileName = COALESCE(?, fileName), 
-                    notes = COALESCE(?, notes),
-                    uploaderId = ?, 
-                    uploadedAt = ?
-            `;
-            await connection.query(upsertSql, [
-                invoiceNumber, uniqueFilename, userId, notes, new Date(),
-                uniqueFilename, notes, userId, new Date()
-            ]);
-            
-        } else { // Handle bulk file upload without invoice number association (original behavior)
-             for (const file of files) {
-                const buffer = Buffer.from(await file.arrayBuffer());
-                const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-                const filePath = path.join(invoicesDir, uniqueFilename);
-                await fs.writeFile(filePath, buffer);
-
-                 await connection.query(
-                    'INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?, ?)',
-                    [uniqueFilename, uniqueFilename, userId, notes, new Date()]
-                );
-            }
+        let uniqueFilename: string | null = null;
+        if (files.length > 0) {
+            const file = files[0]; // Only handle one file per upload form
+            const buffer = Buffer.from(await file.arrayBuffer());
+            uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const filePath = path.join(invoicesDir, uniqueFilename);
+            await fs.writeFile(filePath, buffer);
         }
+
+        const upsertSql = `
+            INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+                fileName = COALESCE(?, fileName), 
+                notes = COALESCE(?, notes),
+                uploaderId = ?, 
+                uploadedAt = ?
+        `;
+        await connection.query(upsertSql, [
+            invoiceNumber, uniqueFilename, userId, notes, new Date(),
+            uniqueFilename, notes, userId, new Date()
+        ]);
         
         await connection.commit();
         return { success: true, count: files.length };
@@ -791,4 +769,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     }
 }
 
+    
     
