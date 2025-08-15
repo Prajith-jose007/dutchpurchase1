@@ -17,6 +17,7 @@
     "db:add-receiving": "node scripts/db-add-receiving-info.js",
     "db:fix-quantity": "node scripts/db-fix-quantity-type.js",
     "db:add-invoice-notes": "node scripts/db-add-invoice-notes.js",
+    "db:add-invoice-number": "node scripts/db-add-invoice-number.js",
     "migrate:data": "node src/scripts/migrate-data.js",
     "migrate:inventory": "node scripts/migrate-inventory.js",
     "postinstall": "patch-package"

@@ -85,7 +85,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName
+            receivingUser.name as receivingUserName,
+            o.invoiceNumber, o.invoiceNotes
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -100,60 +101,41 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
     query += " ORDER BY o.createdAt DESC";
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
-    const [itemRows] = await pool.query<RowDataPacket[]>("SELECT orderId, itemId, description, quantity, units, price as itemPrice FROM order_items");
     
-    // Fetch all invoices. We will map them in the application logic.
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName FROM invoices");
-    const allInvoiceFileNames = invoiceRows.map(r => r.fileName);
-
-    const ordersMap: { [key: string]: Order } = {};
-
-    orderRows.forEach(row => {
-        if (!ordersMap[row.id]) {
-            ordersMap[row.id] = {
-                id: row.id,
-                branchId: row.branchId,
-                userId: row.userId,
-                createdAt: new Date(row.createdAt).toISOString(),
-                status: row.status,
-                totalItems: Number(row.totalItems),
-                totalPrice: Number(row.totalPrice),
-                receivedByUserId: row.receivedByUserId,
-                receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
-                placingUserName: row.placingUserName,
-                receivingUserName: row.receivingUserName,
-                items: [],
-                // Match invoices by checking if the filename contains the order ID.
-                invoiceFileNames: allInvoiceFileNames.filter(name => name.includes(row.id))
-            };
-        }
-    });
-
-    itemRows.forEach(item => {
-        if (ordersMap[item.orderId]) {
-            ordersMap[item.orderId].items.push({
-                itemId: item.itemId,
-                description: item.description,
-                quantity: Number(item.quantity),
-                units: item.units,
-                price: Number(item.itemPrice),
-            });
-        }
-    });
-
-    return Object.values(ordersMap);
+    // In this simplified model, we are not joining items or invoices here for performance.
+    // That data will be fetched on the order details page.
+    
+    return orderRows.map(row => ({
+        id: row.id,
+        branchId: row.branchId,
+        userId: row.userId,
+        createdAt: new Date(row.createdAt).toISOString(),
+        status: row.status,
+        totalItems: Number(row.totalItems),
+        totalPrice: Number(row.totalPrice),
+        receivedByUserId: row.receivedByUserId,
+        receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
+        placingUserName: row.placingUserName,
+        receivingUserName: row.receivingUserName,
+        invoiceNumber: row.invoiceNumber,
+        invoiceNotes: row.invoiceNotes,
+        items: [], // Kept empty for the list view
+    }));
 }
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT * FROM orders WHERE id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // Correctly fetch invoices associated with this specific orderId by using LIKE
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE fileName LIKE ?", [`%${orderId}%`]);
+    // Correctly fetch invoices associated with this specific orderId by searching in the notes or matching the invoice number
+    const [invoiceRows] = await pool.query<RowDataPacket[]>(
+        "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ? OR i.fileName LIKE ?",
+        [`%${orderId}%`, `%${orderData.invoiceNumber}%`]
+    );
 
     const order: Order = {
         id: orderData.id,
@@ -163,6 +145,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
+        invoiceNumber: orderData.invoiceNumber,
+        invoiceNotes: orderData.invoiceNotes,
         receivedByUserId: orderData.receivedByUserId,
         receivedAt: orderData.receivedAt ? new Date(orderData.receivedAt).toISOString() : null,
         items: itemRows.map(item => ({
@@ -174,14 +158,21 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         })),
         invoices: invoiceRows.map(row => ({
           fileName: row.fileName,
-          orderId: orderId, // We know the orderId here
+          orderId: null, // orderId is not stored on invoices table
           notes: row.notes,
+          uploadedAt: new Date(row.uploadedAt).toISOString(),
+          uploaderName: row.uploaderName
         }))
     };
     return order;
 }
 
-export async function updateOrderStatusAction(orderId: string, status: OrderStatus, actorUserId: string): Promise<{ success: boolean; error?: string }> {
+export async function updateOrderStatusAction(
+  orderId: string, 
+  status: OrderStatus, 
+  actorUserId: string,
+  details?: { invoiceNumber?: string, invoiceNotes?: string }
+): Promise<{ success: boolean; error?: string }> {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -190,12 +181,20 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
 
         if (currentOrderRows.length === 0) {
             await connection.rollback();
-            connection.release();
             return { success: false, error: "Order not found." };
         }
         
-        const query = `UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?`;
-        const params = [status, actorUserId, new Date(), orderId];
+        let query = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
+        const params: (string|Date|null)[] = [status, actorUserId, new Date()];
+
+        if (status === 'Closed' && details?.invoiceNumber) {
+            query += ", invoiceNumber = ?, invoiceNotes = ?";
+            params.push(details.invoiceNumber);
+            params.push(details.invoiceNotes || null);
+        }
+        
+        query += " WHERE id = ?";
+        params.push(orderId);
 
         await connection.query(query, params);
         await connection.commit();
@@ -220,7 +219,8 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
         await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
         
-        await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
+        // This assumes invoices are not hard-linked and might need manual cleanup if files are orphaned
+        // await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
 
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
@@ -365,12 +365,10 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
-    const orderId = formData.get('orderId') as string;
     const notes = formData.get('notes') as string | null;
 
     if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
-    if (!orderId) return { success: false, error: 'Order ID is missing.' };
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const connection = await pool.getConnection();
@@ -381,15 +379,13 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
-            // We include the orderId in the filename itself as a workaround for not having a dedicated column.
-            const uniqueFilename = `${orderId}-${Date.now()}-${file.name}`;
+            const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
             
-            // The INSERT query now correctly matches the schema (no orderId column)
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, notes) VALUES (?, ?, ?)", 
-                [uniqueFilename, userId, notes]
+                "INSERT INTO invoices (fileName, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?)", 
+                [uniqueFilename, userId, notes, new Date()]
             );
         }
 
@@ -408,16 +404,22 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  // This function is less useful without an orderId but we'll keep it for potential future use.
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
+     FROM invoices i 
+     LEFT JOIN users u ON i.uploaderId = u.id 
+     ORDER BY i.uploadedAt DESC`
+  );
   return rows.map(r => ({
       fileName: r.fileName,
-      orderId: null, // Cannot determine orderId from the table
-      notes: r.notes
+      orderId: null, // Not directly linked
+      notes: r.notes,
+      uploadedAt: new Date(r.uploadedAt).toISOString(),
+      uploaderName: r.uploaderName,
   }));
 }
 
-export async function deleteInvoiceAction(fileName: string, orderId: string): Promise<{ success: boolean, error?: string }> {
+export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const filePath = path.join(invoicesDir, fileName);
     const connection = await pool.getConnection();
@@ -428,7 +430,7 @@ export async function deleteInvoiceAction(fileName: string, orderId: string): Pr
         
         if (result.affectedRows === 0) {
             await connection.rollback();
-            return { success: false, error: "Invoice not found in the database for this order." };
+            return { success: false, error: "Invoice not found in the database." };
         }
 
         try {
@@ -439,6 +441,7 @@ export async function deleteInvoiceAction(fileName: string, orderId: string): Pr
                 console.error("Failed to delete invoice file:", fileError);
                 return { success: false, error: "Failed to delete the invoice file from storage." };
             }
+            // If file doesn't exist, we can still proceed to delete the DB record.
         }
 
         await connection.commit();

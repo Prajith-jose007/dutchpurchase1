@@ -23,6 +23,7 @@ const navItems = [
   { href: "/orders", label: "Order History", icon: Icons.ClipboardList, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
+  { href: "/purchase/invoices", label: "Invoice Mgt.", icon: Icons.FileText, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },
   { href: "/admin/inventory", label: "Inventory Mgt.", icon: Icons.Archive, roles: ['superadmin', 'admin'] },
   { href: "/admin/reports", label: "Reports", icon: Icons.Reports, roles: ['superadmin', 'admin', 'purchase'] },
