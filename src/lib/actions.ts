@@ -84,9 +84,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         SELECT 
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
+            o.invoiceNumber, o.invoiceNotes,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName,
-            o.invoiceNumber, o.invoiceNotes
+            receivingUser.name as receivingUserName
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -125,17 +125,26 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT * FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT o.*, placingUser.name as placingUserName, receivingUser.name as receivingUserName FROM orders o LEFT JOIN users placingUser ON o.userId = placingUser.id LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id WHERE o.id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
     // Correctly fetch invoices associated with this specific orderId by searching in the notes or matching the invoice number
-    const [invoiceRows] = await pool.query<RowDataPacket[]>(
-        "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ? OR i.fileName LIKE ?",
-        [`%${orderId}%`, `%${orderData.invoiceNumber}%`]
-    );
+    let invoiceRows: RowDataPacket[] = [];
+    if (orderData.invoiceNumber) {
+        [invoiceRows] = await pool.query<RowDataPacket[]>(
+            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ? OR i.fileName LIKE ?",
+            [`%${orderId}%`, `%${orderData.invoiceNumber}%`]
+        );
+    } else {
+        [invoiceRows] = await pool.query<RowDataPacket[]>(
+            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
+            [`%${orderId}%`]
+        );
+    }
+
 
     const order: Order = {
         id: orderData.id,
@@ -145,6 +154,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
+        placingUserName: orderData.placingUserName,
+        receivingUserName: orderData.receivingUserName,
         invoiceNumber: orderData.invoiceNumber,
         invoiceNotes: orderData.invoiceNotes,
         receivedByUserId: orderData.receivedByUserId,
@@ -362,7 +373,7 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
     return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
 }
 
-export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
+export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; count?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
     const userId = formData.get('userId') as string;
     const notes = formData.get('notes') as string | null;
