@@ -85,7 +85,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalItems, o.totalPrice, 
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
-            receivingUser.name as receivingUserName
+            receivingUser.name as receivingUserName,
+            o.invoiceNumber, o.invoiceNotes
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
@@ -101,9 +102,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
     
-    // In this simplified model, we are not joining items or invoices here for performance.
-    // That data will be fetched on the order details page.
-    
     return orderRows.map(row => ({
         id: row.id,
         branchId: row.branchId,
@@ -116,7 +114,9 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
         placingUserName: row.placingUserName,
         receivingUserName: row.receivingUserName,
-        items: [], // Kept empty for the list view
+        invoiceNumber: row.invoiceNumber,
+        invoiceNotes: row.invoiceNotes,
+        items: [],
     }));
 }
 
@@ -128,19 +128,17 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // Correctly fetch invoices associated with this specific orderId by searching in the notes or matching the invoice number
+    // Correctly fetch invoices associated with this specific orderId
     let invoiceRows: RowDataPacket[] = [];
     if (orderData.invoiceNumber) {
-        // Search for the invoice number in the filename (primary link) OR in the notes (secondary link)
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.fileName LIKE ? OR i.notes LIKE ?",
-            [`%${orderData.invoiceNumber}%`, `%orderId:${orderId}%`]
+            [`%${orderData.invoiceNumber}%`, `%${orderId}%`]
         );
     } else {
-         // If no invoice number, just check notes for a manual link
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
-            [`%orderId:${orderId}%`]
+            [`%${orderId}%`]
         );
     }
 
@@ -742,3 +740,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
