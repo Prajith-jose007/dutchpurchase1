@@ -131,11 +131,13 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     // Correctly fetch invoices associated with this specific orderId
     let invoiceRows: RowDataPacket[] = [];
     if (orderData.invoiceNumber) {
+        // Search by invoice number OR if the order ID is mentioned in the notes
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.fileName LIKE ? OR i.notes LIKE ?",
             [`%${orderData.invoiceNumber}%`, `%${orderId}%`]
         );
     } else {
+        // If no invoice number, just check the notes for the order ID
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
             [`%${orderId}%`]
@@ -740,5 +742,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
