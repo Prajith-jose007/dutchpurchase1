@@ -128,19 +128,12 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // Correctly fetch invoices associated with this specific orderId
     let invoiceRows: RowDataPacket[] = [];
+    // A robust way to link invoices: check for the invoice number in the file name or the order ID in the notes.
     if (orderData.invoiceNumber) {
-        // Search by invoice number OR if the order ID is mentioned in the notes
         [invoiceRows] = await pool.query<RowDataPacket[]>(
             "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.fileName LIKE ? OR i.notes LIKE ?",
             [`%${orderData.invoiceNumber}%`, `%${orderId}%`]
-        );
-    } else {
-        // If no invoice number, just check the notes for the order ID
-        [invoiceRows] = await pool.query<RowDataPacket[]>(
-            "SELECT i.fileName, i.notes, i.uploadedAt, u.name as uploaderName FROM invoices i LEFT JOIN users u ON i.uploaderId = u.id WHERE i.notes LIKE ?",
-            [`%${orderId}%`]
         );
     }
 
@@ -195,7 +188,7 @@ export async function updateOrderStatusAction(
         }
         
         let query = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
-        const params: (string|Date|null)[] = [status, actorUserId, new Date()];
+        const params: (string|Date|null|number)[] = [status, actorUserId, new Date()];
 
         if (status === 'Closed' && details?.invoiceNumber) {
             query += ", invoiceNumber = ?, invoiceNotes = ?";
@@ -229,9 +222,6 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
         await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
         
-        // This assumes invoices are not hard-linked and might need manual cleanup if files are orphaned
-        // await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
-
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
         if (result.affectedRows === 0) {
@@ -742,3 +732,5 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
+
+    
