@@ -124,7 +124,6 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 receivingUserName: row.receivingUserName,
                 items: [],
                 // Match invoices by checking if the filename contains the order ID.
-                // This is a workaround for the missing orderId column.
                 invoiceFileNames: allInvoiceFileNames.filter(name => name.includes(row.id))
             };
         }
@@ -153,9 +152,8 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
     
-    // Fetch all invoices. We cannot reliably link them here without an orderId column.
-    // This logic can be expanded later if the schema changes.
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices");
+    // Correctly fetch invoices associated with this specific orderId by using LIKE
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE fileName LIKE ?", [`%${orderId}%`]);
 
     const order: Order = {
         id: orderData.id,
@@ -174,9 +172,11 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           units: item.units,
           price: Number(item.price),
         })),
-        // Since we cannot filter by orderId, we will show all invoices for now or none.
-        // To avoid showing unrelated invoices, it's safer to return an empty array.
-        invoices: []
+        invoices: invoiceRows.map(row => ({
+          fileName: row.fileName,
+          orderId: orderId, // We know the orderId here
+          notes: row.notes,
+        }))
     };
     return order;
 }
