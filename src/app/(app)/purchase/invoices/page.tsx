@@ -89,28 +89,30 @@ export default function InvoiceManagementPage() {
   
   const canUpload = useMemo(() => {
     if (selectedInvoices.length === 0 || !fileToUpload) return false;
-    const firstInvoiceNumber = selectedInvoices[0].invoiceNumber;
+    // Ensure all selected invoices have the same invoice number
+    const firstInvoiceNumber = selectedInvoices[0]?.invoiceNumber;
+    if (!firstInvoiceNumber) return false;
     return selectedInvoices.every(inv => inv.invoiceNumber === firstInvoiceNumber);
   }, [selectedInvoices, fileToUpload]);
 
   const handleUploadSubmit = async (data: UploadFormData) => {
-    if (!currentUser || !canUpload) return;
+    if (!currentUser || !canUpload || !fileToUpload) return;
     
     setIsUploading(true);
+
     const formData = new FormData();
-    formData.append('invoiceFile', fileToUpload!);
+    formData.append('invoiceFile', fileToUpload);
     formData.append('userId', currentUser.id);
     formData.append('invoiceNumber', selectedInvoices[0].invoiceNumber);
     if (data.notes) {
       formData.append('notes', data.notes);
     }
-    // Add all selected IDs to be updated
     selectedInvoiceIds.forEach(id => formData.append('invoiceIds[]', id.toString()));
 
     const result = await uploadInvoicesAction(formData);
 
     if (result.success) {
-      toast({ title: "Upload Successful", description: `Invoice ${selectedInvoices[0].invoiceNumber} has been updated with the file.` });
+      toast({ title: "Upload Successful", description: `Invoice file has been linked to invoice #${selectedInvoices[0].invoiceNumber}.` });
       form.reset();
       setFileToUpload(null);
       setSelectedInvoiceIds([]);
@@ -132,12 +134,33 @@ export default function InvoiceManagementPage() {
   };
 
   const handleSelectInvoice = (invoiceId: number, checked: boolean | 'indeterminate') => {
-    if(checked) {
-      setSelectedInvoiceIds(prev => [...prev, invoiceId]);
-    } else {
-      setSelectedInvoiceIds(prev => prev.filter(id => id !== invoiceId));
-    }
+    setSelectedInvoiceIds(currentSelectedIds => {
+      let newSelectedIds;
+      if (checked) {
+        newSelectedIds = [...currentSelectedIds, invoiceId];
+      } else {
+        newSelectedIds = currentSelectedIds.filter(id => id !== invoiceId);
+      }
+
+      // If we are adding an item, let's filter to ensure consistency
+      if (newSelectedIds.length > 0) {
+        const firstSelectedInvoice = invoices.find(inv => inv.id === newSelectedIds[0]);
+        if (firstSelectedInvoice) {
+          return newSelectedIds.filter(id => {
+            const currentInv = invoices.find(inv => inv.id === id);
+            return currentInv && currentInv.invoiceNumber === firstSelectedInvoice.invoiceNumber;
+          });
+        }
+      }
+      return newSelectedIds;
+    });
   };
+
+  const isSelectionInconsistent = useMemo(() => {
+    if (selectedInvoices.length <= 1) return false;
+    const firstInvoiceNumber = selectedInvoices[0].invoiceNumber;
+    return !selectedInvoices.every(inv => inv.invoiceNumber === firstInvoiceNumber);
+  }, [selectedInvoices]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading Invoices...</p></div>;
@@ -163,7 +186,6 @@ export default function InvoiceManagementPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead padding="checkbox">
-                        {/* Maybe add a select all checkbox here in the future */}
                       </TableHead>
                       <TableHead>Invoice #</TableHead>
                       <TableHead>File / Status</TableHead>
@@ -173,11 +195,16 @@ export default function InvoiceManagementPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoices.map((invoice) => (
-                      <TableRow key={invoice.id} data-state={selectedInvoiceIds.includes(invoice.id) && "selected"}>
+                    {invoices.map((invoice) => {
+                      const isSelected = selectedInvoiceIds.includes(invoice.id);
+                      const canBeSelected = !invoice.fileName && (!selectedInvoices.length || selectedInvoices[0].invoiceNumber === invoice.invoiceNumber);
+
+                      return (
+                      <TableRow key={invoice.id} data-state={isSelected && "selected"}>
                         <TableCell>
                            <Checkbox
-                            checked={selectedInvoiceIds.includes(invoice.id)}
+                            checked={isSelected}
+                            disabled={!!invoice.fileName || (selectedInvoices.length > 0 && selectedInvoices[0].invoiceNumber !== invoice.invoiceNumber && !isSelected)}
                             onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked)}
                             aria-label={`Select invoice ${invoice.invoiceNumber}`}
                            />
@@ -216,7 +243,7 @@ export default function InvoiceManagementPage() {
                             </AlertDialog>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -269,7 +296,7 @@ export default function InvoiceManagementPage() {
                     {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
                     Upload & Link Invoice
                   </Button>
-                  {!canUpload && selectedInvoices.length > 1 && <p className="text-xs text-destructive text-center mt-2">You can only select invoices that share the same invoice number.</p>}
+                  {isSelectionInconsistent && <p className="text-xs text-destructive text-center mt-2">You can only select invoices that share the same invoice number.</p>}
                 </form>
               </Form>
             </CardContent>

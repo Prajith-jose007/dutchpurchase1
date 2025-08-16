@@ -183,7 +183,6 @@ export async function updateOrderStatusAction(
         let updateOrderQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
         const orderParams: (string | Date | null)[] = [status, actorUserId, new Date()];
         
-        // Also store the invoice number and notes on the order for historical reference
         if (status === 'Closed' && details?.invoiceNumber) {
             updateOrderQuery += ", invoiceNumber = ?, invoiceNotes = ?";
             orderParams.push(details.invoiceNumber);
@@ -195,13 +194,11 @@ export async function updateOrderStatusAction(
         
         await connection.query(updateOrderQuery, orderParams);
 
-        // Step 2: Create entries in the invoices table
         if (status === 'Closed' && details?.invoiceNumber) {
             const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
             const notes = details.invoiceNotes || null;
 
             for (const invNumber of invoiceNumbers) {
-                // Insert a new record for this invoice number, marked as a manual entry (no file)
                 await connection.query(
                     "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?)",
                     [invNumber, actorUserId, notes, new Date()]
@@ -379,12 +376,18 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     const notes = formData.get('notes') as string | null;
     const invoiceIdsToUpdate = formData.getAll('invoiceIds[]') as string[];
 
-    if (!invoiceNumber) {
-        return { success: false, error: 'You must provide an invoice number.' };
+    if (!file) {
+      return { success: false, error: 'No invoice file was provided.' };
     }
-    if (!userId) return { success: false, error: 'User is not authenticated.' };
-    if (!file) return { success: false, error: 'No invoice file was provided.' };
-    if (invoiceIdsToUpdate.length === 0) return { success: false, error: 'No invoice entries were selected for update.' };
+    if (!invoiceNumber) {
+      return { success: false, error: 'Invoice number is missing from the request.' };
+    }
+    if (!userId) {
+      return { success: false, error: 'User is not authenticated.' };
+    }
+    if (invoiceIdsToUpdate.length === 0) {
+      return { success: false, error: 'No invoice entries were selected for update.' };
+    }
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     await fs.mkdir(invoicesDir, { recursive: true });
@@ -398,9 +401,8 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
         const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
         const filePath = path.join(invoicesDir, uniqueFilename);
         await fs.writeFile(filePath, buffer);
-
-        // Update all selected invoice entries with the new file and notes
-        const updateSql = `
+        
+        const updateQuery = `
             UPDATE invoices 
             SET 
                 fileName = ?, 
@@ -409,21 +411,32 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
                 uploadedAt = ?
             WHERE id IN (?) AND invoiceNumber = ?
         `;
-        await connection.query(updateSql, [
-            uniqueFilename, notes, userId, new Date(),
-            invoiceIdsToUpdate, invoiceNumber
+        
+        const [result] = await connection.query<OkPacket>(updateQuery, [
+            uniqueFilename,
+            notes || null,
+            userId,
+            new Date(),
+            invoiceIdsToUpdate,
+            invoiceNumber
         ]);
+
+        if (result.affectedRows === 0) {
+            throw new Error("No matching invoices found to update. The invoice number might be incorrect or the selected IDs are invalid.");
+        }
         
         await connection.commit();
         return { success: true };
+
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
-        return { success: false, error: 'An error occurred during invoice upload.' };
+        return { success: false, error: 'An error occurred during invoice upload. Please check the console for details.' };
     } finally {
         connection.release();
     }
 }
+
 
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
@@ -450,7 +463,6 @@ export async function deleteInvoiceAction(invoiceId: number): Promise<{ success:
     try {
         await connection.beginTransaction();
 
-        // First, get the filename to delete the file
         const [invoiceRows] = await connection.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE id = ?", [invoiceId]);
         if (invoiceRows.length === 0) {
             await connection.rollback();
@@ -465,19 +477,16 @@ export async function deleteInvoiceAction(invoiceId: number): Promise<{ success:
             return { success: false, error: "Invoice not found in the database." };
         }
 
-        // Only try to delete a file if there is a fileName and it's not a manual entry placeholder
         if (fileName) {
           const filePath = path.join(invoicesDir, fileName);
           try {
               await fs.unlink(filePath);
           } catch (fileError: any) {
               if (fileError.code !== 'ENOENT') {
-                  // If the file doesn't exist, we can ignore it, but if it's another error, we should rollback.
                   await connection.rollback();
                   console.error("Failed to delete invoice file:", fileError);
                   return { success: false, error: "Failed to delete the invoice file from storage." };
               }
-              // If ENOENT, we proceed to commit the DB deletion.
           }
         }
 
