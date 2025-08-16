@@ -24,6 +24,7 @@ async function setupMasterInvoices() {
 
     // Create master_invoices table
     console.log('Creating `master_invoices` table if it does not exist...');
+    // The VARCHAR(191) on the key is a fix for "Specified key was too long" error on some MySQL setups.
     await connection.query(`
       CREATE TABLE IF NOT EXISTS master_invoices (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -32,7 +33,7 @@ async function setupMasterInvoices() {
         notes TEXT NULL,
         createdAt DATETIME NOT NULL,
         uploaderId VARCHAR(255) NULL,
-        UNIQUE KEY unique_invoiceNumber (invoiceNumber)
+        UNIQUE KEY unique_invoiceNumber (invoiceNumber(191))
       )
     `);
     console.log('`master_invoices` table created or already exists.');
