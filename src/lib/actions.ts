@@ -79,7 +79,7 @@ export async function submitOrderAction(cartItems: CartItem[], branchId: string,
   }
 }
 
-export async function getOrdersAction(user: User | null): Promise<Order[]> {
+export async function getOrdersAction(user: User): Promise<Order[]> {
     if (!user) return [];
 
     let query = `
@@ -924,3 +924,5 @@ export async function getMasterInvoiceDetailsAction(invoiceNumber: string): Prom
         connection.release();
     }
 }
+
+    
