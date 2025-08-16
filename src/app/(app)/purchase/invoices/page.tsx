@@ -82,28 +82,14 @@ export default function InvoiceManagementPage() {
       }
   });
 
-  const selectedInvoices = useMemo(() => 
-    selectedInvoiceIds.map(id => invoices.find(inv => inv.id === id)).filter(Boolean) as Invoice[],
-    [selectedInvoiceIds, invoices]
-  );
-  
-  const canUpload = useMemo(() => {
-    if (selectedInvoices.length === 0 || !fileToUpload) return false;
-    // Ensure all selected invoices have the same invoice number
-    const firstInvoiceNumber = selectedInvoices[0]?.invoiceNumber;
-    if (!firstInvoiceNumber) return false;
-    return selectedInvoices.every(inv => inv.invoiceNumber === firstInvoiceNumber);
-  }, [selectedInvoices, fileToUpload]);
-
   const handleUploadSubmit = async (data: UploadFormData) => {
-    if (!currentUser || !canUpload || !fileToUpload) return;
+    if (!currentUser || !fileToUpload || selectedInvoiceIds.length === 0) return;
     
     setIsUploading(true);
 
     const formData = new FormData();
     formData.append('invoiceFile', fileToUpload);
     formData.append('userId', currentUser.id);
-    formData.append('invoiceNumber', selectedInvoices[0].invoiceNumber);
     if (data.notes) {
       formData.append('notes', data.notes);
     }
@@ -112,7 +98,7 @@ export default function InvoiceManagementPage() {
     const result = await uploadInvoicesAction(formData);
 
     if (result.success) {
-      toast({ title: "Upload Successful", description: `Invoice file has been linked to invoice #${selectedInvoices[0].invoiceNumber}.` });
+      toast({ title: "Upload Successful", description: `Invoice file has been linked to ${selectedInvoiceIds.length} entries.` });
       form.reset();
       setFileToUpload(null);
       setSelectedInvoiceIds([]);
@@ -135,32 +121,18 @@ export default function InvoiceManagementPage() {
 
   const handleSelectInvoice = (invoiceId: number, checked: boolean | 'indeterminate') => {
     setSelectedInvoiceIds(currentSelectedIds => {
-      let newSelectedIds;
       if (checked) {
-        newSelectedIds = [...currentSelectedIds, invoiceId];
+        return [...currentSelectedIds, invoiceId];
       } else {
-        newSelectedIds = currentSelectedIds.filter(id => id !== invoiceId);
+        return currentSelectedIds.filter(id => id !== invoiceId);
       }
-
-      // If we are adding an item, let's filter to ensure consistency
-      if (newSelectedIds.length > 0) {
-        const firstSelectedInvoice = invoices.find(inv => inv.id === newSelectedIds[0]);
-        if (firstSelectedInvoice) {
-          return newSelectedIds.filter(id => {
-            const currentInv = invoices.find(inv => inv.id === id);
-            return currentInv && currentInv.invoiceNumber === firstSelectedInvoice.invoiceNumber;
-          });
-        }
-      }
-      return newSelectedIds;
     });
   };
 
-  const isSelectionInconsistent = useMemo(() => {
-    if (selectedInvoices.length <= 1) return false;
-    const firstInvoiceNumber = selectedInvoices[0].invoiceNumber;
-    return !selectedInvoices.every(inv => inv.invoiceNumber === firstInvoiceNumber);
-  }, [selectedInvoices]);
+  const canUpload = useMemo(() => {
+    return fileToUpload !== null && selectedInvoiceIds.length > 0;
+  }, [fileToUpload, selectedInvoiceIds]);
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading Invoices...</p></div>;
@@ -170,7 +142,7 @@ export default function InvoiceManagementPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-headline tracking-tight">Invoice Management</h1>
-        <p className="text-muted-foreground">Upload, view, and manage all purchase invoices.</p>
+        <p className="text-muted-foreground">Upload and associate master invoices with their corresponding entries.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -178,7 +150,7 @@ export default function InvoiceManagementPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Invoice Log</CardTitle>
-              <CardDescription>Select invoices with the same number to upload a master file.</CardDescription>
+              <CardDescription>Select one or more entries to associate with an uploaded invoice file.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[60vh] border rounded-lg">
@@ -197,14 +169,12 @@ export default function InvoiceManagementPage() {
                   <TableBody>
                     {invoices.map((invoice) => {
                       const isSelected = selectedInvoiceIds.includes(invoice.id);
-                      const canBeSelected = !invoice.fileName && (!selectedInvoices.length || selectedInvoices[0].invoiceNumber === invoice.invoiceNumber);
-
                       return (
                       <TableRow key={invoice.id} data-state={isSelected && "selected"}>
                         <TableCell>
                            <Checkbox
                             checked={isSelected}
-                            disabled={!!invoice.fileName || (selectedInvoices.length > 0 && selectedInvoices[0].invoiceNumber !== invoice.invoiceNumber && !isSelected)}
+                            disabled={!!invoice.fileName}
                             onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked)}
                             aria-label={`Select invoice ${invoice.invoiceNumber}`}
                            />
@@ -255,19 +225,18 @@ export default function InvoiceManagementPage() {
           <Card className="shadow-lg sticky top-20">
             <CardHeader>
               <CardTitle>Upload Master Invoice</CardTitle>
-               {selectedInvoices.length > 0 ? (
-                <CardDescription>
-                  Uploading for invoice <span className="font-bold text-primary">{selectedInvoices[0].invoiceNumber}</span> ({selectedInvoices.length} order entries selected).
-                </CardDescription>
-                ) : (
-                <CardDescription>First, select one or more entries from the log.</CardDescription>
-               )}
+               <CardDescription>
+                {selectedInvoiceIds.length > 0 
+                    ? `Selected ${selectedInvoiceIds.length} invoice entries.`
+                    : "First, select one or more entries from the log."
+                }
+               </CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleUploadSubmit)} className="space-y-4">
-                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'} ${selectedInvoices.length === 0 && 'opacity-50 cursor-not-allowed'}`}>
-                    <input {...getInputProps()} disabled={selectedInvoices.length === 0} />
+                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
+                    <input {...getInputProps()} />
                     <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
                     {fileToUpload ? (
                       <p className="font-semibold text-primary">{fileToUpload.name}</p>
@@ -286,7 +255,7 @@ export default function InvoiceManagementPage() {
                     <FormItem>
                       <FormLabel>Update Notes (Optional)</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Add or update notes for the selected invoices..." {...field} disabled={selectedInvoices.length === 0}/>
+                        <Textarea placeholder="Add or update notes for the selected invoices..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -296,7 +265,6 @@ export default function InvoiceManagementPage() {
                     {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
                     Upload & Link Invoice
                   </Button>
-                  {isSelectionInconsistent && <p className="text-xs text-destructive text-center mt-2">You can only select invoices that share the same invoice number.</p>}
                 </form>
               </Form>
             </CardContent>

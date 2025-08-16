@@ -179,29 +179,28 @@ export async function updateOrderStatusAction(
     try {
         await connection.beginTransaction();
 
-        // Step 1: Update the order itself
-        let updateOrderQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
-        const orderParams: (string | Date | null)[] = [status, actorUserId, new Date()];
-        
-        if (status === 'Closed' && details?.invoiceNumber) {
-            updateOrderQuery += ", invoiceNumber = ?, invoiceNotes = ?";
-            orderParams.push(details.invoiceNumber);
-            orderParams.push(details.invoiceNotes || null);
+        let orderUpdateQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
+        const orderUpdateParams: (string | Date | null)[] = [status, actorUserId, new Date()];
+
+        if (status === 'Closed') {
+            orderUpdateQuery += ", invoiceNumber = ?, invoiceNotes = ?";
+            orderUpdateParams.push(details?.invoiceNumber || null);
+            orderUpdateParams.push(details?.invoiceNotes || null);
         }
 
-        updateOrderQuery += " WHERE id = ?";
-        orderParams.push(orderId);
-        
-        await connection.query(updateOrderQuery, orderParams);
+        orderUpdateQuery += " WHERE id = ?";
+        orderUpdateParams.push(orderId);
+
+        await connection.query(orderUpdateQuery, orderUpdateParams);
 
         if (status === 'Closed' && details?.invoiceNumber) {
-            const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
-            const notes = details.invoiceNotes || null;
-
+            const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(Boolean);
+            
             for (const invNumber of invoiceNumbers) {
+                const notes = details.invoiceNotes || null;
                 await connection.query(
-                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?)",
-                    [invNumber, actorUserId, notes, new Date()]
+                    "INSERT INTO invoices (invoiceNumber, notes, uploaderId, uploadedAt) VALUES (?, ?, ?, ?)",
+                    [invNumber, notes, actorUserId, new Date()]
                 );
             }
         }
@@ -372,15 +371,11 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
     const file = formData.get('invoiceFile') as File | null;
     const userId = formData.get('userId') as string;
-    const invoiceNumber = formData.get('invoiceNumber') as string | null;
     const notes = formData.get('notes') as string | null;
     const invoiceIdsToUpdate = formData.getAll('invoiceIds[]') as string[];
 
     if (!file) {
       return { success: false, error: 'No invoice file was provided.' };
-    }
-    if (!invoiceNumber) {
-      return { success: false, error: 'Invoice number is missing from the request.' };
     }
     if (!userId) {
       return { success: false, error: 'User is not authenticated.' };
@@ -409,7 +404,7 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
                 notes = ?, 
                 uploaderId = ?, 
                 uploadedAt = ?
-            WHERE id IN (?) AND invoiceNumber = ?
+            WHERE id IN (?)
         `;
         
         const [result] = await connection.query<OkPacket>(updateQuery, [
@@ -417,12 +412,11 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
             notes || null,
             userId,
             new Date(),
-            invoiceIdsToUpdate,
-            invoiceNumber
+            invoiceIdsToUpdate
         ]);
 
         if (result.affectedRows === 0) {
-            throw new Error("No matching invoices found to update. The invoice number might be incorrect or the selected IDs are invalid.");
+            throw new Error("No matching invoices found to update.");
         }
         
         await connection.commit();
