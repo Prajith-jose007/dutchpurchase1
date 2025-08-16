@@ -17,6 +17,7 @@ import { Icons } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { formatQuantity } from '@/lib/formatters';
+import { branches } from '@/data/appRepository';
 
 const formatCurrency = (value: number) => `AED ${value.toFixed(2)}`;
 
