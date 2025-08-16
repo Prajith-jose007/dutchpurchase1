@@ -40,11 +40,12 @@ async function setupMasterInvoices() {
     
     // Create order_master_invoice_links table
     console.log('Creating `order_master_invoice_links` table if it does not exist...');
+    // The VARCHAR(191) on the orderId part of the key is a fix for "Specified key was too long" error.
     await connection.query(`
         CREATE TABLE IF NOT EXISTS order_master_invoice_links (
             orderId VARCHAR(255) NOT NULL,
             masterInvoiceId INT NOT NULL,
-            PRIMARY KEY (orderId, masterInvoiceId),
+            PRIMARY KEY (orderId(191), masterInvoiceId),
             FOREIGN KEY (orderId) REFERENCES orders(id) ON DELETE CASCADE,
             FOREIGN KEY (masterInvoiceId) REFERENCES master_invoices(id) ON DELETE CASCADE
         )
