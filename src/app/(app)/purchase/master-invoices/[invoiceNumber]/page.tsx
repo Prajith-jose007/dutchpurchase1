@@ -1,3 +1,4 @@
+
 // src/app/(app)/purchase/master-invoices/[invoiceNumber]/page.tsx
 "use client";
 
@@ -250,3 +251,5 @@ export default function MasterInvoiceDetailsPage() {
     </div>
   );
 }
+
+    
