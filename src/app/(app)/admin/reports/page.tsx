@@ -16,6 +16,13 @@ import { Separator } from '@/components/ui/separator';
 import { branches } from '@/data/appRepository';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 const formatCurrency = (value: number | string | null | undefined) => {
   const numValue = Number(value);
@@ -31,6 +38,13 @@ export default function ReportsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [reportData, setReportData] = useState<PurchaseReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Filter states
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   useEffect(() => {
     if (currentUser && !['admin', 'superadmin', 'purchase'].includes(currentUser.role)) {
@@ -65,7 +79,20 @@ export default function ReportsPage() {
     }
   }, [currentUser, router, isLoading]);
 
-  const closedOrders = useMemo(() => orders.filter(o => o.status === 'Closed'), [orders]);
+  const filteredClosedOrders = useMemo(() => {
+    return orders
+      .filter(o => o.status === 'Closed')
+      .filter(o => {
+        if (selectedBranch !== 'all' && o.branchId !== selectedBranch) {
+          return false;
+        }
+        if (dateRange?.from && dateRange?.to && o.receivedAt) {
+          const orderDate = new Date(o.receivedAt);
+          return orderDate >= dateRange.from && orderDate <= dateRange.to;
+        }
+        return true;
+      });
+  }, [orders, selectedBranch, dateRange]);
   
   const getBranchName = (branchId: string) => branches.find(b => b.id === branchId)?.name || branchId;
 
@@ -96,6 +123,8 @@ export default function ReportsPage() {
   const chartConfig = Object.fromEntries(
     Object.entries(branchColors).map(([name, color]) => [name, { label: name, color }])
   );
+  
+  const allBranches = branches.filter(b => b.id !== 'branch-all');
 
   return (
     <div className="space-y-6">
@@ -156,7 +185,52 @@ export default function ReportsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Closed Orders Report</CardTitle>
-          <CardDescription>A complete log of all fulfilled and closed orders.</CardDescription>
+          <CardDescription>A complete log of all fulfilled and closed orders. Use filters to narrow down the results.</CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 pt-4">
+              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                <SelectTrigger className="w-full md:w-[240px]">
+                  <SelectValue placeholder="Filter by Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {allBranches.map(branch => (
+                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className="w-full md:w-[300px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto border rounded-lg">
@@ -173,7 +247,7 @@ export default function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {closedOrders.length > 0 ? closedOrders.map((order) => (
+                {filteredClosedOrders.length > 0 ? filteredClosedOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
                        <Link href={`/orders/${order.id}`} className="text-primary hover:underline flex items-center gap-2">
@@ -195,7 +269,7 @@ export default function ReportsPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center h-24">
-                        There are no closed orders yet.
+                        No closed orders match the selected filters.
                     </TableCell>
                   </TableRow>
                 )}

@@ -37,6 +37,7 @@ export interface Order {
   totalItems: number;
   totalPrice: number;
   invoiceNumber?: string | null;
+  invoiceFileNames?: string[] | null; // Added for multiple files
   invoiceNotes?: string | null;
   receivedByUserId?: string | null;
   receivedAt?: string | null;
