@@ -4,8 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getOrdersAction, getUsersAction } from '@/lib/actions'; // Changed to getUsersAction
-import type { Order, User } from '@/lib/types';
+import { getOrdersAction } from '@/lib/actions';
+import type { Order } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,7 +32,6 @@ function getStatusBadgeVariant(status: Order['status']): "default" | "secondary"
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // State for all users
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { currentUser } = useAuth();
@@ -45,16 +44,11 @@ export default function OrdersPage() {
       }
       setIsLoading(true);
       try {
-        // Fetch both orders and all users in parallel
-        const [fetchedOrders, fetchedUsers] = await Promise.all([
-          getOrdersAction(currentUser),
-          getUsersAction()
-        ]);
+        const fetchedOrders = await getOrdersAction(currentUser);
         setOrders(fetchedOrders);
-        setUsers(fetchedUsers);
       } catch (error) {
         console.error("Failed to fetch data:", error);
-        toast({ title: "Error", description: "Could not fetch orders or user data.", variant: "destructive" });
+        toast({ title: "Error", description: "Could not fetch orders.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
@@ -68,10 +62,6 @@ export default function OrdersPage() {
       description: "This feature is currently under development. Please check back later!",
       variant: "default",
     });
-  };
-  
-  const getUserName = (userId: string) => {
-    return users.find(u => u.id === userId)?.name || 'N/A';
   };
   
   if (isLoading) {
@@ -141,7 +131,7 @@ export default function OrdersPage() {
                 <TableBody>
                   {orders.map((order) => {
                     const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-                    const userName = getUserName(order.userId);
+                    const userName = order.placingUserName || 'N/A';
                     return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium text-primary hover:underline">
