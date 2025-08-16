@@ -213,6 +213,73 @@ export async function updateOrderStatusAction(
     }
 }
 
+export async function updateOrderInvoiceDetailsAction(
+  orderId: string,
+  newInvoiceNumber: string,
+  newInvoiceNotes: string | null,
+  actor: User
+): Promise<{ success: boolean, error?: string }> {
+    if (!actor || !['admin', 'superadmin', 'purchase'].includes(actor.role)) {
+        return { success: false, error: "Permission denied." };
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Step 1: Get the old masterInvoiceId this order was linked to
+        const [linkRows] = await connection.query<RowDataPacket[]>("SELECT masterInvoiceId FROM order_master_invoice_links WHERE orderId = ?", [orderId]);
+        const oldMasterInvoiceId = linkRows.length > 0 ? linkRows[0].masterInvoiceId : null;
+
+        // Step 2: Unlink the order from the old master invoice
+        await connection.query("DELETE FROM order_master_invoice_links WHERE orderId = ?", [orderId]);
+
+        // Step 3: Find or create the new master invoice
+        let newMasterInvoiceId;
+        const [existingMaster] = await connection.query<RowDataPacket[]>("SELECT id FROM master_invoices WHERE invoiceNumber = ?", [newInvoiceNumber]);
+        if (existingMaster.length > 0) {
+            newMasterInvoiceId = existingMaster[0].id;
+        } else {
+            const [newMasterResult] = await connection.query<OkPacket>(
+                "INSERT INTO master_invoices (invoiceNumber, createdAt, uploaderId) VALUES (?, ?, ?)",
+                [newInvoiceNumber, new Date(), actor.id]
+            );
+            newMasterInvoiceId = newMasterResult.insertId;
+        }
+
+        // Step 4: Link the order to the new master invoice
+        await connection.query(
+            "INSERT INTO order_master_invoice_links (orderId, masterInvoiceId) VALUES (?, ?)",
+            [orderId, newMasterInvoiceId]
+        );
+
+        // Step 5: Update the order itself with the new details
+        await connection.query(
+            "UPDATE orders SET invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
+            [newInvoiceNumber, newInvoiceNotes, orderId]
+        );
+
+        // Step 6: [Optional but good practice] Check if the old master invoice is now orphaned
+        if (oldMasterInvoiceId) {
+            const [remainingLinks] = await connection.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM order_master_invoice_links WHERE masterInvoiceId = ?", [oldMasterInvoiceId]);
+            if (remainingLinks[0].count === 0) {
+                // If no other orders are linked to it, delete the old master invoice
+                await connection.query("DELETE FROM master_invoices WHERE id = ?", [oldMasterInvoiceId]);
+            }
+        }
+
+        await connection.commit();
+        return { success: true };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Failed to update order invoice details:", error);
+        return { success: false, error: "A database error occurred." };
+    } finally {
+        connection.release();
+    }
+}
+
 
 export async function deleteOrderAction(orderId: string, actor: User): Promise<{ success: boolean, error?: string }> {
     if (!actor || !['admin', 'superadmin'].includes(actor.role)) {

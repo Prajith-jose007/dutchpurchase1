@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOrderByIdAction, updateOrderStatusAction, deleteOrderAction } from '@/lib/actions';
+import { getOrderByIdAction, updateOrderStatusAction, deleteOrderAction, updateOrderInvoiceDetailsAction } from '@/lib/actions';
 import type { Order, User, OrderStatus, OrderItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -47,8 +47,11 @@ export default function OrderDetailsPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State for the "Close Order" dialog
+  // State for dialogs
   const [isCloseOrderDialogOpen, setIsCloseOrderDialogOpen] = useState(false);
+  const [isEditInvoiceDialogOpen, setIsEditInvoiceDialogOpen] = useState(false);
+  
+  // State for forms
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +62,8 @@ export default function OrderDetailsPage() {
       const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
+        setInvoiceNumber(fetchedOrder.invoiceNumber || '');
+        setInvoiceNotes(fetchedOrder.invoiceNotes || '');
       } else {
         toast({ title: "Order Not Found", description: "The requested order does not exist.", variant: "destructive" });
         setOrder(null);
@@ -120,6 +125,23 @@ export default function OrderDetailsPage() {
     setIsSubmitting(false);
   }
   
+  const handleEditInvoiceDetails = async () => {
+    if (!order || !currentUser || !invoiceNumber) {
+      toast({ title: "Missing Invoice Number", description: "Invoice number cannot be empty.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await updateOrderInvoiceDetailsAction(order.id, invoiceNumber, invoiceNotes, currentUser);
+    if(result.success) {
+      toast({ title: "Invoice Details Updated", description: "The order's invoice information has been changed." });
+      setIsEditInvoiceDialogOpen(false);
+      await fetchOrderData();
+    } else {
+      toast({ title: "Update Failed", description: result.error, variant: "destructive" });
+    }
+    setIsSubmitting(false);
+  };
+  
   const handleDeleteOrder = async () => {
     if (!order || !currentUser) return;
 
@@ -162,6 +184,7 @@ export default function OrderDetailsPage() {
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
   const canDeleteOrder = currentUser && ['admin', 'superadmin'].includes(currentUser.role);
   const canAttachInvoices = canManageOrder;
+  const canEditInvoiceDetails = canManageOrder && order.status === 'Closed';
 
   return (
     <>
@@ -223,7 +246,12 @@ export default function OrderDetailsPage() {
             {order.invoiceNumber && (
               <div>
                   <CardTitle className="text-base font-semibold text-muted-foreground">Invoice Number(s)</CardTitle>
-                  <CardDescription className="text-lg text-foreground">{order.invoiceNumber}</CardDescription>
+                   <div className="flex items-center gap-2">
+                    <CardDescription className="text-lg text-foreground">{order.invoiceNumber}</CardDescription>
+                     {canEditInvoiceDetails && (
+                        <Button variant="ghost" size="icon" onClick={() => setIsEditInvoiceDialogOpen(true)}><Icons.Admin className="h-4 w-4" /></Button>
+                     )}
+                   </div>
               </div>
             )}
              {lastUpdatedByUserName && order.receivedAt && (
@@ -366,8 +394,43 @@ export default function OrderDetailsPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isEditInvoiceDialogOpen} onOpenChange={setIsEditInvoiceDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice Details</DialogTitle>
+              <DialogDescription>Modify the invoice number and notes for order #{order.id.substring(0, 8)}.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+               <div>
+                  <Label htmlFor="edit-invoice-number">Invoice Number (Required)</Label>
+                  <Input 
+                    id="edit-invoice-number" 
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    disabled={isSubmitting}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-invoice-notes">Notes (Optional)</Label>
+                  <Textarea 
+                    id="edit-invoice-notes" 
+                    value={invoiceNotes}
+                    onChange={(e) => setInvoiceNotes(e.target.value)}
+                    disabled={isSubmitting}
+                    className="mt-1"
+                  />
+                </div>
+            </div>
+            <DialogFooter className="pt-4">
+                <Button type="button" variant="secondary" onClick={() => setIsEditInvoiceDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                <Button onClick={handleEditInvoiceDetails} disabled={isSubmitting || !invoiceNumber}>
+                  {isSubmitting ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Saving...</> : <><Icons.Success className="mr-2 h-4 w-4" /> Save Changes</> }
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
-    
