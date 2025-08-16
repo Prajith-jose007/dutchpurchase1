@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { branches } from "@/data/appRepository";
 import mime from 'mime';
+import { subMonths, format } from 'date-fns';
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -697,25 +698,38 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branchId,
-                SUM(totalPrice) as total
-            FROM orders
-            WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month, branchId
-            ORDER BY month, branchId
+                b.name as branchName,
+                SUM(o.totalPrice) as total
+            FROM orders o
+            JOIN branches b ON o.branchId = b.id
+            WHERE o.status = 'Closed' AND o.receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY month, b.name
+            ORDER BY month, b.name
         `);
 
+        // Get all branch names that aren't 'All Branches'
+        const allBranchNames = branches.filter(b => b.id !== 'branch-all').map(b => b.name);
         const monthlyTotals: { [key: string]: { month: string; [key: string]: number | string } } = {};
-        const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
+        // Initialize the structure for the last 12 months
+        for (let i = 11; i >= 0; i--) {
+            const date = subMonths(new Date(), i);
+            const monthKey = format(date, 'yyyy-MM');
+            const monthLabel = format(date, 'MMM');
+            
+            monthlyTotals[monthKey] = { month: monthLabel };
+            allBranchNames.forEach(name => {
+                monthlyTotals[monthKey][name] = 0; // Initialize each branch with 0
+            });
+        }
+        
+        // Populate with actual data
         branchMonthlyData.forEach(row => {
-            const month = row.month;
-            const branchName = branchNameMap.get(row.branchId) || row.branchId;
-
-            if (!monthlyTotals[month]) {
-                monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
+            const monthKey = row.month;
+            const branchName = row.branchName;
+            if (monthlyTotals[monthKey] && branchName) {
+                monthlyTotals[monthKey][branchName] = parseFloat(row.total);
             }
-            monthlyTotals[month][branchName] = (monthlyTotals[month][branchName] || 0) as number + parseFloat(row.total);
         });
         
         return {
