@@ -38,7 +38,6 @@ export interface Order {
   totalPrice: number;
   invoiceNumber?: string | null;
   invoiceNotes?: string | null;
-  invoices?: Invoice[];
   receivedByUserId?: string | null;
   receivedAt?: string | null;
   placingUserName?: string; 
@@ -71,6 +70,24 @@ export interface Invoice {
   uploadedAt: string;
   uploaderName?: string;
 }
+
+export interface MasterInvoice {
+    id: number;
+    invoiceNumber: string;
+    fileName: string | null;
+    notes: string | null;
+    createdAt: string;
+    uploaderName: string | null;
+    orderCount: number;
+    totalAmount: number;
+}
+
+export interface MasterInvoiceDetails extends MasterInvoice {
+    orders: Order[];
+    consolidatedItems: OrderItem[];
+    involvedBranches: string[];
+}
+
 
 export interface PurchaseReportData {
   totalToday: number;

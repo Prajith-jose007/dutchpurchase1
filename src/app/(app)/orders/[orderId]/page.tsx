@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getOrderByIdAction, updateOrderStatusAction, deleteOrderAction } from '@/lib/actions';
-import type { Order, User, OrderStatus, OrderItem, Invoice } from '@/lib/types';
+import type { Order, User, OrderStatus, OrderItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -44,8 +45,6 @@ export default function OrderDetailsPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
-  const [placingUser, setPlacingUser] = useState<User | null>(null);
-  const [lastUpdatedByUser, setLastUpdatedByUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // State for the "Close Order" dialog
@@ -60,13 +59,6 @@ export default function OrderDetailsPage() {
       const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
-        // Assuming getUser is a new action or already exists to fetch user details
-        // const [pUser, luUser] = await Promise.all([
-        //   getUser(fetchedOrder.userId),
-        //   getUser(fetchedOrder.receivedByUserId || '')
-        // ]);
-        // setPlacingUser(pUser);
-        // setLastUpdatedByUser(luUser);
       } else {
         toast({ title: "Order Not Found", description: "The requested order does not exist.", variant: "destructive" });
         setOrder(null);
@@ -116,11 +108,12 @@ export default function OrderDetailsPage() {
     });
 
     if (result.success) {
-        toast({ title: "Order Closed", description: "The order has been successfully closed and invoice entries created." });
+        toast({ title: "Order Closed", description: "The order has been successfully closed and linked to the master invoice." });
         setIsCloseOrderDialogOpen(false);
         setInvoiceNumber('');
         setInvoiceNotes('');
         await fetchOrderData();
+        router.push(`/purchase/master-invoices/${invoiceNumber.split(',')[0].trim()}`);
     } else {
         toast({ title: "Failed to Close Order", description: result.error, variant: "destructive" });
     }
@@ -287,47 +280,6 @@ export default function OrderDetailsPage() {
             </div>
           </CardContent>
           
-          { (order.invoices && order.invoices.length > 0) && (
-            <>
-            <Separator />
-            <CardContent className="pt-6">
-                <h3 className="text-xl font-semibold mb-4 font-headline">Associated Invoices</h3>
-                 <div className="space-y-4">
-                    {order.invoices.map((invoice: Invoice, index: number) => (
-                      <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                        <div className="flex-grow">
-                            <div className="flex items-center gap-3">
-                                <Icons.FileText className="h-6 w-6 text-muted-foreground"/>
-                                <div>
-                                    <p className="font-medium">Invoice: {invoice.invoiceNumber}</p>
-                                    {invoice.fileName ? (
-                                     <a 
-                                        href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-sm text-primary hover:underline"
-                                        >
-                                            {invoice.fileName}
-                                     </a>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground italic">No file uploaded</p>
-                                    )}
-                                </div>
-                            </div>
-
-                             <div className="text-xs text-muted-foreground mt-2 pl-9">
-                                Recorded by {invoice.uploaderName || 'N/A'} on {new Date(invoice.uploadedAt).toLocaleDateString()}
-                            </div>
-                            {invoice.notes && (
-                                <p className="text-xs text-foreground mt-1 pl-9">Note: {invoice.notes}</p>
-                            )}
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-            </CardContent>
-            </>
-          )}
 
           <CardFooter className="border-t pt-6 flex justify-between items-center">
             <div>
@@ -357,7 +309,7 @@ export default function OrderDetailsPage() {
             )}
             </div>
             {canAttachInvoices && (
-              <Link href="/purchase/invoices">
+              <Link href="/purchase/master-invoices">
                 <Button>
                     <Icons.Upload className="mr-2 h-4 w-4" /> Manage Invoices
                 </Button>
@@ -377,21 +329,21 @@ export default function OrderDetailsPage() {
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Close Order #{order.id.substring(0, 8)}</DialogTitle>
-              <DialogDescription>To close this order, please provide the invoice number(s).</DialogDescription>
+              <DialogDescription>Provide an invoice number. If it's a new number, a master invoice will be created. If it exists, this order will be added to it.</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 pt-4">
                <div>
-                  <Label htmlFor="invoice-number">Invoice Number(s) (Required)</Label>
+                  <Label htmlFor="invoice-number">Invoice Number (Required)</Label>
                   <Input 
                     id="invoice-number" 
-                    placeholder="e.g., INV-123, INV-456"
+                    placeholder="e.g., INV-12345"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     disabled={isSubmitting}
                     className="mt-1"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Enter multiple invoice numbers separated by a comma.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Enter one invoice number. To link to multiple, close other orders with the same number.</p>
                 </div>
                 <div>
                   <Label htmlFor="invoice-notes">Notes (Optional)</Label>

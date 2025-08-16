@@ -3,45 +3,25 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useDropzone } from 'react-dropzone';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getInvoicesAction, uploadInvoicesAction, deleteInvoiceAction } from '@/lib/actions';
+import { getInvoicesAction, deleteInvoiceAction } from '@/lib/actions';
 import type { Invoice } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { toast } from '@/hooks/use-toast';
 import { Icons } from '@/components/icons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-
-const uploadSchema = z.object({
-  notes: z.string().optional(),
-});
-
-type UploadFormData = z.infer<typeof uploadSchema>;
+import Link from 'next/link';
 
 export default function InvoiceManagementPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-
-  const form = useForm<UploadFormData>({
-    resolver: zodResolver(uploadSchema),
-    defaultValues: { notes: '' },
-  });
 
   const fetchInvoices = async () => {
     setIsLoading(true);
@@ -65,49 +45,6 @@ export default function InvoiceManagementPage() {
       fetchInvoices();
     }
   }, [currentUser, router]);
-
-  const onDrop = (acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      setFileToUpload(acceptedFiles[0]);
-    }
-  };
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
-      onDrop,
-      maxFiles: 1,
-      accept: {
-          'image/jpeg': ['.jpeg', '.jpg'],
-          'image/png': ['.png'],
-          'application/pdf': ['.pdf'],
-      }
-  });
-
-  const handleUploadSubmit = async (data: UploadFormData) => {
-    if (!currentUser || !fileToUpload || selectedInvoiceIds.length === 0) return;
-    
-    setIsUploading(true);
-
-    const formData = new FormData();
-    formData.append('invoiceFile', fileToUpload);
-    formData.append('userId', currentUser.id);
-    if (data.notes) {
-      formData.append('notes', data.notes);
-    }
-    selectedInvoiceIds.forEach(id => formData.append('invoiceIds[]', id.toString()));
-
-    const result = await uploadInvoicesAction(formData);
-
-    if (result.success) {
-      toast({ title: "Upload Successful", description: `Invoice file has been linked to ${selectedInvoiceIds.length} entries.` });
-      form.reset();
-      setFileToUpload(null);
-      setSelectedInvoiceIds([]);
-      await fetchInvoices();
-    } else {
-      toast({ title: "Upload Failed", description: result.error, variant: "destructive" });
-    }
-    setIsUploading(false);
-  };
   
   const handleDeleteInvoice = async (invoiceId: number) => {
     const result = await deleteInvoiceAction(invoiceId);
@@ -119,159 +56,82 @@ export default function InvoiceManagementPage() {
     }
   };
 
-  const handleSelectInvoice = (invoiceId: number, checked: boolean | 'indeterminate') => {
-    setSelectedInvoiceIds(currentSelectedIds => {
-      if (checked) {
-        return [...currentSelectedIds, invoiceId];
-      } else {
-        return currentSelectedIds.filter(id => id !== invoiceId);
-      }
-    });
-  };
-
-  const canUpload = useMemo(() => {
-    return fileToUpload !== null && selectedInvoiceIds.length > 0;
-  }, [fileToUpload, selectedInvoiceIds]);
-
-
   if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading Invoices...</p></div>;
   }
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-headline tracking-tight">Invoice Management</h1>
-        <p className="text-muted-foreground">Upload and associate master invoices with their corresponding entries.</p>
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-headline tracking-tight">Invoice Log</h1>
+          <p className="text-muted-foreground">This is a log of all individual invoice entries created when closing an order.</p>
+        </div>
+         <Link href="/purchase/master-invoices">
+            <Button><Icons.FileText className="mr-2 h-4 w-4" /> Go to Master Invoices</Button>
+        </Link>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Invoice Log</CardTitle>
-              <CardDescription>Select one or more entries to associate with an uploaded invoice file.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[60vh] border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead padding="checkbox">
-                      </TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead>File / Status</TableHead>
-                      <TableHead>Added By</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoices.map((invoice) => {
-                      const isSelected = selectedInvoiceIds.includes(invoice.id);
-                      return (
-                      <TableRow key={invoice.id} data-state={isSelected && "selected"}>
-                        <TableCell>
-                           <Checkbox
-                            checked={isSelected}
-                            disabled={!!invoice.fileName}
-                            onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked)}
-                            aria-label={`Select invoice ${invoice.invoiceNumber}`}
-                           />
-                        </TableCell>
-                        <TableCell className="font-mono">{invoice.invoiceNumber}</TableCell>
-                        <TableCell>
-                           {invoice.fileName ? (
-                                <a href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className="font-medium flex items-center gap-2 text-primary hover:underline">
-                                    <Icons.FileText className="h-4 w-4" />
-                                    {invoice.fileName}
-                               </a>
-                           ) : (
-                               <Badge variant="secondary">Manual Entry - No File</Badge>
-                           )}
-                           {invoice.notes && <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate" title={invoice.notes}>Note: {invoice.notes}</p>}
-                        </TableCell>
-                        <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
-                        <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                        <Icons.Delete className="h-4 w-4" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>This will permanently delete the invoice record for <span className="font-semibold">{invoice.invoiceNumber}</span>. This action cannot be undone.</AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive hover:bg-destructive/90">Delete Invoice</AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    )})}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-1">
-          <Card className="shadow-lg sticky top-20">
-            <CardHeader>
-              <CardTitle>Upload Master Invoice</CardTitle>
-               <CardDescription>
-                {selectedInvoiceIds.length > 0 
-                    ? `Selected ${selectedInvoiceIds.length} invoice entries.`
-                    : "First, select one or more entries from the log."
-                }
-               </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleUploadSubmit)} className="space-y-4">
-                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
-                    <input {...getInputProps()} />
-                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                    {fileToUpload ? (
-                      <p className="font-semibold text-primary">{fileToUpload.name}</p>
-                    ) : isDragActive ? (
-                      <p className="font-semibold text-primary">Drop file here...</p>
-                    ) : (
-                      <p className="text-muted-foreground">Drag & drop a file here, or click to select</p>
-                    )}
-                  </div>
-
-                  {fileToUpload && (
-                     <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setFileToUpload(null)}>Clear selection</Button>
-                  )}
-
-                  <FormField control={form.control} name="notes" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Update Notes (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Add or update notes for the selected invoices..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <Button type="submit" className="w-full" disabled={!canUpload || isUploading}>
-                    {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
-                    Upload & Link Invoice
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-
-      </div>
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle>All Invoice Entries</CardTitle>
+          <CardDescription>To upload a file, go to the Master Invoices page and select the corresponding consolidated invoice.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[60vh] border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>File / Status</TableHead>
+                  <TableHead>Added By</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-mono">{invoice.invoiceNumber}</TableCell>
+                    <TableCell>
+                       {invoice.fileName ? (
+                           <a href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`} target="_blank" rel="noopener noreferrer" className="font-medium flex items-center gap-2 text-primary hover:underline">
+                               <Icons.FileText className="h-4 w-4" />
+                               {invoice.fileName}
+                           </a>
+                       ) : (
+                           <Badge variant="secondary">Manual Entry - No File</Badge>
+                       )}
+                       {invoice.notes && <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate" title={invoice.notes}>Note: {invoice.notes}</p>}
+                    </TableCell>
+                    <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
+                    <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                    <Icons.Delete className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>This will permanently delete the invoice record for <span className="font-semibold">{invoice.invoiceNumber}</span>. This action cannot be undone.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.id)} className="bg-destructive hover:bg-destructive/90">Delete Invoice</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 }
