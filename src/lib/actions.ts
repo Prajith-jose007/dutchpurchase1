@@ -1,7 +1,8 @@
 
+
 "use server";
 
-import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item, PurchaseReportData, DashboardData } from "@/lib/types";
+import type { CartItem, Order, OrderItem, User, Invoice, OrderStatus, Item, PurchaseReportData, DashboardData, MasterInvoice, MasterInvoiceDetails } from "@/lib/types";
 import pool from '@/lib/db';
 import type { RowDataPacket, OkPacket } from 'mysql2';
 import { parseInventoryData } from "./inventoryParser";
@@ -9,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { branches } from "@/data/appRepository";
 import mime from 'mime';
+import { subMonths, format } from 'date-fns';
 
 async function fetchUsersWithBranches(): Promise<User[]> {
     const query = `
@@ -86,11 +88,10 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
-            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice
+            o.invoiceNumber, o.invoiceNotes
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
-        LEFT JOIN order_items oi ON o.id = oi.orderId
     `;
     const params: (string | number)[] = [];
 
@@ -101,72 +102,34 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
 
     query += " ORDER BY o.createdAt DESC";
 
-    const [rows] = await pool.query<RowDataPacket[]>(query, params);
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices");
-
-    const ordersMap: { [key: string]: Order } = {};
-
-    rows.forEach(row => {
-        if (!ordersMap[row.id]) {
-            ordersMap[row.id] = {
-                id: row.id,
-                branchId: row.branchId,
-                userId: row.userId,
-                createdAt: new Date(row.createdAt).toISOString(),
-                status: row.status,
-                totalItems: Number(row.totalItems),
-                totalPrice: Number(row.totalPrice),
-                receivedByUserId: row.receivedByUserId,
-                receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
-                placingUserName: row.placingUserName,
-                receivingUserName: row.receivingUserName,
-                lastUpdatedByUserName: row.receivingUserName,
-                lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
-                items: [],
-                invoices: [], 
-                invoiceFileNames: [],
-            };
-        }
-        if (row.itemId) {
-            const existingItem = ordersMap[row.id].items.find(i => i.itemId === row.itemId && i.units === row.units);
-            if (!existingItem) {
-                ordersMap[row.id].items.push({
-                    itemId: row.itemId,
-                    description: row.description,
-                    quantity: Number(row.quantity),
-                    units: row.units,
-                    price: Number(row.itemPrice),
-                });
-            }
-        }
-    });
-
-    // Attach invoices to their orders
-    invoiceRows.forEach(inv => {
-        if (inv.orderId && ordersMap[inv.orderId]) {
-            if (!ordersMap[inv.orderId].invoices) {
-                ordersMap[inv.orderId].invoices = [];
-            }
-            if (!ordersMap[inv.orderId].invoiceFileNames) {
-                ordersMap[inv.orderId].invoiceFileNames = [];
-            }
-            ordersMap[inv.orderId].invoices?.push({ fileName: inv.fileName, orderId: inv.orderId });
-            ordersMap[inv.orderId].invoiceFileNames?.push(inv.fileName);
-        }
-    });
-
-    return Object.values(ordersMap);
+    const [orderRows] = await pool.query<RowDataPacket[]>(query, params);
+    
+    return orderRows.map(row => ({
+        id: row.id,
+        branchId: row.branchId,
+        userId: row.userId,
+        createdAt: new Date(row.createdAt).toISOString(),
+        status: row.status,
+        totalItems: Number(row.totalItems),
+        totalPrice: Number(row.totalPrice),
+        receivedByUserId: row.receivedByUserId,
+        receivedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
+        placingUserName: row.placingUserName,
+        receivingUserName: row.receivingUserName,
+        invoiceNumber: row.invoiceNumber,
+        invoiceNotes: row.invoiceNotes,
+        items: [], // Items are fetched on the details page
+    }));
 }
 
 
 export async function getOrderByIdAction(orderId: string): Promise<Order | undefined> {
-    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT id, branchId, userId, createdAt, status, totalItems, totalPrice, receivedByUserId, receivedAt FROM orders WHERE id = ?", [orderId]);
+    const [orderRows] = await pool.query<RowDataPacket[]>("SELECT o.*, placingUser.name as placingUserName, receivingUser.name as receivingUserName FROM orders o LEFT JOIN users placingUser ON o.userId = placingUser.id LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id WHERE o.id = ?", [orderId]);
     if (orderRows.length === 0) return undefined;
 
     const orderData = orderRows[0];
     const [itemRows] = await pool.query<RowDataPacket[]>("SELECT itemId, description, quantity, units, price FROM order_items WHERE orderId = ?", [orderId]);
-    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, notes FROM invoices WHERE orderId = ?", [orderId]);
-
+    
     const order: Order = {
         id: orderData.id,
         branchId: orderData.branchId,
@@ -175,6 +138,10 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
         status: orderData.status,
         totalItems: Number(orderData.totalItems),
         totalPrice: Number(orderData.totalPrice),
+        placingUserName: orderData.placingUserName,
+        receivingUserName: orderData.receivingUserName,
+        invoiceNumber: orderData.invoiceNumber,
+        invoiceNotes: orderData.invoiceNotes,
         receivedByUserId: orderData.receivedByUserId,
         receivedAt: orderData.receivedAt ? new Date(orderData.receivedAt).toISOString() : null,
         items: itemRows.map(item => ({
@@ -184,28 +151,58 @@ export async function getOrderByIdAction(orderId: string): Promise<Order | undef
           units: item.units,
           price: Number(item.price),
         })),
-        invoices: invoiceRows.map(r => ({ fileName: r.fileName, orderId, notes: r.notes }))
     };
     return order;
 }
 
-export async function updateOrderStatusAction(orderId: string, status: OrderStatus, actorUserId: string): Promise<{ success: boolean; error?: string }> {
+export async function updateOrderStatusAction(
+  orderId: string, 
+  status: OrderStatus, 
+  actorUserId: string,
+  details?: { invoiceNumber?: string, invoiceNotes?: string }
+): Promise<{ success: boolean; error?: string }> {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
 
-        const [currentOrderRows] = await pool.query<RowDataPacket[]>("SELECT status FROM orders WHERE id = ?", [orderId]);
+        let orderUpdateQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
+        const orderUpdateParams: (string | Date | null)[] = [status, actorUserId, new Date()];
 
-        if (currentOrderRows.length === 0) {
-            await connection.rollback();
-            connection.release();
-            return { success: false, error: "Order not found." };
+        if (status === 'Closed' && details?.invoiceNumber) {
+            orderUpdateQuery += ", invoiceNumber = ?, invoiceNotes = ?";
+            orderUpdateParams.push(details.invoiceNumber);
+            orderUpdateParams.push(details.invoiceNotes || null);
+        }
+
+        orderUpdateQuery += " WHERE id = ?";
+        orderUpdateParams.push(orderId);
+
+        await connection.query(orderUpdateQuery, orderUpdateParams);
+
+        if (status === 'Closed' && details?.invoiceNumber) {
+            const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(Boolean);
+            
+            for (const invNumber of invoiceNumbers) {
+                 const [existingMaster] = await connection.query<RowDataPacket[]>("SELECT id FROM master_invoices WHERE invoiceNumber = ?", [invNumber]);
+                 let masterInvoiceId;
+
+                 if (existingMaster.length > 0) {
+                     masterInvoiceId = existingMaster[0].id;
+                 } else {
+                     const [newMasterResult] = await connection.query<OkPacket>(
+                        "INSERT INTO master_invoices (invoiceNumber, notes, createdAt, uploaderId) VALUES (?, ?, ?, ?)",
+                        [invNumber, details.invoiceNotes || null, new Date(), actorUserId]
+                     );
+                     masterInvoiceId = newMasterResult.insertId;
+                 }
+                 
+                 await connection.query(
+                    "INSERT INTO order_master_invoice_links (orderId, masterInvoiceId) VALUES (?, ?) ON DUPLICATE KEY UPDATE masterInvoiceId=masterInvoiceId",
+                    [orderId, masterInvoiceId]
+                 );
+            }
         }
         
-        const query = `UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ? WHERE id = ?`;
-        const params = [status, actorUserId, new Date(), orderId];
-
-        await connection.query(query, params);
         await connection.commit();
         return { success: true };
     } catch (error) {
@@ -216,6 +213,74 @@ export async function updateOrderStatusAction(orderId: string, status: OrderStat
         connection.release();
     }
 }
+
+export async function updateOrderInvoiceDetailsAction(
+  orderId: string,
+  newInvoiceNumber: string,
+  newInvoiceNotes: string | null,
+  actor: User
+): Promise<{ success: boolean, error?: string }> {
+    if (!actor || !['admin', 'superadmin', 'purchase'].includes(actor.role)) {
+        return { success: false, error: "Permission denied." };
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Step 1: Get the old masterInvoiceId this order was linked to
+        const [linkRows] = await connection.query<RowDataPacket[]>("SELECT masterInvoiceId FROM order_master_invoice_links WHERE orderId = ?", [orderId]);
+        const oldMasterInvoiceId = linkRows.length > 0 ? linkRows[0].masterInvoiceId : null;
+
+        // Step 2: Unlink the order from the old master invoice
+        await connection.query("DELETE FROM order_master_invoice_links WHERE orderId = ?", [orderId]);
+
+        // Step 3: Find or create the new master invoice
+        let newMasterInvoiceId;
+        const [existingMaster] = await connection.query<RowDataPacket[]>("SELECT id FROM master_invoices WHERE invoiceNumber = ?", [newInvoiceNumber]);
+        if (existingMaster.length > 0) {
+            newMasterInvoiceId = existingMaster[0].id;
+        } else {
+            const [newMasterResult] = await connection.query<OkPacket>(
+                "INSERT INTO master_invoices (invoiceNumber, createdAt, uploaderId) VALUES (?, ?, ?)",
+                [newInvoiceNumber, new Date(), actor.id]
+            );
+            newMasterInvoiceId = newMasterResult.insertId;
+        }
+
+        // Step 4: Link the order to the new master invoice
+        await connection.query(
+            "INSERT INTO order_master_invoice_links (orderId, masterInvoiceId) VALUES (?, ?)",
+            [orderId, newMasterInvoiceId]
+        );
+
+        // Step 5: Update the order itself with the new details
+        await connection.query(
+            "UPDATE orders SET invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
+            [newInvoiceNumber, newInvoiceNotes, orderId]
+        );
+
+        // Step 6: [Optional but good practice] Check if the old master invoice is now orphaned
+        if (oldMasterInvoiceId) {
+            const [remainingLinks] = await connection.query<RowDataPacket[]>("SELECT COUNT(*) as count FROM order_master_invoice_links WHERE masterInvoiceId = ?", [oldMasterInvoiceId]);
+            if (remainingLinks[0].count === 0) {
+                // If no other orders are linked to it, delete the old master invoice
+                await connection.query("DELETE FROM master_invoices WHERE id = ?", [oldMasterInvoiceId]);
+            }
+        }
+
+        await connection.commit();
+        return { success: true };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Failed to update order invoice details:", error);
+        return { success: false, error: "A database error occurred." };
+    } finally {
+        connection.release();
+    }
+}
+
 
 export async function deleteOrderAction(orderId: string, actor: User): Promise<{ success: boolean, error?: string }> {
     if (!actor || !['admin', 'superadmin'].includes(actor.role)) {
@@ -228,8 +293,6 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
         await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
         
-        await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
-
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
         if (result.affectedRows === 0) {
@@ -370,81 +433,84 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
     return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
 }
 
-export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
-    const files = formData.getAll('invoices') as File[];
+export async function uploadMasterInvoiceAction(formData: FormData): Promise<{ success: boolean, error?: string }> {
+    const file = formData.get('invoiceFile') as File;
+    const masterInvoiceId = formData.get('masterInvoiceId') as string;
     const userId = formData.get('userId') as string;
-    const orderId = formData.get('orderId') as string;
-    const notes = formData.get('notes') as string | null;
 
-    if (!files || files.length === 0) return { success: false, error: 'No files were uploaded.' };
+    if (!file) return { success: false, error: 'No file provided.' };
+    if (!masterInvoiceId) return { success: false, error: 'Master Invoice ID is missing.' };
     if (!userId) return { success: false, error: 'User is not authenticated.' };
-    if (!orderId) return { success: false, error: 'Order ID is missing.' };
-
+    
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
-    const connection = await pool.getConnection();
+    await fs.mkdir(invoicesDir, { recursive: true });
+    
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const filePath = path.join(invoicesDir, uniqueFilename);
+    await fs.writeFile(filePath, buffer);
 
     try {
-        await fs.mkdir(invoicesDir, { recursive: true });
-        await connection.beginTransaction();
-
-        for (const file of files) {
-            const buffer = Buffer.from(await file.arrayBuffer());
-            const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${file.name}`;
-            const filePath = path.join(invoicesDir, uniqueFilename);
-            await fs.writeFile(filePath, buffer);
-            
-            // This query is now simplified to match the original schema
-            await connection.query(
-                "INSERT INTO invoices (fileName, orderId, uploaderId, notes) VALUES (?, ?, ?, ?)", 
-                [uniqueFilename, orderId, userId, notes]
-            );
-        }
-
-        await connection.commit();
-        return { success: true, fileCount: files.length };
+        await pool.query(
+            "UPDATE master_invoices SET fileName = ?, uploaderId = ? WHERE id = ?",
+            [uniqueFilename, userId, masterInvoiceId]
+        );
+        return { success: true };
     } catch (error) {
-        await connection.rollback();
-        console.error('Invoice upload failed:', error);
-        if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
-             return { success: false, error: 'An invoice with this name has already been uploaded for this order. Please rename the file or check existing invoices.' };
-        }
-        return { success: false, error: 'An error occurred during invoice upload.' };
-    } finally {
-        connection.release();
+        console.error('Failed to update master invoice:', error);
+        return { success: false, error: 'Database error occurred.' };
     }
 }
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices ORDER BY uploadedAt DESC");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT i.id, i.invoiceNumber, i.fileName, i.notes, i.uploadedAt, u.name as uploaderName 
+     FROM invoices i 
+     LEFT JOIN users u ON i.uploaderId = u.id 
+     ORDER BY i.uploadedAt DESC`
+  );
   return rows.map(r => ({
+      id: r.id,
+      invoiceNumber: r.invoiceNumber,
       fileName: r.fileName,
-      orderId: r.orderId || null,
-      notes: r.notes || null
+      notes: r.notes,
+      uploadedAt: new Date(r.uploadedAt).toISOString(),
+      uploaderName: r.uploaderName,
   }));
 }
 
-export async function deleteInvoiceAction(fileName: string): Promise<{ success: boolean, error?: string }> {
+export async function deleteInvoiceAction(invoiceId: number): Promise<{ success: boolean, error?: string }> {
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
-    const filePath = path.join(invoicesDir, fileName);
     const connection = await pool.getConnection();
 
     try {
         await connection.beginTransaction();
-        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE fileName = ?", [fileName]);
+
+        const [invoiceRows] = await connection.query<RowDataPacket[]>("SELECT fileName FROM invoices WHERE id = ?", [invoiceId]);
+        if (invoiceRows.length === 0) {
+            await connection.rollback();
+            return { success: false, error: "Invoice not found." };
+        }
+        const fileName = invoiceRows[0].fileName;
+
+        const [result] = await connection.query<OkPacket>("DELETE FROM invoices WHERE id = ?", [invoiceId]);
         
         if (result.affectedRows === 0) {
             await connection.rollback();
             return { success: false, error: "Invoice not found in the database." };
         }
 
-        try {
-            await fs.unlink(filePath);
-        } catch (fileError: any) {
-            if (fileError.code !== 'ENOENT') {
-                await connection.rollback();
-                console.error("Failed to delete invoice file:", fileError);
-                return { success: false, error: "Failed to delete the invoice file from storage." };
-            }
+        if (fileName) {
+          const filePath = path.join(invoicesDir, fileName);
+          try {
+              await fs.unlink(filePath);
+          } catch (fileError: any) {
+              if (fileError.code !== 'ENOENT') {
+                  await connection.rollback();
+                  console.error("Failed to delete invoice file:", fileError);
+                  return { success: false, error: "Failed to delete the invoice file from storage." };
+              }
+          }
         }
 
         await connection.commit();
@@ -511,11 +577,11 @@ export async function getItemsAction(): Promise<Item[]> {
     })) as Item[];
 }
 
-export async function addItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
+export async function addItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
-            "INSERT INTO items (code, remark, itemType, category, description, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [item.code, item.remark || null, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, item.price]
+            "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.remark || null, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price]
         );
         return { success: true };
     } catch (error: any) {
@@ -527,11 +593,11 @@ export async function addItemAction(item: Omit<Item, 'detailedDescription'>): Pr
     }
 }
 
-export async function updateItemAction(item: Omit<Item, 'detailedDescription'>): Promise<{ success: boolean; error?: string }> {
+export async function updateItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         const [result] = await pool.query<OkPacket>(
-            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
-            [item.remark, item.itemType, item.category, item.description, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
+            "UPDATE items SET remark = ?, itemType = ?, category = ?, description = ?, detailedDescription = ?, units = ?, packing = ?, shelfLifeDays = ?, price = ? WHERE code = ?",
+            [item.remark, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, Number(item.price), item.code]
         );
         if (result.affectedRows === 0) {
             return { success: false, error: "Item not found." };
@@ -632,25 +698,38 @@ export async function getPurchaseReportDataAction(): Promise<PurchaseReportData 
         const [branchMonthlyData] = await pool.query<RowDataPacket[]>(`
             SELECT
                 DATE_FORMAT(receivedAt, '%Y-%m') as month,
-                branchId,
-                SUM(totalPrice) as total
-            FROM orders
-            WHERE status = 'Closed' AND receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY month, branchId
-            ORDER BY month, branchId
+                b.name as branchName,
+                SUM(o.totalPrice) as total
+            FROM orders o
+            JOIN branches b ON o.branchId = b.id
+            WHERE o.status = 'Closed' AND o.receivedAt >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY month, b.name
+            ORDER BY month, b.name
         `);
 
+        // Get all branch names that aren't 'All Branches'
+        const allBranchNames = branches.filter(b => b.id !== 'branch-all').map(b => b.name);
         const monthlyTotals: { [key: string]: { month: string; [key: string]: number | string } } = {};
-        const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
 
+        // Initialize the structure for the last 12 months
+        for (let i = 11; i >= 0; i--) {
+            const date = subMonths(new Date(), i);
+            const monthKey = format(date, 'yyyy-MM');
+            const monthLabel = format(date, 'MMM');
+            
+            monthlyTotals[monthKey] = { month: monthLabel };
+            allBranchNames.forEach(name => {
+                monthlyTotals[monthKey][name] = 0; // Initialize each branch with 0
+            });
+        }
+        
+        // Populate with actual data
         branchMonthlyData.forEach(row => {
-            const month = row.month;
-            const branchName = branchNameMap.get(row.branchId) || row.branchId;
-
-            if (!monthlyTotals[month]) {
-                monthlyTotals[month] = { month: new Date(month + '-02').toLocaleString('default', { month: 'short' }) };
+            const monthKey = row.month;
+            const branchName = row.branchName;
+            if (monthlyTotals[monthKey] && branchName) {
+                monthlyTotals[monthKey][branchName] = parseFloat(row.total);
             }
-            monthlyTotals[month][branchName] = (monthlyTotals[month][branchName] || 0) as number + parseFloat(row.total);
         });
         
         return {
@@ -733,5 +812,115 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
     } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
         return null;
+    }
+}
+
+// Master Invoice Actions
+export async function getMasterInvoicesAction(): Promise<MasterInvoice[]> {
+    const query = `
+        SELECT 
+            mi.id, mi.invoiceNumber, mi.fileName, mi.notes, mi.createdAt,
+            u.name as uploaderName,
+            COUNT(link.orderId) as orderCount,
+            SUM(o.totalPrice) as totalAmount
+        FROM master_invoices mi
+        LEFT JOIN users u ON mi.uploaderId = u.id
+        LEFT JOIN order_master_invoice_links link ON mi.id = link.masterInvoiceId
+        LEFT JOIN orders o ON link.orderId = o.id
+        GROUP BY mi.id, mi.invoiceNumber, mi.fileName, mi.notes, mi.createdAt, u.name
+        ORDER BY mi.createdAt DESC
+    `;
+    const [rows] = await pool.query<RowDataPacket[]>(query);
+    return rows.map(row => ({
+        id: row.id,
+        invoiceNumber: row.invoiceNumber,
+        fileName: row.fileName,
+        notes: row.notes,
+        createdAt: new Date(row.createdAt).toISOString(),
+        uploaderName: row.uploaderName,
+        orderCount: Number(row.orderCount),
+        totalAmount: Number(row.totalAmount),
+    })) as MasterInvoice[];
+}
+
+export async function getMasterInvoiceDetailsAction(invoiceNumber: string): Promise<MasterInvoiceDetails | null> {
+    const connection = await pool.getConnection();
+    try {
+        const [masterInvoiceRows] = await connection.query<RowDataPacket[]>(
+            `SELECT mi.*, u.name as uploaderName FROM master_invoices mi LEFT JOIN users u ON mi.uploaderId = u.id WHERE mi.invoiceNumber = ?`, [invoiceNumber]
+        );
+        if (masterInvoiceRows.length === 0) return null;
+        
+        const masterInvoiceData = masterInvoiceRows[0];
+        const masterInvoiceId = masterInvoiceData.id;
+
+        const [linkedOrders] = await connection.query<RowDataPacket[]>(`
+            SELECT o.*, u.name as placingUserName FROM orders o 
+            JOIN order_master_invoice_links link ON o.id = link.orderId
+            JOIN users u ON o.userId = u.id
+            WHERE link.masterInvoiceId = ?
+        `, [masterInvoiceId]);
+        
+        const orderIds = linkedOrders.map(o => o.id);
+        if(orderIds.length === 0) { // Handle case where master invoice exists but no orders are linked
+             return {
+                id: masterInvoiceData.id,
+                invoiceNumber: masterInvoiceData.invoiceNumber,
+                fileName: masterInvoiceData.fileName,
+                notes: masterInvoiceData.notes,
+                createdAt: new Date(masterInvoiceData.createdAt).toISOString(),
+                uploaderName: masterInvoiceData.uploaderName,
+                orderCount: 0,
+                totalAmount: 0,
+                orders: [],
+                consolidatedItems: [],
+                involvedBranches: []
+            } as MasterInvoiceDetails;
+        }
+
+        const [orderItems] = await connection.query<RowDataPacket[]>(`SELECT * FROM order_items WHERE orderId IN (?)`, [orderIds]);
+
+        const consolidatedItemsMap = new Map<string, OrderItem>();
+        orderItems.forEach(item => {
+            const key = `${item.itemId}-${item.price}`;
+            if (consolidatedItemsMap.has(key)) {
+                const existing = consolidatedItemsMap.get(key)!;
+                existing.quantity += parseFloat(item.quantity);
+            } else {
+                consolidatedItemsMap.set(key, {
+                    itemId: item.itemId,
+                    description: item.description,
+                    quantity: parseFloat(item.quantity),
+                    units: item.units,
+                    price: parseFloat(item.price)
+                });
+            }
+        });
+        
+        const involvedBranchesSet = new Set<string>();
+        const branchNameMap = new Map(branches.map(b => [b.id, b.name]));
+        linkedOrders.forEach(o => involvedBranchesSet.add(branchNameMap.get(o.branchId) || o.branchId));
+        
+        const totalAmount = linkedOrders.reduce((sum, o) => sum + parseFloat(o.totalPrice), 0);
+
+        return {
+            id: masterInvoiceData.id,
+            invoiceNumber: masterInvoiceData.invoiceNumber,
+            fileName: masterInvoiceData.fileName,
+            notes: masterInvoiceData.notes,
+            createdAt: new Date(masterInvoiceData.createdAt).toISOString(),
+            uploaderName: masterInvoiceData.uploaderName,
+            orderCount: linkedOrders.length,
+            totalAmount: totalAmount,
+            orders: linkedOrders,
+            consolidatedItems: Array.from(consolidatedItemsMap.values()),
+            involvedBranches: Array.from(involvedBranchesSet)
+        } as MasterInvoiceDetails;
+
+    } catch (error) {
+        console.error("Failed to fetch master invoice details:", error);
+        return null;
+    } finally {
+        connection.release();
     }
 }

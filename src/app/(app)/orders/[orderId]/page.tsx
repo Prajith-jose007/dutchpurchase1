@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOrderByIdAction, getUser, updateOrderStatusAction, deleteOrderAction, uploadInvoicesAction, deleteInvoiceAction } from '@/lib/actions';
-import type { Order, User, OrderStatus, OrderItem, Invoice } from '@/lib/types';
+import { getOrderByIdAction, updateOrderStatusAction, deleteOrderAction, updateOrderInvoiceDetailsAction } from '@/lib/actions';
+import type { Order, User, OrderStatus, OrderItem } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -13,17 +14,15 @@ import { Icons } from '@/components/icons';
 import { branches } from '@/data/appRepository';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useDropzone } from 'react-dropzone';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { formatQuantity } from '@/lib/formatters';
-
+import { Input } from '@/components/ui/input';
 
 const availableStatuses: OrderStatus[] = ['Pending', 'Order Received', 'Arrived', 'Closed', 'Cancelled'];
 
@@ -46,15 +45,16 @@ export default function OrderDetailsPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
-  const [placingUser, setPlacingUser] = useState<User | null>(null);
-  const [lastUpdatedByUser, setLastUpdatedByUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State for invoice attachment dialog
-  const [isAttachInvoiceOpen, setIsAttachInvoiceOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  // State for dialogs
+  const [isCloseOrderDialogOpen, setIsCloseOrderDialogOpen] = useState(false);
+  const [isEditInvoiceDialogOpen, setIsEditInvoiceDialogOpen] = useState(false);
+  
+  // State for forms
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
   const fetchOrderData = useCallback(async () => {
@@ -62,12 +62,8 @@ export default function OrderDetailsPage() {
       const fetchedOrder = await getOrderByIdAction(orderId);
       if (fetchedOrder) {
         setOrder(fetchedOrder);
-        const [pUser, luUser] = await Promise.all([
-          getUser(fetchedOrder.userId),
-          getUser(fetchedOrder.receivedByUserId || '')
-        ]);
-        setPlacingUser(pUser);
-        setLastUpdatedByUser(luUser);
+        setInvoiceNumber(fetchedOrder.invoiceNumber || '');
+        setInvoiceNotes(fetchedOrder.invoiceNotes || '');
       } else {
         toast({ title: "Order Not Found", description: "The requested order does not exist.", variant: "destructive" });
         setOrder(null);
@@ -88,67 +84,62 @@ export default function OrderDetailsPage() {
     }
   }, [orderId, fetchOrderData]);
   
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-     setFilesToUpload(prevFiles => [...prevFiles, ...acceptedFiles]);
-  }, []);
-  
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: {'application/pdf': ['.pdf'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png']} });
-  
-  const handleUploadInvoices = async () => {
-    if (filesToUpload.length === 0 || !currentUser || !order) return;
-    setIsUploading(true);
-
-    const formData = new FormData();
-    filesToUpload.forEach(file => {
-      formData.append('invoices', file);
-    });
-    formData.append('userId', currentUser.id);
-    formData.append('orderId', order.id);
-    if(invoiceNotes) {
-      formData.append('notes', invoiceNotes);
-    }
-
-    try {
-      const result = await uploadInvoicesAction(formData);
-      if (result.success && result.fileCount && result.fileCount > 0) {
-        toast({ title: "Upload Successful", description: `${result.fileCount} invoice(s) have been attached.` });
-        setIsAttachInvoiceOpen(false);
-        setFilesToUpload([]);
-        setInvoiceNotes('');
-        fetchOrderData(); 
-      } else {
-        toast({ title: "Upload Failed", description: result.error || "Could not upload files.", variant: "destructive" });
-      }
-    } catch (error) {
-       toast({ title: "Upload Error", description: "An error occurred during upload.", variant: "destructive" });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-  
-  const handleDeleteInvoice = async (fileName: string) => {
-    const result = await deleteInvoiceAction(fileName);
-    if (result.success) {
-      toast({ title: "Invoice Deleted", description: "The invoice has been removed." });
-      fetchOrderData(); // Refresh the order data
-    } else {
-      toast({ title: "Error", description: result.error || "Failed to delete invoice.", variant: "destructive" });
-    }
-  };
-
-
   const handleStatusChange = async (newStatus: OrderStatus) => {
     if (!order || !currentUser) return;
+
+    if (newStatus === 'Closed') {
+      setIsCloseOrderDialogOpen(true);
+      return;
+    }
+
     const result = await updateOrderStatusAction(order.id, newStatus, currentUser.id);
     if (result.success) {
       toast({ title: "Status Updated", description: `Order status changed to ${newStatus}.` });
-      fetchOrderData(); // Refetch to get updated receiver info
-      if (newStatus === 'Closed' && (!order.invoices || order.invoices.length === 0)) {
-        setIsAttachInvoiceOpen(true);
-      }
+      fetchOrderData(); 
     } else {
       toast({ title: "Update Failed", description: result.error, variant: "destructive" });
     }
+  };
+
+  const handleConfirmCloseOrder = async () => {
+    if (!order || !currentUser || !invoiceNumber) {
+        toast({ title: "Missing Invoice Number", description: "Please provide at least one invoice number to close the order.", variant: "destructive" });
+        return;
+    }
+    setIsSubmitting(true);
+    const result = await updateOrderStatusAction(order.id, 'Closed', currentUser.id, {
+        invoiceNumber,
+        invoiceNotes,
+    });
+
+    if (result.success) {
+        toast({ title: "Order Closed", description: "The order has been successfully closed and linked to the master invoice." });
+        setIsCloseOrderDialogOpen(false);
+        setInvoiceNumber('');
+        setInvoiceNotes('');
+        await fetchOrderData();
+        router.push(`/purchase/master-invoices/${invoiceNumber.split(',')[0].trim()}`);
+    } else {
+        toast({ title: "Failed to Close Order", description: result.error, variant: "destructive" });
+    }
+    setIsSubmitting(false);
+  }
+  
+  const handleEditInvoiceDetails = async () => {
+    if (!order || !currentUser || !invoiceNumber) {
+      toast({ title: "Missing Invoice Number", description: "Invoice number cannot be empty.", variant: "destructive" });
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await updateOrderInvoiceDetailsAction(order.id, invoiceNumber, invoiceNotes, currentUser);
+    if(result.success) {
+      toast({ title: "Invoice Details Updated", description: "The order's invoice information has been changed." });
+      setIsEditInvoiceDialogOpen(false);
+      await fetchOrderData();
+    } else {
+      toast({ title: "Update Failed", description: result.error, variant: "destructive" });
+    }
+    setIsSubmitting(false);
   };
   
   const handleDeleteOrder = async () => {
@@ -188,11 +179,12 @@ export default function OrderDetailsPage() {
   }
 
   const branchName = branches.find(b => b.id === order.branchId)?.name || order.branchId;
-  const userName = placingUser?.name || order.userId;
-  const lastUpdatedByUserName = lastUpdatedByUser?.name;
+  const userName = order.placingUserName || order.userId;
+  const lastUpdatedByUserName = order.receivingUserName;
   const canManageOrder = currentUser && ['admin', 'superadmin', 'purchase'].includes(currentUser.role);
   const canDeleteOrder = currentUser && ['admin', 'superadmin'].includes(currentUser.role);
-  const canAttachInvoices = canManageOrder && ['Arrived', 'Closed'].includes(order.status);
+  const canAttachInvoices = canManageOrder;
+  const canEditInvoiceDetails = canManageOrder && order.status === 'Closed';
 
   return (
     <>
@@ -251,6 +243,17 @@ export default function OrderDetailsPage() {
               <CardTitle className="text-base font-semibold text-muted-foreground">Total Items</CardTitle>
               <CardDescription className="text-lg font-bold text-foreground">{order.totalItems}</CardDescription>
             </div>
+            {order.invoiceNumber && (
+              <div>
+                  <CardTitle className="text-base font-semibold text-muted-foreground">Invoice Number(s)</CardTitle>
+                   <div className="flex items-center gap-2">
+                    <CardDescription className="text-lg text-foreground">{order.invoiceNumber}</CardDescription>
+                     {canEditInvoiceDetails && (
+                        <Button variant="ghost" size="icon" onClick={() => setIsEditInvoiceDialogOpen(true)}><Icons.Admin className="h-4 w-4" /></Button>
+                     )}
+                   </div>
+              </div>
+            )}
              {lastUpdatedByUserName && order.receivedAt && (
               <>
                 <div>
@@ -262,6 +265,12 @@ export default function OrderDetailsPage() {
                   <CardDescription className="text-lg text-foreground">{new Date(order.receivedAt).toLocaleString()}</CardDescription>
                 </div>
               </>
+            )}
+            {order.invoiceNotes && (
+                 <div className="md:col-span-2 lg:col-span-3">
+                    <CardTitle className="text-base font-semibold text-muted-foreground">Order Notes</CardTitle>
+                    <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md mt-1">{order.invoiceNotes}</p>
+                 </div>
             )}
           </CardHeader>
           
@@ -299,59 +308,6 @@ export default function OrderDetailsPage() {
             </div>
           </CardContent>
           
-          { (order.invoices && order.invoices.length > 0) && (
-            <>
-            <Separator />
-            <CardContent className="pt-6">
-                <h3 className="text-xl font-semibold mb-4 font-headline">Attached Invoices</h3>
-                 <div className="space-y-4">
-                    {order.invoices.map((invoice: Invoice) => (
-                      <div key={invoice.fileName} className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                        <div className="flex-grow">
-                            <a 
-                              href={`/api/invoices/${encodeURIComponent(invoice.fileName)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2"
-                            >
-                              <Icons.FileText className="h-5 w-5 text-muted-foreground"/>
-                              <span className="text-sm font-medium text-primary hover:underline">{invoice.fileName}</span>
-                            </a>
-                            {invoice.notes && (
-                                <p className="text-xs text-muted-foreground mt-2 pl-7 border-l-2 border-primary ml-2.5 pt-1">
-                                    <span className="font-semibold">Note:</span> {invoice.notes}
-                                </p>
-                            )}
-                        </div>
-                        {canManageOrder && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                <Icons.Delete className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete the invoice <span className="font-semibold">{invoice.fileName}</span>. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteInvoice(invoice.fileName)} className="bg-destructive hover:bg-destructive/90">
-                                  Delete Invoice
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </div>
-                    ))}
-                 </div>
-            </CardContent>
-            </>
-          )}
 
           <CardFooter className="border-t pt-6 flex justify-between items-center">
             <div>
@@ -381,76 +337,96 @@ export default function OrderDetailsPage() {
             )}
             </div>
             {canAttachInvoices && (
-              <Button 
-                onClick={() => setIsAttachInvoiceOpen(true)}
-                className={cn(
-                  currentUser?.role === 'purchase'
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : ""
-                )}
-              >
-                  <Icons.Upload className="mr-2 h-4 w-4" /> Attach Invoices
-              </Button>
+              <Link href="/purchase/master-invoices">
+                <Button>
+                    <Icons.Upload className="mr-2 h-4 w-4" /> Manage Invoices
+                </Button>
+              </Link>
             )}
           </CardFooter>
         </Card>
       </div>
 
-      <Dialog open={isAttachInvoiceOpen} onOpenChange={(isOpen) => {
-        setIsAttachInvoiceOpen(isOpen);
-        if(!isOpen) {
-            setFilesToUpload([]);
+      <Dialog open={isCloseOrderDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+            setInvoiceNumber('');
             setInvoiceNotes('');
         }
+        setIsCloseOrderDialogOpen(isOpen);
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Attach Invoices to Order #{order.id.substring(0, 8)}</DialogTitle>
-              <DialogDescription>Upload files and add an optional note if the invoice is for multiple outlets.</DialogDescription>
+              <DialogTitle>Close Order #{order.id.substring(0, 8)}</DialogTitle>
+              <DialogDescription>Provide an invoice number. If it's a new number, a master invoice will be created. If it exists, this order will be added to it.</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 pt-4">
-                <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
-                    <input {...getInputProps()} disabled={isUploading} />
-                    {isUploading ? (
-                        <div className="flex flex-col items-center gap-2">
-                           <Icons.Dashboard className="h-8 w-8 animate-spin text-primary" />
-                           <p>Uploading & Attaching...</p>
-                        </div>
-                    ) : isDragActive ? (
-                        <p className="font-semibold text-primary">Drop files here...</p>
-                    ) : (
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                            <Icons.UploadCloud className="h-8 w-8" />
-                            <p>Drag & drop or click to upload</p>
-                        </div>
-                    )}
+               <div>
+                  <Label htmlFor="invoice-number">Invoice Number (Required)</Label>
+                  <Input 
+                    id="invoice-number" 
+                    placeholder="e.g., INV-12345"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    disabled={isSubmitting}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Enter one invoice number. To link to multiple, close other orders with the same number.</p>
                 </div>
-                {filesToUpload.length > 0 && (
-                    <div className="space-y-2">
-                        <p className="font-medium text-sm">Files to upload:</p>
-                        <ul className="list-disc list-inside bg-muted/50 p-3 rounded-md max-h-24 overflow-y-auto">
-                            {filesToUpload.map((file, i) => <li key={i} className="text-xs truncate">{file.name}</li>)}
-                        </ul>
-                    </div>
-                )}
                 <div>
                   <Label htmlFor="invoice-notes">Notes (Optional)</Label>
                   <Textarea 
                     id="invoice-notes" 
-                    placeholder="e.g., This invoice also covers order #... for JBR outlet."
+                    placeholder="e.g., This invoice also covers other orders."
                     value={invoiceNotes}
                     onChange={(e) => setInvoiceNotes(e.target.value)}
-                    disabled={isUploading}
+                    disabled={isSubmitting}
                     className="mt-1"
                   />
                 </div>
             </div>
 
             <DialogFooter className="pt-4">
-                <Button type="button" variant="secondary" onClick={() => setIsAttachInvoiceOpen(false)} disabled={isUploading}>Cancel</Button>
-                <Button onClick={handleUploadInvoices} disabled={isUploading || filesToUpload.length === 0}>
-                  {isUploading ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Uploading...</> : <><Icons.Upload className="mr-2 h-4 w-4" /> Upload & Save</> }
+                <Button type="button" variant="secondary" onClick={() => setIsCloseOrderDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                <Button onClick={handleConfirmCloseOrder} disabled={isSubmitting || !invoiceNumber}>
+                  {isSubmitting ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Closing...</> : <><Icons.Success className="mr-2 h-4 w-4" /> Confirm & Close Order</> }
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isEditInvoiceDialogOpen} onOpenChange={setIsEditInvoiceDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice Details</DialogTitle>
+              <DialogDescription>Modify the invoice number and notes for order #{order.id.substring(0, 8)}.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+               <div>
+                  <Label htmlFor="edit-invoice-number">Invoice Number (Required)</Label>
+                  <Input 
+                    id="edit-invoice-number" 
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    disabled={isSubmitting}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-invoice-notes">Notes (Optional)</Label>
+                  <Textarea 
+                    id="edit-invoice-notes" 
+                    value={invoiceNotes}
+                    onChange={(e) => setInvoiceNotes(e.target.value)}
+                    disabled={isSubmitting}
+                    className="mt-1"
+                  />
+                </div>
+            </div>
+            <DialogFooter className="pt-4">
+                <Button type="button" variant="secondary" onClick={() => setIsEditInvoiceDialogOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                <Button onClick={handleEditInvoiceDetails} disabled={isSubmitting || !invoiceNumber}>
+                  {isSubmitting ? <><Icons.Dashboard className="mr-2 h-4 w-4 animate-spin"/> Saving...</> : <><Icons.Success className="mr-2 h-4 w-4" /> Save Changes</> }
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -458,5 +434,3 @@ export default function OrderDetailsPage() {
     </>
   );
 }
-
-    

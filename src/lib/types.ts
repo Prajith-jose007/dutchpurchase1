@@ -36,8 +36,9 @@ export interface Order {
   items: OrderItem[];
   totalItems: number;
   totalPrice: number;
-  invoiceFileNames?: string[]; 
-  invoices?: Invoice[];
+  invoiceNumber?: string | null;
+  invoiceFileNames?: string[] | null; // Added for multiple files
+  invoiceNotes?: string | null;
   receivedByUserId?: string | null;
   receivedAt?: string | null;
   placingUserName?: string; 
@@ -63,10 +64,31 @@ export interface User {
 }
 
 export interface Invoice {
-  fileName: string;
-  orderId: string | null;
+  id: number;
+  invoiceNumber: string;
+  fileName: string | null;
   notes?: string | null;
+  uploadedAt: string;
+  uploaderName?: string;
 }
+
+export interface MasterInvoice {
+    id: number;
+    invoiceNumber: string;
+    fileName: string | null;
+    notes: string | null;
+    createdAt: string;
+    uploaderName: string | null;
+    orderCount: number;
+    totalAmount: number;
+}
+
+export interface MasterInvoiceDetails extends MasterInvoice {
+    orders: Order[];
+    consolidatedItems: OrderItem[];
+    involvedBranches: string[];
+}
+
 
 export interface PurchaseReportData {
   totalToday: number;
@@ -87,3 +109,5 @@ export interface DashboardData {
     monthlyPurchases: { month: string; total: number }[];
     storePurchases: { name: string; value: number }[];
 }
+
+    

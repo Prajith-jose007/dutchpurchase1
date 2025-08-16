@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -17,6 +17,8 @@
     "db:add-receiving": "node scripts/db-add-receiving-info.js",
     "db:fix-quantity": "node scripts/db-fix-quantity-type.js",
     "db:add-invoice-notes": "node scripts/db-add-invoice-notes.js",
+    "db:add-invoice-number": "node scripts/db-add-invoice-number.js",
+    "db:add-master-invoices": "node scripts/db-add-master-invoices.js",
     "migrate:data": "node src/scripts/migrate-data.js",
     "migrate:inventory": "node scripts/migrate-inventory.js",
     "postinstall": "patch-package"

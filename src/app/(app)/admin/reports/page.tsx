@@ -1,3 +1,4 @@
+
 // src/app/(app)/admin/reports/page.tsx
 "use client";
 
@@ -16,6 +17,13 @@ import { Separator } from '@/components/ui/separator';
 import { branches } from '@/data/appRepository';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 
 const formatCurrency = (value: number | string | null | undefined) => {
   const numValue = Number(value);
@@ -31,6 +39,13 @@ export default function ReportsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [reportData, setReportData] = useState<PurchaseReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Filter states
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 29),
+    to: new Date(),
+  });
 
   useEffect(() => {
     if (currentUser && !['admin', 'superadmin', 'purchase'].includes(currentUser.role)) {
@@ -65,7 +80,26 @@ export default function ReportsPage() {
     }
   }, [currentUser, router, isLoading]);
 
-  const closedOrders = useMemo(() => orders.filter(o => o.status === 'Closed'), [orders]);
+  const filteredClosedOrders = useMemo(() => {
+    return orders
+      .filter(o => o.status === 'Closed')
+      .filter(o => {
+        if (selectedBranch !== 'all' && o.branchId !== selectedBranch) {
+          return false;
+        }
+        if (dateRange?.from && dateRange?.to && o.receivedAt) {
+          const orderDate = new Date(o.receivedAt);
+          // Set hours to 0 to include the full day in the range
+          const fromDate = new Date(dateRange.from);
+          fromDate.setHours(0,0,0,0);
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23,59,59,999);
+          
+          return orderDate >= fromDate && orderDate <= toDate;
+        }
+        return true;
+      });
+  }, [orders, selectedBranch, dateRange]);
   
   const getBranchName = (branchId: string) => branches.find(b => b.id === branchId)?.name || branchId;
 
@@ -96,6 +130,8 @@ export default function ReportsPage() {
   const chartConfig = Object.fromEntries(
     Object.entries(branchColors).map(([name, color]) => [name, { label: name, color }])
   );
+  
+  const allBranches = branches.filter(b => b.id !== 'branch-all');
 
   return (
     <div className="space-y-6">
@@ -133,8 +169,8 @@ export default function ReportsPage() {
           <CardDescription>Total spending per branch over the last 12 months.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <ResponsiveContainer width="100%" height={300}>
+          <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={reportData.chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
@@ -156,7 +192,52 @@ export default function ReportsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Closed Orders Report</CardTitle>
-          <CardDescription>A complete log of all fulfilled and closed orders.</CardDescription>
+          <CardDescription>A complete log of all fulfilled and closed orders. Use filters to narrow down the results.</CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 pt-4">
+              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                <SelectTrigger className="w-full md:w-[240px]">
+                  <SelectValue placeholder="Filter by Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {allBranches.map(branch => (
+                    <SelectItem key={branch.id} value={branch.id}>{branch.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className="w-full md:w-[300px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto border rounded-lg">
@@ -168,12 +249,12 @@ export default function ReportsPage() {
                   <TableHead>Placed By</TableHead>
                   <TableHead>Closed By</TableHead>
                   <TableHead>Closed On</TableHead>
-                  <TableHead>Attachments</TableHead>
+                  <TableHead>Invoice #</TableHead>
                   <TableHead className="text-right">Total Price</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {closedOrders.length > 0 ? closedOrders.map((order) => (
+                {filteredClosedOrders.length > 0 ? filteredClosedOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">
                        <Link href={`/orders/${order.id}`} className="text-primary hover:underline flex items-center gap-2">
@@ -186,16 +267,20 @@ export default function ReportsPage() {
                     <TableCell>{order.receivingUserName || 'N/A'}</TableCell>
                     <TableCell>{order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
-                      <Badge variant={order.invoiceFileNames && order.invoiceFileNames.length > 0 ? 'default' : 'secondary'}>
-                        {order.invoiceFileNames?.length || 0} file(s)
-                      </Badge>
+                      {order.invoiceNumber ? (
+                         <Link href={`/purchase/master-invoices/${order.invoiceNumber.split(',')[0].trim()}`} className="text-primary hover:underline">
+                            <Badge variant='secondary' className="cursor-pointer">{order.invoiceNumber}</Badge>
+                         </Link>
+                       ) : (
+                        <Badge variant='outline'>N/A</Badge>
+                       )}
                     </TableCell>
                     <TableCell className="text-right font-bold">{formatCurrency(order.totalPrice)}</TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center h-24">
-                        There are no closed orders yet.
+                        No closed orders match the selected filters.
                     </TableCell>
                   </TableRow>
                 )}
