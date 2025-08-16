@@ -88,7 +88,13 @@ export default function ReportsPage() {
         }
         if (dateRange?.from && dateRange?.to && o.receivedAt) {
           const orderDate = new Date(o.receivedAt);
-          return orderDate >= dateRange.from && orderDate <= dateRange.to;
+          // Set hours to 0 to include the full day in the range
+          const fromDate = new Date(dateRange.from);
+          fromDate.setHours(0,0,0,0);
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23,59,59,999);
+          
+          return orderDate >= fromDate && orderDate <= toDate;
         }
         return true;
       });
@@ -242,7 +248,7 @@ export default function ReportsPage() {
                   <TableHead>Placed By</TableHead>
                   <TableHead>Closed By</TableHead>
                   <TableHead>Closed On</TableHead>
-                  <TableHead>Attachments</TableHead>
+                  <TableHead>Invoice #</TableHead>
                   <TableHead className="text-right">Total Price</TableHead>
                 </TableRow>
               </TableHeader>
@@ -260,9 +266,13 @@ export default function ReportsPage() {
                     <TableCell>{order.receivingUserName || 'N/A'}</TableCell>
                     <TableCell>{order.receivedAt ? new Date(order.receivedAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
-                      <Badge variant={order.invoiceFileNames && order.invoiceFileNames.length > 0 ? 'default' : 'secondary'}>
-                        {order.invoiceFileNames?.length || 0} file(s)
-                      </Badge>
+                      {order.invoiceNumber ? (
+                         <Link href={`/purchase/master-invoices/${order.invoiceNumber.split(',')[0].trim()}`} className="text-primary hover:underline">
+                            <Badge variant='secondary' className="cursor-pointer">{order.invoiceNumber}</Badge>
+                         </Link>
+                       ) : (
+                        <Badge variant='outline'>N/A</Badge>
+                       )}
                     </TableCell>
                     <TableCell className="text-right font-bold">{formatCurrency(order.totalPrice)}</TableCell>
                   </TableRow>
