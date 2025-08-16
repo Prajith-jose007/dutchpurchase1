@@ -2,7 +2,7 @@
 // src/app/(app)/purchase/invoices/page.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,7 +12,6 @@ import { useRouter } from 'next/navigation';
 import { getInvoicesAction, uploadInvoicesAction, deleteInvoiceAction } from '@/lib/actions';
 import type { Invoice } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -22,9 +21,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const uploadSchema = z.object({
-  invoiceNumber: z.string().min(1, "Invoice number is required when uploading a file."),
   notes: z.string().optional(),
 });
 
@@ -34,13 +33,14 @@ export default function InvoiceManagementPage() {
   const { currentUser } = useAuth();
   const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
   const form = useForm<UploadFormData>({
     resolver: zodResolver(uploadSchema),
-    defaultValues: { invoiceNumber: '', notes: '' },
+    defaultValues: { notes: '' },
   });
 
   const fetchInvoices = async () => {
@@ -66,9 +66,11 @@ export default function InvoiceManagementPage() {
     }
   }, [currentUser, router]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFilesToUpload(acceptedFiles); // Replaces the old files with the new one.
-  }, []);
+  const onDrop = (acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      setFileToUpload(acceptedFiles[0]);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
       onDrop,
@@ -80,26 +82,38 @@ export default function InvoiceManagementPage() {
       }
   });
 
+  const selectedInvoices = useMemo(() => 
+    selectedInvoiceIds.map(id => invoices.find(inv => inv.id === id)).filter(Boolean) as Invoice[],
+    [selectedInvoiceIds, invoices]
+  );
+  
+  const canUpload = useMemo(() => {
+    if (selectedInvoices.length === 0 || !fileToUpload) return false;
+    const firstInvoiceNumber = selectedInvoices[0].invoiceNumber;
+    return selectedInvoices.every(inv => inv.invoiceNumber === firstInvoiceNumber);
+  }, [selectedInvoices, fileToUpload]);
+
   const handleUploadSubmit = async (data: UploadFormData) => {
-    if (!currentUser) return;
+    if (!currentUser || !canUpload) return;
     
     setIsUploading(true);
     const formData = new FormData();
-    if(filesToUpload.length > 0) {
-      formData.append('invoices', filesToUpload[0]);
-    }
+    formData.append('invoiceFile', fileToUpload!);
     formData.append('userId', currentUser.id);
-    formData.append('invoiceNumber', data.invoiceNumber);
+    formData.append('invoiceNumber', selectedInvoices[0].invoiceNumber);
     if (data.notes) {
       formData.append('notes', data.notes);
     }
+    // Add all selected IDs to be updated
+    selectedInvoiceIds.forEach(id => formData.append('invoiceIds[]', id.toString()));
 
     const result = await uploadInvoicesAction(formData);
 
     if (result.success) {
-      toast({ title: "Upload Successful", description: `Invoice ${data.invoiceNumber} has been saved.` });
+      toast({ title: "Upload Successful", description: `Invoice ${selectedInvoices[0].invoiceNumber} has been updated with the file.` });
       form.reset();
-      setFilesToUpload([]);
+      setFileToUpload(null);
+      setSelectedInvoiceIds([]);
       await fetchInvoices();
     } else {
       toast({ title: "Upload Failed", description: result.error, variant: "destructive" });
@@ -117,6 +131,14 @@ export default function InvoiceManagementPage() {
     }
   };
 
+  const handleSelectInvoice = (invoiceId: number, checked: boolean | 'indeterminate') => {
+    if(checked) {
+      setSelectedInvoiceIds(prev => [...prev, invoiceId]);
+    } else {
+      setSelectedInvoiceIds(prev => prev.filter(id => id !== invoiceId));
+    }
+  };
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Icons.Dashboard className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading Invoices...</p></div>;
   }
@@ -129,78 +151,22 @@ export default function InvoiceManagementPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Upload or Update Invoice</CardTitle>
-              <CardDescription>Select a file and link it to an invoice number.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleUploadSubmit)} className="space-y-4">
-                  <FormField control={form.control} name="invoiceNumber" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Invoice Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., INV-12345" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  
-                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'}`}>
-                    <input {...getInputProps()} />
-                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                    {isDragActive ? (
-                      <p className="font-semibold text-primary">Drop file here...</p>
-                    ) : (
-                      <p className="text-muted-foreground">Drag & drop a file here, or click to select</p>
-                    )}
-                  </div>
-
-                  {filesToUpload.length > 0 && (
-                    <div className="space-y-2 text-sm">
-                      <h4 className="font-medium">Selected file:</h4>
-                      <div className="bg-muted/50 p-3 rounded-md truncate">
-                         {filesToUpload[0].name}
-                      </div>
-                      <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setFilesToUpload([])}>Clear selection</Button>
-                    </div>
-                  )}
-
-                  <FormField control={form.control} name="notes" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Add any relevant notes here..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <Button type="submit" className="w-full" disabled={isUploading || filesToUpload.length === 0}>
-                    {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
-                    Upload Invoice
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="lg:col-span-2">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Uploaded Invoice Log</CardTitle>
-              <CardDescription>The complete history of all invoices.</CardDescription>
+              <CardTitle>Invoice Log</CardTitle>
+              <CardDescription>Select invoices with the same number to upload a master file.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[60vh] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead padding="checkbox">
+                        {/* Maybe add a select all checkbox here in the future */}
+                      </TableHead>
                       <TableHead>Invoice #</TableHead>
-                      <TableHead>File / Notes</TableHead>
+                      <TableHead>File / Status</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -208,7 +174,14 @@ export default function InvoiceManagementPage() {
                   </TableHeader>
                   <TableBody>
                     {invoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
+                      <TableRow key={invoice.id} data-state={selectedInvoiceIds.includes(invoice.id) && "selected"}>
+                        <TableCell>
+                           <Checkbox
+                            checked={selectedInvoiceIds.includes(invoice.id)}
+                            onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked)}
+                            aria-label={`Select invoice ${invoice.invoiceNumber}`}
+                           />
+                        </TableCell>
                         <TableCell className="font-mono">{invoice.invoiceNumber}</TableCell>
                         <TableCell>
                            {invoice.fileName ? (
@@ -219,7 +192,7 @@ export default function InvoiceManagementPage() {
                            ) : (
                                <Badge variant="secondary">Manual Entry - No File</Badge>
                            )}
-                           {invoice.notes && <p className="text-xs text-muted-foreground mt-1">{invoice.notes}</p>}
+                           {invoice.notes && <p className="text-xs text-muted-foreground mt-1 max-w-xs truncate" title={invoice.notes}>Note: {invoice.notes}</p>}
                         </TableCell>
                         <TableCell>{invoice.uploaderName || 'N/A'}</TableCell>
                         <TableCell>{new Date(invoice.uploadedAt).toLocaleDateString()}</TableCell>
@@ -250,9 +223,60 @@ export default function InvoiceManagementPage() {
             </CardContent>
           </Card>
         </div>
+
+        <div className="lg:col-span-1">
+          <Card className="shadow-lg sticky top-20">
+            <CardHeader>
+              <CardTitle>Upload Master Invoice</CardTitle>
+               {selectedInvoices.length > 0 ? (
+                <CardDescription>
+                  Uploading for invoice <span className="font-bold text-primary">{selectedInvoices[0].invoiceNumber}</span> ({selectedInvoices.length} order entries selected).
+                </CardDescription>
+                ) : (
+                <CardDescription>First, select one or more entries from the log.</CardDescription>
+               )}
+            </CardHeader>
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleUploadSubmit)} className="space-y-4">
+                  <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/70'} ${selectedInvoices.length === 0 && 'opacity-50 cursor-not-allowed'}`}>
+                    <input {...getInputProps()} disabled={selectedInvoices.length === 0} />
+                    <Icons.Upload className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+                    {fileToUpload ? (
+                      <p className="font-semibold text-primary">{fileToUpload.name}</p>
+                    ) : isDragActive ? (
+                      <p className="font-semibold text-primary">Drop file here...</p>
+                    ) : (
+                      <p className="text-muted-foreground">Drag & drop a file here, or click to select</p>
+                    )}
+                  </div>
+
+                  {fileToUpload && (
+                     <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setFileToUpload(null)}>Clear selection</Button>
+                  )}
+
+                  <FormField control={form.control} name="notes" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Update Notes (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Add or update notes for the selected invoices..." {...field} disabled={selectedInvoices.length === 0}/>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <Button type="submit" className="w-full" disabled={!canUpload || isUploading}>
+                    {isUploading ? <Icons.Dashboard className="mr-2 h-4 w-4 animate-spin" /> : <Icons.UploadCloud className="mr-2 h-4 w-4" />}
+                    Upload & Link Invoice
+                  </Button>
+                  {!canUpload && selectedInvoices.length > 1 && <p className="text-xs text-destructive text-center mt-2">You can only select invoices that share the same invoice number.</p>}
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+
       </div>
     </div>
   );
 }
-
-    

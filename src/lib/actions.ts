@@ -179,28 +179,32 @@ export async function updateOrderStatusAction(
     try {
         await connection.beginTransaction();
 
-        let updateQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
-        const queryParams: (string | Date | null)[] = [status, actorUserId, new Date()];
-
-        if (status === 'Closed' && details?.invoiceNumber) {
-            updateQuery += ", invoiceNumber = ?, invoiceNotes = ?";
-            queryParams.push(details.invoiceNumber);
-            queryParams.push(details.invoiceNotes || null);
-        }
+        // Step 1: Update the order itself
+        let updateOrderQuery = "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?";
+        const orderParams: (string | Date | null)[] = [status, actorUserId, new Date()];
         
-        updateQuery += " WHERE id = ?";
-        queryParams.push(orderId);
+        // Also store the invoice number and notes on the order for historical reference
+        if (status === 'Closed' && details?.invoiceNumber) {
+            updateOrderQuery += ", invoiceNumber = ?, invoiceNotes = ?";
+            orderParams.push(details.invoiceNumber);
+            orderParams.push(details.invoiceNotes || null);
+        }
 
-        await connection.query(updateQuery, queryParams);
+        updateOrderQuery += " WHERE id = ?";
+        orderParams.push(orderId);
+        
+        await connection.query(updateOrderQuery, orderParams);
 
+        // Step 2: Create entries in the invoices table
         if (status === 'Closed' && details?.invoiceNumber) {
             const invoiceNumbers = details.invoiceNumber.split(',').map(num => num.trim()).filter(num => num);
             const notes = details.invoiceNotes || null;
 
             for (const invNumber of invoiceNumbers) {
+                // Insert a new record for this invoice number, marked as a manual entry (no file)
                 await connection.query(
-                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE notes = COALESCE(?, notes), uploaderId = VALUES(uploaderId), uploadedAt = VALUES(uploadedAt)",
-                    [invNumber, actorUserId, notes, new Date(), notes]
+                    "INSERT INTO invoices (invoiceNumber, uploaderId, notes, uploadedAt) VALUES (?, ?, ?, ?)",
+                    [invNumber, actorUserId, notes, new Date()]
                 );
             }
         }
@@ -368,16 +372,19 @@ function isMysqlError(error: unknown): error is { code: string; errno: number; s
     return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
 }
 
-export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; count?: number; error?: string }> {
-    const files = formData.getAll('invoices') as File[];
+export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+    const file = formData.get('invoiceFile') as File | null;
     const userId = formData.get('userId') as string;
     const invoiceNumber = formData.get('invoiceNumber') as string | null;
     const notes = formData.get('notes') as string | null;
+    const invoiceIdsToUpdate = formData.getAll('invoiceIds[]') as string[];
 
     if (!invoiceNumber) {
         return { success: false, error: 'You must provide an invoice number.' };
     }
     if (!userId) return { success: false, error: 'User is not authenticated.' };
+    if (!file) return { success: false, error: 'No invoice file was provided.' };
+    if (invoiceIdsToUpdate.length === 0) return { success: false, error: 'No invoice entries were selected for update.' };
 
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     await fs.mkdir(invoicesDir, { recursive: true });
@@ -387,37 +394,31 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     try {
         await connection.beginTransaction();
 
-        let uniqueFilename: string | null = null;
-        if (files.length > 0) {
-            const file = files[0]; // Only handle one file per upload form
-            const buffer = Buffer.from(await file.arrayBuffer());
-            uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const filePath = path.join(invoicesDir, uniqueFilename);
-            await fs.writeFile(filePath, buffer);
-        }
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+        const filePath = path.join(invoicesDir, uniqueFilename);
+        await fs.writeFile(filePath, buffer);
 
-        const upsertSql = `
-            INSERT INTO invoices (invoiceNumber, fileName, uploaderId, notes, uploadedAt)
-            VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE 
-                fileName = COALESCE(?, fileName), 
-                notes = COALESCE(?, notes),
+        // Update all selected invoice entries with the new file and notes
+        const updateSql = `
+            UPDATE invoices 
+            SET 
+                fileName = ?, 
+                notes = ?, 
                 uploaderId = ?, 
                 uploadedAt = ?
+            WHERE id IN (?) AND invoiceNumber = ?
         `;
-        await connection.query(upsertSql, [
-            invoiceNumber, uniqueFilename, userId, notes, new Date(),
-            uniqueFilename, notes, userId, new Date()
+        await connection.query(updateSql, [
+            uniqueFilename, notes, userId, new Date(),
+            invoiceIdsToUpdate, invoiceNumber
         ]);
         
         await connection.commit();
-        return { success: true, count: files.length };
+        return { success: true };
     } catch (error) {
         await connection.rollback();
         console.error('Invoice upload failed:', error);
-        if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
-             return { success: false, error: 'An invoice with this number already exists.' };
-        }
         return { success: false, error: 'An error occurred during invoice upload.' };
     } finally {
         connection.release();
@@ -768,6 +769,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    
-    
