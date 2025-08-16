@@ -86,14 +86,11 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
             o.receivedByUserId, o.receivedAt,
             placingUser.name as placingUserName,
             receivingUser.name as receivingUserName,
-            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice,
-            inv.fileName as invoiceFileName,
-            inv.notes as invoiceNotes
+            oi.itemId, oi.description, oi.quantity, oi.units, oi.price as itemPrice
         FROM orders o
         LEFT JOIN users placingUser ON o.userId = placingUser.id
         LEFT JOIN users receivingUser ON o.receivedByUserId = receivingUser.id
         LEFT JOIN order_items oi ON o.id = oi.orderId
-        LEFT JOIN invoices inv ON o.id = inv.orderId
     `;
     const params: (string | number)[] = [];
 
@@ -102,11 +99,13 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
         params.push(user.id);
     }
 
-    query += " ORDER BY o.createdAt DESC, inv.fileName ASC";
+    query += " ORDER BY o.createdAt DESC";
 
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
+    const [invoiceRows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId FROM invoices");
 
     const ordersMap: { [key: string]: Order } = {};
+
     rows.forEach(row => {
         if (!ordersMap[row.id]) {
             ordersMap[row.id] = {
@@ -124,7 +123,8 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 lastUpdatedByUserName: row.receivingUserName,
                 lastUpdatedAt: row.receivedAt ? new Date(row.receivedAt).toISOString() : null,
                 items: [],
-                invoices: [],
+                invoices: [], 
+                invoiceFileNames: [],
             };
         }
         if (row.itemId) {
@@ -139,12 +139,19 @@ export async function getOrdersAction(user: User | null): Promise<Order[]> {
                 });
             }
         }
-        if (row.invoiceFileName && !ordersMap[row.id].invoices?.find(inv => inv.fileName === row.invoiceFileName)) {
-            ordersMap[row.id].invoices?.push({
-                fileName: row.invoiceFileName,
-                orderId: row.id,
-                notes: row.invoiceNotes,
-            });
+    });
+
+    // Attach invoices to their orders
+    invoiceRows.forEach(inv => {
+        if (inv.orderId && ordersMap[inv.orderId]) {
+            if (!ordersMap[inv.orderId].invoices) {
+                ordersMap[inv.orderId].invoices = [];
+            }
+            if (!ordersMap[inv.orderId].invoiceFileNames) {
+                ordersMap[inv.orderId].invoiceFileNames = [];
+            }
+            ordersMap[inv.orderId].invoices?.push({ fileName: inv.fileName, orderId: inv.orderId });
+            ordersMap[inv.orderId].invoiceFileNames?.push(inv.fileName);
         }
     });
 
@@ -221,7 +228,7 @@ export async function deleteOrderAction(orderId: string, actor: User): Promise<{
 
         await connection.query("DELETE FROM order_items WHERE orderId = ?", [orderId]);
         
-        await connection.query("UPDATE invoices SET orderId = NULL WHERE orderId = ?", [orderId]);
+        await connection.query("DELETE FROM invoices WHERE orderId = ?", [orderId]);
 
         const [result] = await connection.query<OkPacket>("DELETE FROM orders WHERE id = ?", [orderId]);
 
@@ -359,6 +366,9 @@ export async function deleteUserAction(userId: string): Promise<{ success: boole
     }
 }
 
+function isMysqlError(error: unknown): error is { code: string; errno: number; sql: string; sqlState: string; sqlMessage: string } {
+    return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
+}
 
 export async function uploadInvoicesAction(formData: FormData): Promise<{ success: boolean; fileCount?: number; error?: string }> {
     const files = formData.getAll('invoices') as File[];
@@ -370,7 +380,6 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
     if (!userId) return { success: false, error: 'User is not authenticated.' };
     if (!orderId) return { success: false, error: 'Order ID is missing.' };
 
-
     const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
     const connection = await pool.getConnection();
 
@@ -380,12 +389,14 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
 
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
-            const filePath = path.join(invoicesDir, file.name);
+            const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${file.name}`;
+            const filePath = path.join(invoicesDir, uniqueFilename);
             await fs.writeFile(filePath, buffer);
             
+            // This query is now simplified to match the original schema
             await connection.query(
-                "INSERT INTO invoices (fileName, uploaderId, orderId, notes) VALUES (?, ?, ?, ?)", 
-                [file.name, userId, orderId, notes]
+                "INSERT INTO invoices (fileName, orderId, uploaderId, notes) VALUES (?, ?, ?, ?)", 
+                [uniqueFilename, orderId, userId, notes]
             );
         }
 
@@ -395,18 +406,13 @@ export async function uploadInvoicesAction(formData: FormData): Promise<{ succes
         await connection.rollback();
         console.error('Invoice upload failed:', error);
         if (isMysqlError(error) && error.code === 'ER_DUP_ENTRY') {
-             return { success: false, error: 'One or more files with these names have already been uploaded. Please rename the file and try again.' };
+             return { success: false, error: 'An invoice with this name has already been uploaded for this order. Please rename the file or check existing invoices.' };
         }
         return { success: false, error: 'An error occurred during invoice upload.' };
     } finally {
         connection.release();
     }
 }
-
-function isMysqlError(error: unknown): error is { code: string; errno: number; sql: string; sqlState: string; sqlMessage: string } {
-    return typeof error === 'object' && error !== null && 'code' in error && 'sqlMessage' in error;
-}
-
 
 export async function getInvoicesAction(): Promise<Invoice[]> {
   const [rows] = await pool.query<RowDataPacket[]>("SELECT fileName, orderId, notes FROM invoices ORDER BY uploadedAt DESC");
@@ -439,7 +445,6 @@ export async function deleteInvoiceAction(fileName: string): Promise<{ success: 
                 console.error("Failed to delete invoice file:", fileError);
                 return { success: false, error: "Failed to delete the invoice file from storage." };
             }
-            // If file does not exist, we can ignore it and proceed with DB deletion.
         }
 
         await connection.commit();
@@ -730,5 +735,3 @@ export async function getDashboardDataAction(): Promise<DashboardData | null> {
         return null;
     }
 }
-
-    

@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   devIndicators: {
-    allowedDevOrigins: ['dutchoriental.ddns.net'],
+    buildActivity: false,
   },
 };
 
