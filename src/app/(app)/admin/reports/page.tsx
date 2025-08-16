@@ -1,3 +1,4 @@
+
 // src/app/(app)/admin/reports/page.tsx
 "use client";
 
@@ -168,8 +169,8 @@ export default function ReportsPage() {
           <CardDescription>Total spending per branch over the last 12 months.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <ResponsiveContainer width="100%" height={300}>
+          <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={reportData.chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
