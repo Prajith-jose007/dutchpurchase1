@@ -1,4 +1,3 @@
-
 // src/app/(app)/purchase/master-invoices/[invoiceNumber]/page.tsx
 "use client";
 
@@ -13,13 +12,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Icons } from '@/components/icons';
+import { Icons } from '@/components/ui/icons';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { formatQuantity } from '@/lib/formatters';
 import { branches } from '@/data/appRepository';
 
-const formatCurrency = (value: number) => `AED ${value.toFixed(2)}`;
+const formatCurrency = (value: number | string | null | undefined) => {
+  const numValue = Number(value);
+  if (isNaN(numValue)) {
+    return 'AED 0.00';
+  }
+  return `AED ${numValue.toFixed(2)}`;
+};
 
 const UploadZone = ({ masterInvoiceId, onUploadSuccess }: { masterInvoiceId: number; onUploadSuccess: () => void; }) => {
     const { currentUser } = useAuth();
@@ -196,7 +201,7 @@ export default function MasterInvoiceDetailsPage() {
                                 <TableCell className="font-mono">{item.itemId}</TableCell>
                                 <TableCell>{item.description}</TableCell>
                                 <TableCell className="text-center">{formatQuantity(item.quantity, item.units)}</TableCell>
-                                <TableCell className="text-right font-semibold">{formatCurrency(item.quantity * item.price)}</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(Number(item.quantity) * Number(item.price))}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
