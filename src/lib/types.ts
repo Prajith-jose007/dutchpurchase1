@@ -45,6 +45,9 @@ export interface Order {
   receivingUserName?: string;
   lastUpdatedByUserName?: string;
   lastUpdatedAt?: string | null;
+  placingUser?: {
+    branchName?: string;
+  };
 }
 
 export interface Branch {
@@ -109,5 +112,3 @@ export interface DashboardData {
     monthlyPurchases: { month: string; total: number }[];
     storePurchases: { name: string; value: number }[];
 }
-
-    

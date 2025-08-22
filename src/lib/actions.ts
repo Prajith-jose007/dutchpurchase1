@@ -925,4 +925,116 @@ export async function getMasterInvoiceDetailsAction(invoiceNumber: string): Prom
     }
 }
 
+// BATCH INVOICING ACTIONS
+export async function getOrdersForBatchClosingAction(
+    date: string, 
+    status: 'Pending' | 'Arrived' | 'All'
+): Promise<Order[]> {
+    let query = `
+        SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalPrice, u.name as placingUserName, b.name as branchName
+        FROM orders o
+        JOIN users u ON o.userId = u.id
+        JOIN branches b ON o.branchId = b.id
+        WHERE DATE(o.createdAt) = ?
+    `;
+    const params: string[] = [date];
+
+    if (status !== 'All') {
+        query += ` AND o.status = ?`;
+        params.push(status);
+    }
     
+    query += ` ORDER BY o.createdAt DESC`;
+    
+    const [rows] = await pool.query<RowDataPacket[]>(query, params);
+    
+    return rows.map(row => ({
+        id: row.id,
+        branchId: row.branchId,
+        userId: row.userId,
+        createdAt: new Date(row.createdAt).toISOString(),
+        status: row.status,
+        totalPrice: Number(row.totalPrice),
+        placingUserName: row.placingUserName,
+        placingUser: { branchName: row.branchName }, // Nesting for consistency
+        items: [],
+        totalItems: 0,
+    }));
+}
+
+export async function batchCloseOrdersAction(
+    formData: FormData
+): Promise<{ success: boolean; error?: string; count?: number }> {
+    const orderIdsJSON = formData.get('orderIds') as string;
+    const invoiceNumber = formData.get('invoiceNumber') as string;
+    const invoiceNotes = formData.get('invoiceNotes') as string;
+    const invoiceFile = formData.get('invoiceFile') as File | null;
+    const userId = formData.get('userId') as string;
+
+    if (!orderIdsJSON || !invoiceNumber || !userId) {
+        return { success: false, error: 'Missing required data.' };
+    }
+    const orderIds = JSON.parse(orderIdsJSON);
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        return { success: false, error: 'No orders were selected.' };
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Handle file upload if it exists
+        let uniqueFilename: string | null = null;
+        if (invoiceFile) {
+            const invoicesDir = path.join(process.cwd(), 'public', 'invoices');
+            await fs.mkdir(invoicesDir, { recursive: true });
+            const buffer = Buffer.from(await invoiceFile.arrayBuffer());
+            uniqueFilename = `${Date.now()}-${invoiceFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            const filePath = path.join(invoicesDir, uniqueFilename);
+            await fs.writeFile(filePath, buffer);
+        }
+
+        // 2. Find or create the master invoice
+        let masterInvoiceId;
+        const [existingMaster] = await connection.query<RowDataPacket[]>("SELECT id FROM master_invoices WHERE invoiceNumber = ?", [invoiceNumber]);
+        if (existingMaster.length > 0) {
+            masterInvoiceId = existingMaster[0].id;
+            // If a new file is uploaded for an existing master invoice, update its filename
+            if (uniqueFilename) {
+                 await connection.query("UPDATE master_invoices SET fileName = ?, uploaderId = ? WHERE id = ?", [uniqueFilename, userId, masterInvoiceId]);
+            }
+        } else {
+            const [newMasterResult] = await connection.query<OkPacket>(
+                "INSERT INTO master_invoices (invoiceNumber, notes, createdAt, uploaderId, fileName) VALUES (?, ?, ?, ?, ?)",
+                [invoiceNumber, invoiceNotes || null, new Date(), userId, uniqueFilename]
+            );
+            masterInvoiceId = newMasterResult.insertId;
+        }
+
+        // 3. Update all selected orders and link them
+        const updatePromises = orderIds.map(orderId => {
+            return Promise.all([
+                 connection.query(
+                    "UPDATE orders SET status = 'Closed', receivedByUserId = ?, receivedAt = ?, invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
+                    ['Closed', userId, new Date(), invoiceNumber, invoiceNotes || null, orderId]
+                ),
+                 connection.query(
+                    "INSERT INTO order_master_invoice_links (orderId, masterInvoiceId) VALUES (?, ?) ON DUPLICATE KEY UPDATE masterInvoiceId=VALUES(masterInvoiceId)",
+                    [orderId, masterInvoiceId]
+                )
+            ]);
+        });
+        
+        await Promise.all(updatePromises);
+
+        await connection.commit();
+        return { success: true, count: orderIds.length };
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Failed to batch close orders:", error);
+        return { success: false, error: 'A database error occurred during the batch closing process.' };
+    } finally {
+        connection.release();
+    }
+}
