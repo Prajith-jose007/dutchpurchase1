@@ -928,7 +928,7 @@ export async function getMasterInvoiceDetailsAction(invoiceNumber: string): Prom
 // BATCH INVOICING ACTIONS
 export async function getOrdersForBatchClosingAction(
     date: string, 
-    status: 'Pending' | 'Arrived' | 'All'
+    status: 'Pending' | 'Order Received' | 'All'
 ): Promise<Order[]> {
     let query = `
         SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalPrice, u.name as placingUserName, b.name as branchName
@@ -942,6 +942,9 @@ export async function getOrdersForBatchClosingAction(
     if (status !== 'All') {
         query += ` AND o.status = ?`;
         params.push(status);
+    } else {
+        // If 'All' is selected, get orders that are NOT closed or cancelled.
+        query += ` AND o.status NOT IN ('Closed', 'Cancelled')`;
     }
     
     query += ` ORDER BY o.createdAt DESC`;

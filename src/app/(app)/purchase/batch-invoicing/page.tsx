@@ -1,4 +1,3 @@
-
 // src/app/(app)/purchase/batch-invoicing/page.tsx
 "use client";
 
@@ -41,7 +40,7 @@ export default function BatchInvoicingPage() {
 
     // Filter states
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedStatus, setSelectedStatus] = useState<'Pending' | 'Arrived' | 'All'>('All');
+    const [selectedStatus, setSelectedStatus] = useState<'Pending' | 'Order Received' | 'All'>('All');
     
     // Dialog states
     const [isClosingDialogOpen, setIsClosingDialogOpen] = useState(false);
@@ -167,7 +166,7 @@ export default function BatchInvoicingPage() {
                             <SelectContent>
                                 <SelectItem value="All">All Statuses</SelectItem>
                                 <SelectItem value="Pending">Pending</SelectItem>
-                                <SelectItem value="Arrived">Arrived</SelectItem>
+                                <SelectItem value="Order Received">Order Received</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button onClick={fetchOrders} disabled={isLoading}>
