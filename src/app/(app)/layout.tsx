@@ -23,6 +23,7 @@ const navItems = [
   { href: "/ordering", label: "Order Items", icon: Icons.Order, roles: ['superadmin', 'admin', 'employee'] },
   { href: "/orders", label: "Order History", icon: Icons.ClipboardList, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/purchase/notifications", label: "PO Notifications", icon: Icons.Bell, roles: ['superadmin', 'admin', 'purchase'] },
+  { href: "/purchase/batch-invoicing", label: "Batch Invoicing", icon: Icons.Batch, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/inventory", label: "Inventory", icon: Icons.Inventory, roles: ['superadmin', 'admin', 'purchase', 'employee'] },
   { href: "/purchase/master-invoices", label: "Master Invoices", icon: Icons.FileText, roles: ['superadmin', 'admin', 'purchase'] },
   { href: "/admin/users", label: "User Management", icon: Icons.Admin, roles: ['superadmin', 'admin'] },

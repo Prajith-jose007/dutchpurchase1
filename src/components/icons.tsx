@@ -42,6 +42,7 @@ import {
   BarChartHorizontal,
   Bell,
   Camera,
+  Layers,
 } from 'lucide-react';
 import type React from 'react';
 import Image from 'next/image';
@@ -90,6 +91,7 @@ export const Icons = {
   ChevronRight: ChevronRight,
   Bell: Bell,
   Camera: Camera,
+  Batch: Layers,
 };
 
 // Fallback or generic category icons
