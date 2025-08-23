@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useDropzone } from 'react-dropzone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +43,7 @@ export default function BatchInvoicingPage() {
 
     // Filter states
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedStatus, setSelectedStatus] = useState<'Pending' | 'Order Received' | 'All'>('All');
+    const [selectedStatus, setSelectedStatus] = useState<'Pending' | 'Order Received' | 'All'>('Order Received');
     const [selectedItemType, setSelectedItemType] = useState<string>('All');
     
     // Dialog states
