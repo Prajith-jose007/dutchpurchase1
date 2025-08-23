@@ -14,10 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useDropzone } from 'react-dropzone';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -151,9 +151,19 @@ export default function BatchInvoicingPage() {
     return (
         <>
         <div className="space-y-6">
-            <header>
-                <h1 className="text-3xl font-headline tracking-tight">Batch Invoice Closing</h1>
-                <p className="text-muted-foreground">Select orders from a specific day to close them with a single invoice.</p>
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                 <div>
+                    <h1 className="text-3xl font-headline tracking-tight">Batch Invoice Closing</h1>
+                    <p className="text-muted-foreground">Select orders from a specific day to close them with a single invoice.</p>
+                </div>
+                <div className="flex gap-2">
+                     <Link href="/purchase/notifications">
+                        <Button variant="outline"><Icons.ChevronRight className="mr-2 h-4 w-4 transform rotate-180" /> Back to PO Notifications</Button>
+                    </Link>
+                     <Link href="/purchase/master-invoices">
+                        <Button><Icons.FileText className="mr-2 h-4 w-4" /> View Master Invoices</Button>
+                    </Link>
+                </div>
             </header>
 
             <Card className="shadow-lg">
