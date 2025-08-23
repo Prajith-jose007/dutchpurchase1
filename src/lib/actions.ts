@@ -928,22 +928,37 @@ export async function getMasterInvoiceDetailsAction(invoiceNumber: string): Prom
 // BATCH INVOICING ACTIONS
 export async function getOrdersForBatchClosingAction(
     date: string, 
-    status: 'Pending' | 'Order Received' | 'All'
+    status: 'Pending' | 'Order Received' | 'All',
+    itemType: string
 ): Promise<Order[]> {
     let query = `
         SELECT o.id, o.branchId, o.userId, o.createdAt, o.status, o.totalPrice, u.name as placingUserName, b.name as branchName
         FROM orders o
         JOIN users u ON o.userId = u.id
         JOIN branches b ON o.branchId = b.id
-        WHERE DATE(o.createdAt) = ?
     `;
-    const params: string[] = [date];
+    const params: string[] = [];
+
+    // If an itemType is specified, we need to join with order_items and items tables
+    if (itemType !== 'All') {
+        query += `
+            JOIN (
+                SELECT DISTINCT oi.orderId
+                FROM order_items oi
+                JOIN items i ON oi.itemId = i.code
+                WHERE i.itemType = ?
+            ) as item_filter ON o.id = item_filter.orderId
+        `;
+        params.push(itemType);
+    }
+    
+    query += ` WHERE DATE(o.createdAt) = ?`;
+    params.push(date);
 
     if (status !== 'All') {
         query += ` AND o.status = ?`;
         params.push(status);
     } else {
-        // If 'All' is selected, get orders that are NOT closed or cancelled.
         query += ` AND o.status NOT IN ('Closed', 'Cancelled')`;
     }
     
@@ -964,6 +979,7 @@ export async function getOrdersForBatchClosingAction(
         totalItems: 0,
     }));
 }
+
 
 export async function batchCloseOrdersAction(
     formData: FormData

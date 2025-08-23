@@ -5,8 +5,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getOrdersForBatchClosingAction, batchCloseOrdersAction } from '@/lib/actions';
-import type { Order } from '@/lib/types';
+import { getOrdersForBatchClosingAction, batchCloseOrdersAction, getItemsAction } from '@/lib/actions';
+import type { Order, Item } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { getItemTypes } from '@/data/inventoryItems';
+
 
 const formatCurrency = (value: number | string | null | undefined) => {
   const numValue = Number(value);
@@ -37,10 +39,12 @@ export default function BatchInvoicingPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+    const [itemTypes, setItemTypes] = useState<string[]>([]);
 
     // Filter states
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [selectedStatus, setSelectedStatus] = useState<'Pending' | 'Order Received' | 'All'>('All');
+    const [selectedItemType, setSelectedItemType] = useState<string>('All');
     
     // Dialog states
     const [isClosingDialogOpen, setIsClosingDialogOpen] = useState(false);
@@ -55,7 +59,8 @@ export default function BatchInvoicingPage() {
         try {
             const fetchedOrders = await getOrdersForBatchClosingAction(
                 format(selectedDate, 'yyyy-MM-dd'),
-                selectedStatus
+                selectedStatus,
+                selectedItemType
             );
             setOrders(fetchedOrders);
             setSelectedOrderIds(new Set()); // Reset selection on fetch
@@ -64,7 +69,7 @@ export default function BatchInvoicingPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentUser, selectedDate, selectedStatus, toast]);
+    }, [currentUser, selectedDate, selectedStatus, selectedItemType, toast]);
 
     useEffect(() => {
         if (currentUser) {
@@ -73,6 +78,13 @@ export default function BatchInvoicingPage() {
                 router.push('/');
                 return;
             }
+            
+            // Fetch item types for the filter dropdown
+            getItemsAction().then(items => {
+                const types = getItemTypes(items);
+                setItemTypes(types);
+            });
+
             fetchOrders();
         }
     }, [currentUser, fetchOrders, router, toast]);
@@ -167,6 +179,17 @@ export default function BatchInvoicingPage() {
                                 <SelectItem value="All">All Statuses</SelectItem>
                                 <SelectItem value="Pending">Pending</SelectItem>
                                 <SelectItem value="Order Received">Order Received</SelectItem>
+                            </SelectContent>
+                        </Select>
+                         <Select value={selectedItemType} onValueChange={(val: any) => setSelectedItemType(val)}>
+                            <SelectTrigger className="w-full md:w-[180px]">
+                                <SelectValue placeholder="Select Item Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="All">All Item Types</SelectItem>
+                                {itemTypes.map(type => (
+                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                         <Button onClick={fetchOrders} disabled={isLoading}>
