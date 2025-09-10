@@ -1034,7 +1034,7 @@ export async function batchCloseOrdersAction(
         const updatePromises = orderIds.map(orderId => {
             return Promise.all([
                  connection.query(
-                    "UPDATE orders SET status = 'Closed', receivedByUserId = ?, receivedAt = ?, invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
+                    "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?, invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
                     ['Closed', userId, new Date(), invoiceNumber, invoiceNotes || null, orderId]
                 ),
                  connection.query(
