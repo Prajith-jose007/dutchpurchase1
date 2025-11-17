@@ -9,7 +9,6 @@ import { parseInventoryData } from "./inventoryParser";
 import fs from 'fs/promises';
 import path from 'path';
 import { branches } from "@/data/appRepository";
-import mime from 'mime';
 import { subMonths, format } from 'date-fns';
 
 async function fetchUsersWithBranches(): Promise<User[]> {
@@ -580,8 +579,8 @@ export async function getItemsAction(): Promise<Item[]> {
 export async function addItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
-            "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [item.code, item.remark || null, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays, item.price]
+            "INSERT INTO items (code, description, detailedDescription, itemType, category, units, price, packing, shelfLifeDays, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.description, item.detailedDescription, item.itemType, item.category, item.units, item.price, item.packing, item.shelfLifeDays || null, item.remark || null]
         );
         return { success: true };
     } catch (error: any) {
