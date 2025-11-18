@@ -579,8 +579,8 @@ export async function getItemsAction(): Promise<Item[]> {
 export async function addItemAction(item: Item): Promise<{ success: boolean; error?: string }> {
     try {
         await pool.query(
-            "INSERT INTO items (code, description, detailedDescription, itemType, category, units, price, packing, shelfLifeDays, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [item.code, item.description, item.detailedDescription, item.itemType, item.category, item.units, item.price, item.packing, item.shelfLifeDays || null, item.remark || null]
+            "INSERT INTO items (code, remark, itemType, category, description, detailedDescription, units, packing, shelfLifeDays, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [item.code, item.remark || null, item.itemType, item.category, item.description, item.detailedDescription, item.units, item.packing, item.shelfLifeDays || null, item.price]
         );
         return { success: true };
     } catch (error: any) {
@@ -1033,8 +1033,8 @@ export async function batchCloseOrdersAction(
         const updatePromises = orderIds.map(orderId => {
             return Promise.all([
                  connection.query(
-                    "UPDATE orders SET status = ?, receivedByUserId = ?, receivedAt = ?, invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
-                    ['Closed', userId, new Date(), invoiceNumber, invoiceNotes || null, orderId]
+                    "UPDATE orders SET status = 'Closed', receivedByUserId = ?, receivedAt = ?, invoiceNumber = ?, invoiceNotes = ? WHERE id = ?",
+                    [userId, new Date(), invoiceNumber, invoiceNotes || null, orderId]
                 ),
                  connection.query(
                     "INSERT INTO order_master_invoice_links (orderId, masterInvoiceId) VALUES (?, ?) ON DUPLICATE KEY UPDATE masterInvoiceId=VALUES(masterInvoiceId)",

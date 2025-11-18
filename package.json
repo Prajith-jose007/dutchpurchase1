@@ -19,6 +19,7 @@
     "db:add-invoice-notes": "node scripts/db-add-invoice-notes.js",
     "db:add-invoice-number": "node scripts/db-add-invoice-number.js",
     "db:add-master-invoices": "node scripts/db-add-master-invoices.js",
+    "db:add-description": "node scripts/db-add-detailed-description.js",
     "migrate:data": "node src/scripts/migrate-data.js",
     "migrate:inventory": "node scripts/migrate-inventory.js",
     "postinstall": "patch-package"
