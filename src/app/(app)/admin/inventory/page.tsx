@@ -101,8 +101,14 @@ export default function InventoryManagementPage() {
   
   const handleItemFormSubmit = async (data: ItemFormData) => {
     setIsSubmitting(true);
+    const itemData: Item = {
+      ...data,
+      detailedDescription: data.detailedDescription || null,
+      remark: data.remark || null,
+    };
+
     const action = editingItem ? updateItemAction : addItemAction;
-    const result = await action(data as Item);
+    const result = await action(itemData);
 
     if (result.success) {
       toast({ title: "Success", description: `Item has been ${editingItem ? 'updated' : 'added'}.` });
@@ -325,3 +331,5 @@ export default function InventoryManagementPage() {
     </>
   );
 }
+
+    
